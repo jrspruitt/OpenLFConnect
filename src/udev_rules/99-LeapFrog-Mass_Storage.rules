@@ -1,0 +1,3 @@
+SUBSYSTEM=="scsi_generic", KERNEL=="sg*", ACTION=="add", ATTRS{vendor}=="LeapFrog", ATTRS{model}=="Didj", MODE="666", NAME="leapfrog", RUN+="/usr/bin/sg_raw /dev/leapfrog C2 00 00 00 00 00 00 00 00 00"
+
+SUBSYSTEM=="scsi_generic", KERNEL=="sg*" ACTION=="add", ATTRS{vendor}=="Leapfrog", ATTRS{model}=="LeapsterExplorer", MODE="666", NAME="leapfrog"
