@@ -1,10 +1,24 @@
-OpenLFConnect v0.1
+OpenLFConnect v0.2
 Author: Jason Pruitt
 Contact: jrspruitt@gmail.com
 IRC: #didj irc.freenode.org
+http://elinux.org/LeapFrog_Pollux_Platform
 
-OpenLFConnect is a python and sg3_utils based replacement application for the LeapFrog LFConnect program. For Explorer and LeapPad it can use their dftpdevice to upload firmware. It also manages uploading the surgeon.cbf file for USB boot recovery mode and is capable of enabling sshd on both devices. For Didj it can mount the USB drive, copy firmware over, and send the eject command that will attempt to start flashing the firmware.
+OpenLFConnect is a Python and sg3_utils based replacement application for the LeapFrog LFConnect program. For Explorer and LeapPad it can use their dftpdevice to upload firmware. It also manages uploading the surgeon.cbf file for USB boot recovery mode and is capable of enabling sshd on both devices. For Didj it can mount the USB drive, copy firmware over, and send the eject command that will attempt to start flashing the firmware.
 
 WARNING: This program attempts to flash new firmware, has the ability to make and delete, upload and download, files could be destroyed, firmware flashing could go wrong. There is no prompts for second chances.
 
-check OpenLFConnect/INSTALL for installation and configuration.
+Check OpenLFConnect/INSTALL for installation and configuration.
+
+
+Build Log:
+Version 0.2
+	General code clean up and simplification and continuity.
+	Fixed local.py/get_device_id to work with out the udev rule in Linux
+	Fixed local.py/get_mount_path added time out feature, to wait while mount point is being created
+	OpenLFConnect.py/get_abspath changed from path_format, and simplified greatly
+	OpenLFConnect.py/path_completion simplified the code
+	local.py/mounting in Linux it now searches /sys/class/ for the correct vendor, compares it to /proc/mount
+
+Version 0.1
+	Initial Commit

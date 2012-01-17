@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##############################################################################
-#    OpenLFConnect verson 0.1
+#    OpenLFConnect verson 0.2
 #
 #    Copyright (c) 2012 Jason Pruitt <jrspruitt@gmail.com>
 #
@@ -19,12 +19,14 @@
 #    along with OpenLFConnect.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-# OpenLFConnect version 0.1.0
+# OpenLFConnect version 0.2
 
 import os
 import sys
 import subprocess
 import shutil
+import time
+
 if sys.platform == 'win32':
     import win32api
 
@@ -32,12 +34,14 @@ if sys.platform == 'win32':
 class filesystem(object):
     def __init__(self):
         self._linux_dev = '/dev/leapfrog'
+        self._vendor_name = 'leapfrog'
+        self._dev_id = ''
+        self._mount_point = ''
+
         if sys.platform == 'win32':
-            self._sg_scan = 'bin/sg_scan'
-            self._mount_base = ''
+            self._sg_scan = ['bin/sg_scan']
         else:
-            self._sg_scan = 'sg_scan'
-            self._mount_base = '/media'
+            self._sg_scan = ['sg_scan', '-i']
     
 
 #######################
@@ -66,44 +70,96 @@ class filesystem(object):
 # Filesystem functions
 #######################
 
-    def get_device_id(self):
+    def set_dev_id(self, dev_id):
+        self._dev_id = dev_id
+
+    def get_dev_id(self):
+        return self._dev_id or self.find_dev_id()
+
+    dev_id = property(get_dev_id, set_dev_id)
+
+
+
+    def set_mount_point(self, mount_point):
+        self._mount_point = mount_point
+
+    def get_mount_point(self):
+        return self._mount_point or self.find_mount_point()
+    
+    mount_point = property(get_mount_point, set_mount_point)
+
+
+
+    def find_dev_id(self):
         try:
             if not os.path.exists(self._linux_dev):
-                child = subprocess.Popen([self._sg_scan], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                child = subprocess.Popen(self._sg_scan, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 err = child.stderr.read()
+
                 if not err:
                     ret = child.stdout.read()
                     lines = ret.split('\n')
+                    
                     for line in lines:
-                        if line.lower().find('leapfrog') != -1:
-                            return '%s' % line.split(' ')[0]
+                        if sys.platform == 'win32':
+                            if line.lower().find(self._vendor_name) != -1:
+                                self.dev_id = '%s' % line.split(' ')[0]
+                                return self.dev_id
+                        else:
+                            if line.strip().lower().find(self._vendor_name) != -1:
+                                self.dev_id = '%s' % lines[lines.index(line) -1].split(' ')[0].replace(':', '')
+                                return self.dev_id
+                            
                     self.error('Device not found')
                 else:
                     self.error(err)
+                    
             else:
-                return self._linux_dev
+                self.dev_id = self._linux_dev
+                return self.dev_id
         except Exception, e:
             self.rerror(e)
 
 
 
-    def get_mount_path(self, mount_name):
+    def find_mount_point(self, win_label='didj'):
         try:
-            if sys.platform == 'win32':
-                drive_list = win32api.GetLogicalDriveStrings()
-                drive_list = drive_list.split('\\\x00')[1:]
-                for drive in drive_list:
-                    try:
-                        info = win32api.GetVolumeInformation(drive)[0]
-                        if info.lower() == mount_name.lower():
-                            return '%s\\' % drive
-                    except: pass
-                return self.error('Mount not found.')
-            else:
-                for item in os.listdir(self._mount_base):
-                    if os.path.basename(mount_name).lower() == item.lower() and os.path.isdir(os.path.join(self._mount_base, item)):
-                        return os.path.join(self._mount_base, item)
-                return self.error('Mount not found.')
+            index = 10
+            
+            while index:
+                if sys.platform == 'win32':
+                    drive_list = win32api.GetLogicalDriveStrings()
+                    drive_list = drive_list.split('\\\x00')[1:]
+                    
+                    for drive in drive_list:
+                        try:
+                            info = win32api.GetVolumeInformation(drive)[0]
+                            if info.lower() == win_label:
+                                self.mount_point = '%s\\' % drive
+                                return self.mount_point
+                        except: pass
+                else:
+                    syspath = '/sys/class/scsi_disk'
+                    
+                    for device in os.listdir(syspath):
+                        f = open(os.path.join(syspath, device, 'device/vendor'), 'r')
+                        vendor = f.read().split('\n')[0]
+                        f.close()
+                        
+                        if vendor.lower() == self._vendor_name:
+                            dev_path = '/dev/%s' % os.listdir(os.path.join(syspath, device, 'device/block'))[0]
+                           
+                            f = open('/proc/mounts', 'r')
+                            
+                            for line in f:
+                                if line.startswith(dev_path):
+                                    self._mount_point = line.split(' ')[1]
+                                    f.close()
+                                    return self._mount_point
+                            f.close()
+                time.sleep(1)
+                index -= 1
+            self.error('Mount not found.')
         except Exception, e:
             self.rerror(e)
 
@@ -111,30 +167,23 @@ class filesystem(object):
 
     def dir_list(self, path):
         try:
-            dir_list = []        
+            dir_list = []
+                
             if self.exists(path):
                 for item in os.listdir(path):
                     if os.path.isdir(os.path.join(path, item)):
                         dir_list.append('%s/' % item)
                     else:
                         dir_list.append(item)
-                        
                 return dir_list
         except Exception, e:
             self.rerror(e)
 
 
+
     def is_dir(self, path):
         try:
             return os.path.isdir(path)
-        except Exception, e:
-            self.rerror(e)
-
-
-    def cpdir(self, src, dst):
-        try:
-            if os.path.exists(src):
-                shutil.copytree(src, dst)
         except Exception, e:
             self.rerror(e)
 
@@ -164,8 +213,6 @@ class filesystem(object):
         try:
             if os.path.exists(path):
                 os.rmdir(path)
-            else:
-                self.error('Directory does not exist')
         except Exception, e:
             self.rerror(e)
 

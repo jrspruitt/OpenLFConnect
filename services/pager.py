@@ -1,6 +1,6 @@
 ##!/usr/bin/env python
 ##############################################################################
-#    OpenLFConnect verson 0.1
+#    OpenLFConnect verson 0.2
 #
 #    Copyright (c) 2012 Jason Pruitt <jrspruitt@gmail.com>
 #
@@ -19,7 +19,7 @@
 #    along with OpenLFConnect.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-# OpenLFConnect version 0.1.0
+# OpenLFConnect version 0.2
 
 import os
 import subprocess
@@ -28,9 +28,10 @@ import shlex
 
 class pager(object):
     def __init__(self):
-        self._surgeon_path = 'files/LX/surgeon.cbf'
         self._cbf_packet = 16384
+        self._cbf_magic = '\xf0\xde\xbc\x9a'
         self._file_size = 0
+        
         if sys.platform == 'win32':
             self._sg_raw = 'bin/sg_raw'
             self._sg_verify = 'bin/sg_verify'
@@ -42,6 +43,7 @@ class pager(object):
 #######################
 # Internal functions
 #######################
+
     def error(self, e):
         assert False, '%s' % e
 
@@ -62,9 +64,10 @@ class pager(object):
                 f.close()
                 
                 if not str(self._file_size/self._cbf_packet).isdigit():
-                    self.error('File is the wrong size, should be multiple of %s' % self._cbf_packet)
-                if magic != '\xf0\xde\xbc\x9a':
-                    self.error('File failed cbf Magic Number check.')
+                    self.error('File is the wrong size, should be multiple of %s.' % self._cbf_packet)
+
+                if magic != self._cbf_magic:
+                    self.error('File failed CBF Magic Number check.')
                 else:
                     return True
         except Exception, e:
@@ -78,41 +81,40 @@ class pager(object):
 
     def upload_firmware(self, path, dev_id):
         try:
- 
-            if path != '' and path != ' ':
-                if os.path.exists(path):
-                    self._surgeon_path = path
-                else:
-                    self.error('Surgeon path does not exist.')
-            self.check_cbf(self._surgeon_path)
+            if not os.path.exists(path) or os.path.isdir(path):
+                self.error('Surgeon not found.')
+                    
+            self.check_cbf(path)
             packets = self._file_size/self._cbf_packet
             byte1 = '00'
             total = 0
             last_total = 0
+            
             for i in range(0, packets-1):
-                cmdl = '%s %s -b -s %s -n -k %s -i "%s" 2A 00 00 00 00 %s 00 00 20 00' % (self._sg_raw, dev_id, self._cbf_packet, last_total, self._surgeon_path, byte1)
+                cmdl = '%s %s -b -s %s -n -k %s -i "%s" 2A 00 00 00 00 %s 00 00 20 00' % (self._sg_raw, dev_id, self._cbf_packet, last_total, path, byte1)
                 cmd = shlex.split(cmdl)
                 byte1 = '01'
                 p = subprocess.Popen(cmd, stderr=subprocess.PIPE)
                 err = p.stderr.read()
+                
                 if err.find('Good') == -1:
-                    self.error(err)
+                    self.error('SCSI error.')
                 
                 total = last_total + self._cbf_packet - 1
                 last_total = total + 1
-                
+
             p = subprocess.Popen([self._sg_verify, dev_id], stderr=subprocess.PIPE)
             err = p.stderr.read()
+            
             if len(err) != 0:
-                self.error(err)
-                
+                self.error('SCSI error.')                
         except Exception, e:
             self.rerror(e)
 
 
 if __name__ == '__main__':
         u = pager()
-        u.upload(sys.argv[1])
+        
 
 
 

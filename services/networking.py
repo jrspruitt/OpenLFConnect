@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##############################################################################
-#    OpenLFConnect verson 0.1
+#    OpenLFConnect verson 0.2
 #
 #    Copyright (c) 2012 Jason Pruitt <jrspruitt@gmail.com>
 #
@@ -19,7 +19,7 @@
 #    along with OpenLFConnect.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-# OpenLFConnect version 0.1.0
+# OpenLFConnect version 0.2
 
 import sys
 import re
@@ -76,7 +76,7 @@ class config(object):
 # User functions
 #######################
 	def get_device_ip(self):
-		return self._device_ip
+		return self._device_ip or self.error('Device not set.')
 
 	def set_device_ip(self, ip):
 		self._device_ip = ip
@@ -86,7 +86,7 @@ class config(object):
 
 
 	def get_host_ip(self):
-		return self._host_ip
+		return self._host_ip or self.error('Host not set.')
 
 	def set_host_ip(self, ip):
 		self._host_ip = ip
@@ -95,7 +95,7 @@ class config(object):
 
 
 
-	def retrieve_ip(self):
+	def establish_ip(self):
 		try:
 			sock = self.multicast_listen_socket(self._m_ip, self._m_port)
 			rd, wd, xd = select.select([sock],[],[],self._time_out)
@@ -109,9 +109,11 @@ class config(object):
 				
 				if m:
 					self.device_ip = m.group('ip')
+					
 					if sys.platform == 'win32':
 						self.set_windows_route(self.device_ip, self.host_ip)
-					return self.device_ip
+						
+					return True
 				else:
 					self.error('Couldn\'t get IP address.')
 	

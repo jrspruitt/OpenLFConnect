@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##############################################################################
-#    OpenLFConnect verson 0.1
+#    OpenLFConnect verson 0.2
 #
 #    Copyright (c) 2012 Jason Pruitt <jrspruitt@gmail.com>
 #
@@ -19,7 +19,7 @@
 #    along with OpenLFConnect.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-# OpenLFConnect version 0.1.0
+# OpenLFConnect version 0.2
 
 import os
 import socket
@@ -29,8 +29,9 @@ class client(object):
     def __init__(self):
         self._sock0 = None
         self._sock1 = None
-        self._remote_firmware_dir = '/LF/Bulk/Downloads/Firmware-Base'
-        self._local_firmware_dir = 'files/LX/Firmware-Base'
+        self._firmware_dir = 'Firmware-Base'
+        self._firmware_files = ['1048576,8,FIRST.32.rle', '2097152,64,kernel.cbf', '10485760,688,erootfs.ubi']  
+        self._remote_firmware_dir = os.path.join('/LF/Bulk/Downloads/', self._firmware_dir)
         self._surgeon_dftp_version = 'VERSION=1.12'
 
 
@@ -46,8 +47,8 @@ class client(object):
 
     
     
-    def create_socket(self, host, port):
-        for serv_info in socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, socket.AI_PASSIVE):
+    def create_socket(self, device, port):
+        for serv_info in socket.getaddrinfo(device, port, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, socket.AI_PASSIVE):
             af, socktype, proto, canonname, sa = serv_info
         
             try:
@@ -95,10 +96,13 @@ class client(object):
             ret = self.receive()
             retarr = ret.split('\n')
             ok = False
+            
             for item in retarr:
+
                 if item.find('200 OK') != -1:
                     del retarr[retarr.index(item)]
                     ok = True
+
             if len(retarr) != 0 and not array:
                 return '\n'.join(retarr)
             elif len(retarr) != 0 and array:
@@ -129,15 +133,16 @@ class client(object):
 # User functions
 #######################
 
-    def create_client(self, device_ip, host_ip, device_port0 = 5000, device_port1 = 5001):
+    def create_client(self, device_ip, device_port0 = 5000, device_port1 = 5001):
         try:
             self._sock0 = self.create_socket(device_ip, device_port0)
+            host_ip = self._sock0.getsockname()[0]
             self._sock0.sendall('ETHR %s 1383\x00' % host_ip)
             time.sleep(2)
             self._sock1 = self.create_socket(device_ip, device_port1)
             self._sock1.settimeout(5)
             self.receive()
-            return self._sock0.getsockname()[0]
+            return host_ip
         except Exception, e:
             self.rerror(e)
 
@@ -146,10 +151,12 @@ class client(object):
     def download_file(self, local_path, remote_path):
         try:
             if self.exists(remote_path):
+                
                 if self.sendrtn('RETR %s' % remote_path):
                     f = open(local_path, 'wb')
                     buf = ''
                     self.send('100 ACK: %s\x00' % 0)
+                    
                     while True:                    
                         buf = self.receive(8192)
     
@@ -175,9 +182,9 @@ class client(object):
                 print 'Uploading %s' % os.path.basename(local_path)
                 f = open(local_path, 'rb')
                 buf = f.read()
-                f.close()
-                
+                f.close()                
                 bytes_sent = self.send(buf)
+                
                 while self.receive():
                     continue
     
@@ -192,45 +199,38 @@ class client(object):
 
 
 
-    def update_firmware(self, path):
+    def update_firmware(self, lpath):
         try:
-            if path == '':
-                local_firmware_dir = self._local_firmware_dir
-            else:
-                local_firmware_dir = path
-                
-            if not os.path.exists(os.path.abspath(local_firmware_dir)):
-                self.error('Firmware path does not exist.')
-    
             ret = self.sendrtn('INFO')
+
             if ret.find(self._surgeon_dftp_version) == -1:
-                self.error('Surgeon not running.')
-    
-            files = ['1048576,8,FIRST.32.rle',
-                '2097152,64,kernel.cbf', 
-                '10485760,688,erootfs.ubi']  
+                self.error('Device is not in USB boot mode.')
+            
+            if not os.path.basename(lpath) == self._firmware_dir:
+                if os.path.exists(os.path.join(lpath, self._firmware_dir)):
+                    lpath = os.path.join(lpath, self._firmware_dir)
     
             try:
                 self.exists(self._remote_firmware_dir)
             except:
                 self.sendrtn('MKD %s' % self._remote_firmware_dir)
     
-            for item in files:
-                local_path = os.path.join(local_firmware_dir, item)
+            for item in self._firmware_files:
+                local_path = os.path.join(lpath, item)
                 remote_path = '%s/%s' % (self._remote_firmware_dir, item)
                     
                 if os.path.exists(local_path):
+
                     try:                
-                        self.upload_file(local_path, remote_path)
-                    
+                        self.upload_file(local_path, remote_path)                    
                     except Exception, e:
                         self.error('Upload Failed: %s' % e)
                 else:
-                    self.error('Update Failed: %s not found' % item)
-                    
+                    self.error('Update Failed: %s not found' % item)                                        
             return True
         except Exception, e:
             self.rerror(e)
+
 
 
     def update_reboot(self):
@@ -252,8 +252,10 @@ class client(object):
             if self.exists(path):
                 dir_list = []
                 path_arr = self.sendrtn('LIST %s' % path, True)
+                
                 for path in path_arr:
                     dir_list.append(path[15:].replace('\r', ''))
+                    
                 return dir_list
             else:
                 self.error('Path does not exist.')
@@ -266,6 +268,7 @@ class client(object):
         try:
             if self.exists(path):
                 ret_arr = self.sendrtn('LIST %s' % path, True)
+                
                 if len(ret_arr) > 1:
                     return True
                 else:

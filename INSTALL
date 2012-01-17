@@ -1,7 +1,8 @@
-OpenLFConnect v0.1
+OpenLFConnect v0.2
 Author: Jason Pruitt
 Contact: jrspruitt@gmail.com
 IRC: #didj irc.freenode.org
+http://elinux.org/LeapFrog_Pollux_Platform
 
 1. Requirements
 2. Installation
@@ -35,6 +36,8 @@ Git repo:
 	git clone git@github.com:jrspruitt/OpenLFConnect.git
 
 Operating System:
+General
+The program makes every attempt to figure out what it needs to know on its own. If you run into problems there are helper functions that should be able to let you manually configure around it.
 
 Windows - General
 	Disable Monitor.exe in the Task Manager first. This will prevent LFConnect from opening when one of your devices is pluged in. Warning it will be started on next reboot, or if LFConnect is opened. To permenantly disable it, look for this registry key and delete, this example is from XP Pro.
@@ -57,7 +60,7 @@ Windows - Didj
 
 
 Linux - General
-	Make sure you have sg3_utils installed, as this program relies on them being available. There are some inherent permission issues with the device files that will be needed. The easiest way is to use a udev rule, which will give a common user access to the device, and set up a presistent device name. IN OpenLFConnect/src/udev you will find the rules. There is one for USB Storage device and one for Ethernet. It is highly recommened you install the USB Storage rules as they will be used by all three devices and makes connecting to them much easier.
+	Make sure you have sg3_utils installed, as this program relies on them being available. There are some inherent permission issues with the device files that will need to be dealt with. The easiest way is to use a udev rule, which will give a common user access to the device, and set up a presistent device name. In OpenLFConnect/src/udev you will find the rules. There is one for USB Storage device and one for Ethernet. It is highly recommened you install the USB Storage rules as they will be used by all three devices and makes connecting to them much easier.
 
 sudo cp OpenLFConnect/src/udev_rules/99-LeapFrog-Mass_Storage.rules /etc/udev/rules.d/
 sudo chmod 644 /etc/udev/rules.d/99-LeapFrog-Mass_Storage.rules
@@ -67,20 +70,14 @@ Then with your device plugged in, Didj in normal mode, LeapPad and Explorer in U
 
 sudo udevadm test /sys/class/scsi_generic/sg2/
 
-if you choose not to, configure OpenLFConnect/services/local.py to the generic scsi dev file your device is assigned, in my experience its /dev/sg2
-
-self._linux_dev = '/dev/sg2'
+if you choose not to install the rules, you will need to run OpenLFConnect with sudo, it will search out the correct /dev/sg[x] device.
 
 
 Linux - Explorer LeapPad
-	Plug in your device and turn it on, it will attempt a network connection. Open Network Connections and check to see if there is an entry such as "Auto eth1" that showed up after plug in. If there is, you want to open it up, and go to the ipv4 Settings section. Under Method set it to link local.
+	Plug in your device and turn it on, it will attempt a network connection. Open Network Connections and check to see if there is an entry such as "Auto eth1" that showed up after plug in. If there is, you'll want to open it up, and go to the ipv4 Settings section. Under Method set it to link local.
 	If you do not have an "Auto eth1" that shows up, and you have avahi-autoipd, you can use the Networking udev rule provided, this is essentially what Network Manager does when set to link local. It will pick a 169.254.x.x host address for you. OpenLFConnect will pick this up automatically for your reference, as the program itself has no use for it on Linux.
 	You could also set up a static IP on the 169.254 subnet if you are concerned with having the same IP everytime for your host computer. For Linux OpenLFConnect does not care which IP the host has, and will get any IP the device is set to. So you could pick different ones if you have access to the device to configure its IP.
 
-Linux - Didj
-	If when mounted, your your system creates a mount point other than /media/didj, didj here is case insensative, you will need to configure OpenLFConnect/services/didj.py
-
-self.mount_name = 'didj'
 
 3. Issues:
 Windows - OpenLFConnect

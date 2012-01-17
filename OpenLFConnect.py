@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##############################################################################
-#    OpenLFConnect verson 0.1
+#    OpenLFConnect verson 0.2
 #
 #    Copyright (c) 2012 Jason Pruitt <jrspruitt@gmail.com>
 #
@@ -19,7 +19,7 @@
 #    along with OpenLFConnect.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-# OpenLFConnect version 0.1.0
+# OpenLFConnect version 0.2
 
 import os
 import cmd
@@ -30,23 +30,18 @@ from services.pager import pager
 from services.dftp import client as dftpclient
 from services.local import filesystem
 from services.didj import client as didjclient
+
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-# opendidj connect
-# set app disconnected after reboot
-# test more windows paths \/
-# remove host_ip from dftp connect
+# TODO
 # download/extract firmwares
-# attempt Lpad integration
+# Lpad integration sshd/firmware
 # clean out unused/unnecessary code
-# final tests
+# Didj needs_repair fix
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
 class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
-
-        self._host_ip_default = '169.254.0.1'
-
         self._prompt_suffix = '> '
         self.prompt = 'local%s' % self._prompt_suffix
 
@@ -64,26 +59,35 @@ class OpenLFConnect(cmd.Cmd, object):
         self._path_module = self._local_path_module
         
         self._local_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'files')).replace('\\', '/')
-
         self._remote_path= '/'
         self._path = ''
-        self._remote_set = True
         
         self._remote_path_dir_list = []
         self._local_path_dir_list = []
         self._path_dir_list = []
 
-        self.set_local()
 
+        self._host_ip_default = '169.254.0.1'
+
+        self._remote_set = False
+        self.set_local()
+        
+        print 'OpenLFConnect Version 0.2'
 
 #######################
 # OpenLFConnect.py
 #######################
+
+    def pdebug(self, p, v='var'):
+        print '\ndebug %s: %s\n' % (v, p)
+
     def error(self, e):
         assert False, '%s' % e
 
     def perror(self, e):
         print '%s' % e
+
+
 
     def get_is_connected(self):
         if self._is_connected:
@@ -119,61 +123,34 @@ class OpenLFConnect(cmd.Cmd, object):
         else:
             return '/'
 
+
             
-    def path_format(self, stub):
-        chomp = False
-        spath = self._path
-            
-        stub = stub.replace('//', '/')
-        if stub == '/':
-            stub = ''
-            spath = self.get_path_prefix()
+    def get_abspath(self, stub):
+        if stub.startswith(self.get_path_prefix()):
+            path = stub
         else:
-            if spath.endswith('/') and spath != self.get_path_prefix():
-                spath = spath[0:-1]
-
-            if stub.startswith('/'):
-                stub = stub[1:]
-                spath = self.get_path_prefix()
-
-            if not spath.startswith(self.get_path_prefix()):
-                spath = '%s%s' % (self.get_path_prefix(), spath)
-                
-            if stub.startswith(('../', '..', './')):
-                chomp = True
-                while chomp:
-                    if stub.startswith('../'):
-                        stub = stub[3:]
-                        spath = os.path.dirname(spath)
-                    elif stub.startswith('..'):
-                        stub = stub[2:]
-                        spath = os.path.dirname(spath)
-                    elif stub.startswith('./'):
-                        stub = stub[2:]
-                    else:
-                        chomp = False
-        abspath = os.path.join(spath, stub)
-        if sys.platform == 'win32' and self._is_connected:
-            abspath = abspath.replace('\\','/')
-        return (spath, stub, abspath)
+            path = os.path.join(self._path, stub)
+        if sys.platform == 'win32' and self._remote_set:
+            ret = os.path.normpath(path).replace('\\', '/')
+        else:
+            ret = os.path.normpath(path)
+            
+        return ret
 
 
 
     def path_completion(self, text, line, begidx, endidx):
         try:
             mline = line.partition(' ')[2]
-            paths = self.path_format(mline)
-            spath = paths[0]
-            stub = paths[1]
-            list_arr = [s for s in self.get_dir_list(spath) if s.startswith(stub) and not s == stub]
-
-            if len(list_arr) == 0:
-                parent_dir = os.path.dirname(stub)
-                if parent_dir.startswith('/'):
-                    parent_dir = parent_dir[1:]
-                list_arr = [item for item in self.get_dir_list(os.path.join(spath, parent_dir)) if item.startswith(os.path.basename(stub))]
-    
-            return list_arr
+            
+            if mline[-1:] != '/':
+                abspath = os.path.dirname(self.get_abspath(mline))
+                stub = '%s' % os.path.basename(mline)
+            else:
+                abspath = '%s/' % self.get_abspath(mline)
+                stub = ''
+                
+            return [s for s in self.get_dir_list(abspath) if s.startswith(stub)]
         except:
             pass
 
@@ -183,9 +160,11 @@ class OpenLFConnect(cmd.Cmd, object):
         try:
             dlist = self._path_module.dir_list(path)
             dir_list = []
+            
             for item in dlist:
                 if not item.startswith(('../', './')):
                     dir_list.append(item)
+                    
             dir_list.sort(key=str.lower)
             return dir_list
         except Exception, e:
@@ -195,11 +174,13 @@ class OpenLFConnect(cmd.Cmd, object):
 
     def set_path(self, path):
         if self._remote_set:
+            
             if self._path_module.is_dir(path):
                 self.set_remote_path(path)
             else:
                 self.error('Is not a directory')
         else:
+            
             if self._local_path_module.is_dir(path):
                 self.set_local_path(path)
             else:
@@ -245,55 +226,93 @@ class OpenLFConnect(cmd.Cmd, object):
         self._remote_path_module = module
         self.set_remote_path(self._remote_path)
 
-        
+
+
+#######################
+# local.py
+#######################
+
+    def set_dev_id(self, dev_id):
+        if dev_id != '':
+            self._local_fs.dev_id = dev_id
+        else:
+            self.error('No dev id chosen.')
+
+    def get_dev_id(self):
+        return self._local_fs.dev_id
+
+    dev_id = property(get_dev_id, set_dev_id)
+
+
+
+    def set_mount_point(self, mount_point):
+        self._local_fs.mount_point = mount_point
+
+    def get_mount_point(self):
+        return self._local_fs.mount_point
+    
+    mount_point = property(get_mount_point, set_mount_point)
+
+
+
+    def do_set_dev_id(self, s):
+        """
+set_dev_id <device id>\n Manually configures the device id, in Linux its the generic scsi
+device file, ex. /dev/sg2 or harddrive /dev/sdb , in windows its the PhysicalDrive ex. PD1.
+This is only needed if for some reason, OpenLFConnect can not determine it.
+        """
+        try:
+            self.set_dev_id(s)
+        except Exception, e:
+            self.rerror(e)
+
+
+
+    def do_get_dev_id(self, s):
+        """
+get_dev_id \n Returns the currently configured device id.
+        """
+        try:
+            return self.get_dev_id()
+        except Exception, e:
+            self.rerror(e)
+
+
+
+    def do_set_mount_point(self, s):
+        """
+set_mount_point <mount point>\n Manually configure the mount point, ex. Linux /media/didj, ex. Windows D:\
+This is only needed if for some reason, OpenLFConnect can not determine it.
+        """
+        try:
+            self.set_mount_point(s)
+        except Exception, e:
+            self.rerror(e)
+
+
+
+    def do_get_mount_point(self, s):
+        """
+get_mount_point\n Returns the currently configured mount point.
+        """
+        try:
+            return self.get_mount_point()
+        except Exception, e:
+            self.rerror(e)
+
+
+
 #######################
 # didj.py
 #######################     
-    def complete_didj_mount_point(self, text, line, begidx, endidx):
-        try:
-            return self.path_completion(text, line, begidx, endidx)
-        except Exception, e:
-            self.perror(e)
-
-
-
-    def do_didj_mount_point(self, s):
-        """
-didj_mount_point path|drive letter\n Manually configure the local Didj directory.
-        """
-        try:
-            
-            try:
-                if self.is_mounted:
-                    self.error('Device is already mounted')
-            except: pass
-
-            if s != '':
-                path = self.path_format(s)[2]
-            else:
-                path = s
-            
-            self._didj.mount_point = path
-        except Exception, e:
-            self.perror(e)
-
-
 
     def do_didj_mount(self, s):
         """
-didj_mount [mount name] \n Unlock Didj to allow it to mount on host system. 
-Mount name would be the directory created in /media, or on windows the drive label, defaults to 'didj'. Case insensative.
+didj_mount [mount name] \n Unlock Didj to allow it to mount on host system.
         """
         try:
-            if s != '':
-                mount_name = s
-            else:
-                mount_name = self._didj.mount_name
-
-            dev_id = self._local_fs.get_device_id()
-            self._didj.mount(dev_id)
-            self._didj.mount_path = self._local_fs.get_mount_path(mount_name)
-            print 'Mounted on: %s' % self._didj.mount_path
+            self._didj.mount(self.dev_id)
+            print 'Mounted on: %s' % self.mount_point
             self.is_mounted = True
         except Exception, e:
             self.perror(e)
@@ -302,12 +321,12 @@ Mount name would be the directory created in /media, or on windows the drive lab
 
     def do_didj_umount(self, s):
         """
-didj_umount\n Lock Didj which will unmount on host system. In Linux may have to use OS's umount command.
+didj_umount\n Lock Didj which will un mount on host system. Only seems to work in Windows.
         """
         try:
-            #if self.is_mounted:
-            self._didj.umount()
-            self.is_mounted = False
+            if self.is_mounted:
+                self._didj.umount(self.dev_id)
+                self.is_mounted = False
         except Exception, e:
             self.perror(e)
 
@@ -315,12 +334,14 @@ didj_umount\n Lock Didj which will unmount on host system. In Linux may have to 
 
     def do_didj_eject(self, s):
         """
-didj_eject\n Eject Didj which will unmount on host system, and trigger a firmware update if available. In Linux may have to use OS's eject command.
+didj_eject\n Eject the Didj which will unmount on host system, if the firmware updates are 
+on the Didj, an update will be triggered. If they are not, it will ask you to unplug it. For
+Linux hosts, you'll also have to eject it from the system.
         """
         try:
-            #if self.is_mounted:
-            self._didj.eject()
-            self.is_mounted = False
+            if self.is_mounted:
+                self._didj.eject(self.dev_id)
+                self.is_mounted = False
         except Exception, e:
             self.perror(e)
 
@@ -336,20 +357,16 @@ didj_eject\n Eject Didj which will unmount on host system, and trigger a firmwar
 
     def do_didj_update(self, s):
         """
-didj_update\n Update Didj firmware and bootloader
+didj_update\n Update Didj firmware and bootloader. Files must be in bootloader-LF_LF1000 and 
+firmware-LF_LF1000 folders, searches from the current local directory. MD5 files will be created
+automatically.
         """
         try:
             if self.is_mounted:
-                if s != '':
-                    path = self.path_format(s)[2]
-                else:
-                    path = self._local_path
-                self._didj.mount_path
-                fw_paths = self._didj.get_firmware_paths(path)
-                self._local_fs.cpdir(fw_paths[0], fw_paths[1])
-                bl_paths = self._didj.get_bootloader_paths(path)
-                self._local_fs.cpdir(bl_paths[0], bl_paths[1])
-                self._didj.eject()
+                abspath = self.get_abspath(s)
+                self._didj.upload_firmware(abspath, self.mount_point)
+                self._didj.upload_bootloader(abspath, self.mount_point)                
+                self._didj.eject(self.dev_id)
                 self.is_mounted = False
         except Exception, e:
             self.perror(e)
@@ -366,22 +383,17 @@ didj_update\n Update Didj firmware and bootloader
 
     def do_didj_update_firmware(self, s):
         """
-didj_update_firmware\n Update Didj firmware and bootloader
+didj_update_firmware\n Update Didj firmware. Files must be in firmware-LF_LF1000 folder,
+searches from the current local directory. MD5 files will be created automatically.
         """
         try:
             if self.is_mounted:
-                if s != '':
-                    path = self.path_format(s)[2]
-                else:
-                    path = self._local_path
-                self._didj.mount_path
-                fw_paths = self._didj.get_firmware_paths(path)
-                self._local_fs.cpdir(fw_paths[0], fw_paths[1])
-                self._didj.eject()
+                abspath = self.get_abspath(s)
+                self._didj.upload_firmware(abspath, self.mount_point)                
+                self._didj.eject(self.dev_id)
                 self.is_mounted = False
         except Exception, e:
             self.perror(e)
-
 
 
 
@@ -395,21 +407,18 @@ didj_update_firmware\n Update Didj firmware and bootloader
 
     def do_didj_update_bootloader(self, s):
         """
-didj_update\n Update Didj firmware and bootloader
-        """
+didj_update_bootloader\n Update Didj bootloader. Files must be in bootloader-LF_LF1000 folder,
+searches from the current local directory. MD5 files will be created automatically.
+        """        
         try:
             if self.is_mounted:
-                if s != '':
-                    path = self.path_format(s)[2]
-                else:
-                    path = self._local_path
-                self._didj.mount_path
-                bl_paths = self._didj.get_bootloader_paths(path)
-                self._local_fs.cpdir(bl_paths[0], bl_paths[1])
-                self._didj.eject()
+                abspath = self.get_abspath(s)
+                self._didj.upload_bootloader(abspath, self.mount_point)                
+                self._didj.eject(self.dev_id)
                 self.is_mounted = False
         except Exception, e:
             self.perror(e)
+
 
 
     def do_didj_update_cleanup(self, s):
@@ -418,59 +427,87 @@ didj_update_cleaup\n Remove Didj firmware and bootloader from device.
         """
         try:
             if self.is_mounted:
-                self._didj.cleanup()
+                self._didj.cleanup(self.mount_point)                
         except Exception, e:
             self.perror(e)
+
+
 
 #######################
 # networking.py
 #######################
 
-    def connect(self, host_ip):
-        """
-connect [host ip]\n creats a listener to get the device's IP, if found, attempts to set up dftp client.
-        """
-        #todo test its an IP
-        if host_ip != '':
-            self._host_ip_default = host_ip
-        
+    def config_ip(self):        
         try:
-            self._networking.host_ip = self._host_ip_default
-            self._networking.retrieve_ip()
-            print 'Device IP: %s' % self._networking.device_ip
+            self._networking.establish_ip()
+            print 'Device IP: %s' % self.device_ip
         except Exception, e:
             self.error(e)
 
 
 
+    def get_device_ip(self):
+        return self._networking.device_ip
+
+    def set_device_ip(self, ip):
+        self._networking.device_ip = ip
+        
+    device_ip = property(get_device_ip, set_device_ip)
+
+
+
+    def get_host_ip(self):
+        return self._networking.host_ip
+
+    def set_host_ip(self, ip):
+        self._networking.host_ip = ip
+
+    host_ip = property(get_host_ip, set_host_ip)
+
+
+
     def do_ip(self, s):
         """
-ip [host|device]\n Returns the assigned IP address or both if neither is choosen.
+ip [host|device]\n Returns the assigned IP address or both.
         """
-        hip = self._networking.host_ip
-        dip = self._networking.device_ip
-        
-        if not hip:
-            hip = 'Not Set'
-        if not dip:
-            dip = 'Not Set'
-
-        if s == 'host':
-            print '%s' % hip
-        elif s == 'device':
-            print '%s' % dip
-        else:
-            print 'Host:\t\t%s\nDevice:\t\t%s' % (hip, dip)
+        try:
+            hip = self.host_ip
+            dip = self.device_ip
+            
+            if not hip:
+                hip = 'Not Set'
+                
+            if not dip:
+                dip = 'Not Set'
+    
+            if s == 'host':
+                print '%s' % hip
+            elif s == 'device':
+                print '%s' % dip
+            else:
+                print 'Host:\t\t%s\nDevice:\t\t%s' % (hip, dip)
+        except Exception, e:
+            self.perror(e)
 
 
 
     def do_set_device_ip(self, s):
         """
-set_device_ip <IP>\n Sets the devices IP to a known value, this will not reconfigure the devices's IP, should be set to it's actual IP.
+set_device_ip <IP>\n Manually set the device's IP to a known value, this will not reconfigure
+the devices's IP, should be set to it's actual IP.
         """
-        self.is_connected
-        self._networking.device_ip(s)
-        print 'Device IP set to %s' % s
+        self.device_ip = s
+        print 'Device IP set to %s' % self.device_ip
+
+
+
+    def do_set_host_ip(self, s):
+        """
+set_host_ip <IP>\n Manually set the host's IP to a known value, this will not reconfigure the
+host's IP, should be set to it's actual IP.
+        """
+        self.host_ip = s
+        print 'Hosts IP set to %s' % self.host_ip
 
 
 
@@ -480,13 +517,7 @@ set_device_ip <IP>\n Sets the devices IP to a known value, this will not reconfi
 
     def complete_boot_surgeon(self, text, line, begidx, endidx):
         try:
-            remote = self._remote_set
-            if remote:
-                self.set_local()
-            comp = self.path_completion(text, line, begidx, endidx)
-            if remote:
-                self.set_remote()
-            return comp
+            return self.path_completion(text, line, begidx, endidx)
         except Exception, e:
             self.perror(e)
 
@@ -494,17 +525,14 @@ set_device_ip <IP>\n Sets the devices IP to a known value, this will not reconfi
 
     def do_boot_surgeon(self, s):
         """
-boot_surgeon <file_name>\n Uploads a Surgeon.cbf file to a device in USB Boot mode.
+boot_surgeon <path to surgeon.cbf>\n Uploads a Surgeon.cbf file to a device in USB Boot mode. 
+File can be any name, but must conform to CBF standards.
         """
         try:
-            if s != '':
-                path = self.path_format(s)[2]
-            else:
-                path = s
-                
-            if not self._local_fs.is_dir(path):
-                dev_id = self._local_fs.get_device_id()
-                self._pager.upload_firmware(path, dev_id)
+            path = self.get_abspath(s)
+                            
+            if not self._path_module.is_dir(path):
+                self._pager.upload_firmware(path, self.dev_id)
             else:
                 self.error('Path is not a file.')
         except Exception, e:
@@ -529,8 +557,11 @@ boot_surgeon <file_name>\n Uploads a Surgeon.cbf file to a device in USB Boot mo
 dftp_connect_\n Connect to device for dftp session.
         """
         try:
-            self.connect(s)
-            self._networking.host_ip = self._dftp.create_client(self._networking.device_ip, self._networking.host_ip)
+            if sys.platform == 'win32':
+                self.host_ip = self._host_ip_default
+
+            self.config_ip()
+            self.host_ip = self._dftp.create_client(self.device_ip)
             self.is_connected = True
             self.connection_path_init(self._dftp)
             self.set_remote()
@@ -542,11 +573,15 @@ dftp_connect_\n Connect to device for dftp session.
     def complete_dftp_update(self, text, line, begidx, endidx):
         try:
             remote = self._remote_set
+            
             if remote:
                 self.set_local()
+                
             comp = self.path_completion(text, line, begidx, endidx)
+            
             if remote:
                 self.set_remote()
+                
             return comp
         except Exception, e:
             self.perror(e)
@@ -555,19 +590,23 @@ dftp_connect_\n Connect to device for dftp session.
 
     def do_dftp_update(self, s):
         """
-update <Firmware Path>\n Uploads and flashes to NAND the files in <Firmware Path>. Files must conform to LF naming conventions.
+update <local path>\n Uploads and flashes to NAND the files in <local path>. Files must conform
+to LF naming conventions and in a Firmware-Base/ directory, searches from the current local directory.
         """
         try:
             self.is_connected
             remote = self._remote_set
+            
             if remote:
                 self.set_local()
-            if s != '':
-                path = self.path_format(s)[2]
-            else:
-                path = s
-            if not self._path_module.is_dir(path):
+            
+            path = self.get_abspath(s)
+            
+            if self._path_module.is_dir(path):
                 self._dftp.update_firmware(path)
+            else:
+                self.error('Path is not a directory.')
+
         except Exception, e:
             self.perror(e)
 
@@ -617,10 +656,9 @@ remote\n Set to remote device for filesystem navigation.
         
     def do_local(self, s):
         """
-remote\n Set to local host for filesystem navigation.
+local\n Set to prompt to local host for filesystem navigation.
         """
         try:
-            #self.is_connected
             self.set_local()
         except Exception, e:
             self.perror(e)
@@ -647,7 +685,7 @@ cwdl\n Print current local directory path.
         """
 exit\n Exit OpenLFConnect
         """
-        sys.exit()
+        sys.exit(0)
 
 
 
@@ -661,26 +699,29 @@ exit\n Exit OpenLFConnect
 
     def do_ls(self, s):
         """
-ls [path]\n List remote directory contents.
+ls [path]\n List directory contents. Where depends on which is set, remote or local
         """            
         try:
-            abspath = self.path_format(s)[2]
-            if abspath == '':
-                abspath = self.get_path_prefix()
+            abspath = self.get_abspath(s)
+            
             if self._path_module.is_dir(abspath):
                 dlist = self.get_dir_list(abspath)
                 flist = []
+                
                 for item in dlist:
+                    
                     if item[-1:] == '/':
                         print '%s' % item
                     else:
                         flist.append(item)
+                        
                 flist.sort(key=str.lower)
+                
                 for item in flist:
                     print '%s' % item
+                    
             else:
                 self.perror('Is not a directory.')
-
         except Exception, e:
             self.perror(e)
 
@@ -697,10 +738,13 @@ ls [path]\n List remote directory contents.
 
     def do_cd(self, s):
         """
-cd <path>\n Change directories.
+cd <path>\n Change directories. Where depends on which is set, remote or local
         """
         try:
-            self.set_path(self.path_format(s)[2])
+            if s == '':
+                self.error('No path set.')
+                
+            self.set_path(self.get_abspath(s))
         except Exception, e:
             self.perror(e)
 
@@ -716,13 +760,15 @@ cd <path>\n Change directories.
 
     def do_mkdir(self, s):
         """
-mkdir <directory name>\n Create directory.
+mkdir <path>\n Create directory. Where depends on which is set, remote or local
         """
         try:
-            abspath = self.path_format(s)[2]
+            abspath = self.get_abspath(s)
+            
             if abspath == self.get_path_prefix():
                 self.error('No directory selected.')
             else:
+                
                 if self._path_module.is_dir(os.path.dirname(abspath)):
                     self._path_module.mkdir(abspath)
                 else:
@@ -742,13 +788,18 @@ mkdir <directory name>\n Create directory.
     
     def do_rmdir(self, s):
         """
-rmd <directory path>\n Delete directory.
+rmd <path>\n Delete directory. Where depends on which is set, remote or local
         """
         try:
-            abspath = self.path_format(s)[2]
+            if s == '':
+                self.error('No path set.')
+                
+            abspath = self.get_abspath(s)
+            
             if abspath == self.get_path_prefix():
                 self.error('No directory selected.')
             else:
+                
                 if self._path_module.is_dir(os.path.dirname(abspath)):
                     self._path_module.rmdir(abspath)
                 else:
@@ -768,13 +819,18 @@ rmd <directory path>\n Delete directory.
 
     def do_rm(self, s):
         """
-rm <file name>\n Delete file.
+rm <file>\n Delete file. Where depends on which is set, remote or local
         """
         try:
-            abspath = self.path_format(s)[2]
+            if s == '':
+                self.error('No path set.')
+                
+            abspath = self.get_abspath(s)
+            
             if abspath == self.get_path_prefix():
                 self.error('No directory selected.')
             else:
+                
                 if not self._path_module.is_dir(abspath):
                     self._path_module.rm(abspath)
                 else:
@@ -793,12 +849,14 @@ rm <file name>\n Delete file.
         try:
             self.is_connected
             remote = self._remote_set
+            
             if remote:
                 self.set_local()
             comp = self.path_completion(text, line, begidx, endidx)
+            
             if remote:
                 self.set_remote()
-            return comp
+            return comp        
         except Exception, e:
             self.perror(e)
 
@@ -806,23 +864,30 @@ rm <file name>\n Delete file.
 
     def do_upload(self, s):
         """
-upload <local filename>\n Upload file to device, Will overwrite with out prompt.
+upload <local file>\n Upload the specified local file to the current remote directory, Will overwrite with out prompt.
         """
         try:
+            if s == '':
+                self.error('No path set.')
+                
             self.is_connected
             remote = self._remote_set
             
             if remote:
                 self.set_local()
-            abspath = self.path_format(s)[2]
+                
+            abspath = self.get_abspath(s)
+            
             if not self._path_module.is_dir(abspath):
                 self.set_remote()
                 
                 remote_path = os.path.join(self._path, os.path.basename(abspath))
+                
                 if sys.platform == 'win32':
                     remote_path = remote_path.replace('\\', '/')
                     
                 self._path_module.upload_file(abspath, remote_path)
+                
                 if not remote:
                     self.set_local()
             else:
@@ -836,11 +901,15 @@ upload <local filename>\n Upload file to device, Will overwrite with out prompt.
         try:
             self.is_connected
             remote = self._remote_set
+            
             if not remote:
                 self.set_remote()
+                
             comp = self.path_completion(text, line, begidx, endidx)
+            
             if not remote:
                 self.set_local()
+                
             return comp
         except Exception, e:
             self.perror(e)
@@ -849,14 +918,20 @@ upload <local filename>\n Upload file to device, Will overwrite with out prompt.
 
     def do_download(self, s):
         """
-download <remote filename>\n Download file from device, Will overwrite with out prompt.
+download <remote file>\n Download the specified remote file to the current local directory, will over write with out prompt.
         """
         try:
+            if s == '':
+                self.error('No path set.')
+                
             self.is_connected
             remote = self._remote_set
+            
             if not remote:
                 self.set_remote()
-            abspath = self.path_format(s)[2]
+                
+            abspath = self.get_abspath(s)
+            
             if not self._path_module.is_dir(abspath):
                 self._path_module.download_file(os.path.join(self._local_path, os.path.basename(abspath)), abspath)
                 if not remote:
@@ -871,15 +946,21 @@ download <remote filename>\n Download file from device, Will overwrite with out 
 
     def do_enable_sshd(self, s):
         """
-enable_sshd\n Uploads two custom files, to enable the ssh server on boot, files found in <app path>/files/LX/sshd_enable/
+enable_sshd\n Uploads two custom files, to enable the ssh server on boot, files
+found in <app path>/files/LX/sshd_enable/. After uploaded, reboot the device, and
+give it a minute to generate the keys, you should be able to log in with username:root
+password:<blank> after that.
         """
         try:
             self.is_connected
             remote = self._remote_set
+            
             if not remote:
                 self.set_remote()
+                
             self._path_module.upload_file('files/LX/enable_sshd/rcS', '/etc/init.d/rcS')
             self._path_module.upload_file('files/LX/enable_sshd/sshd_config', '/etc/ssh/sshd_config')
+            
             if not remote:
                 self.set_local()
         except Exception, e:
