@@ -5,6 +5,10 @@ files/Lpad/*
 files/Didj/*
 files/Downloads/*
 
+!files/LX/firmware
+!files/Lpad/firmware
+!files/Didj/firmware
+
 .project
 .pydevproject
 
