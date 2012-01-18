@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##############################################################################
-#    OpenLFConnect verson 0.2
+#    OpenLFConnect
 #
 #    Copyright (c) 2012 Jason Pruitt <jrspruitt@gmail.com>
 #
@@ -19,7 +19,16 @@
 #    along with OpenLFConnect.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-# OpenLFConnect version 0.2
+
+
+##############################################################################
+# Title:   OpenLFConnect
+# Version: Version 0.3
+# Author:  Jason Pruitt
+# Email:   jrspruitt@gmail.com
+# IRC:     #didj irc.freenode.org
+# Wiki:    http://elinux.org/LeapFrog_Pollux_Platform
+##############################################################################
 
 import os
 import socket
@@ -27,13 +36,23 @@ import time
 
 class client(object):
     def __init__(self):
+        self.debug = False
+        
         self._sock0 = None
         self._sock1 = None
-        self._firmware_dir = 'Firmware-Base'
-        self._firmware_files = ['1048576,8,FIRST.32.rle', '2097152,64,kernel.cbf', '10485760,688,erootfs.ubi']  
-        self._remote_firmware_dir = os.path.join('/LF/Bulk/Downloads/', self._firmware_dir)
-        self._surgeon_dftp_version = 'VERSION=1.12'
-
+        
+        self._lx_fw_dir = 'Firmware-Base'
+        self._lpad_fw_dir = 'firmware'
+        
+        self._lx_fw_files = ['1048576,8,FIRST.32.rle', '2097152,64,kernel.cbf', '10485760,688,erootfs.ubi']
+        self._lpad_fw_files = ['sd/ext4/3/rfs', 'sd/raw/1/FIRST_Lpad.cbf', 'sd/raw/2/kernel.cbf', 'sd/partition/mbr2G.image']
+          
+        self._lx_remote_fw_dir = os.path.join('/LF/Bulk/Downloads/', self._lx_fw_dir)
+        self._lpad_remote_fw_dir = os.path.join('/LF/fuse/', self._lpad_fw_dir)
+        
+        self._dftp_version = 0
+        self._surgeon_dftp_version = '1.12'
+        self._version_number = 0
 
 #######################
 # Internal functions
@@ -79,7 +98,7 @@ class client(object):
 
 
 
-    def receive(self, size = 4096):
+    def receive(self, size=4096):
         try:
             return self._sock1.recv(size)     
         except socket.timeout:
@@ -129,6 +148,40 @@ class client(object):
 
 
 
+    def get_version(self):
+        try:
+            lpath = os.path.abspath('files')
+            loc_version = os.path.join(lpath, 'version')
+            self.download_file(loc_version, '/etc/version')
+            f = open(loc_version, 'rb')
+            buf = f.readline()
+            f.close()
+            os.remove(loc_version)
+            num = buf.strip()
+
+            if len(num):
+                return num
+            else:
+                return 0
+        except Exception, e:
+            self.error(e)
+
+
+
+
+    def find_dftp_version(self):
+        try:
+            ret = self.sendrtn('INFO', True)
+            
+            for line in ret:
+                if line.find('VERSION') != -1:
+                    version = line.split('=')[1]
+                    return '%s' % version.strip()
+        except Exception, e:
+            self.error(e)
+
+
+
 #######################
 # User functions
 #######################
@@ -145,6 +198,44 @@ class client(object):
             return host_ip
         except Exception, e:
             self.rerror(e)
+
+
+
+    def get_device_name(self):
+        major = self.version_number.split('.')[0]
+        if major == '2':
+            return 'LeapPad'
+        elif major == '1':
+            return 'Explorer'
+        else:
+            return 'Could not determine device'
+
+
+
+    def get_version_number(self):
+        return self._version_number or self.get_version()
+
+    def set_version_number(self, num):
+        self._version_number = num
+
+    version_number = property(get_version_number, set_version_number)
+
+
+
+    def get_dftp_version(self):
+        try:
+            return self._dftp_version or self.find_dftp_version()
+        except Exception, e:
+            self.rerror(e)
+
+    def set_dftp_version(self, num):
+        try:
+            self._dftp_version = num
+        except Exception, e:
+            self.rerror(e)
+
+    dftp_version = property(get_dftp_version, set_dftp_version)
+
 
 
 
@@ -184,16 +275,20 @@ class client(object):
                 buf = f.read()
                 f.close()                
                 bytes_sent = self.send(buf)
+                ret = True
                 
-                while self.receive():
-                    continue
+                while ret:
+                    ret = self.receive(128)
+                    print ret
+                    if ret.find('500 Unknown command') != -1:
+                        self.error('Problem occured while uploading.')
     
-                print 'Done sending %s bytes.' % bytes_sent
+                print 'Sent %s bytes.' % bytes_sent
         
                 self.sendrtn('101 EOF')
                 return True
             else:
-                self.error('Uploading file.')
+                self.error('Failed to upload file.')
         except Exception, e:
             self.rerror(e)
 
@@ -201,32 +296,61 @@ class client(object):
 
     def update_firmware(self, lpath):
         try:
-            ret = self.sendrtn('INFO')
-
-            if ret.find(self._surgeon_dftp_version) == -1:
+            if self._surgeon_dftp_version != self.dftp_version:
                 self.error('Device is not in USB boot mode.')
+
+            vn = self.version_number.split('.')[0]
             
-            if not os.path.basename(lpath) == self._firmware_dir:
-                if os.path.exists(os.path.join(lpath, self._firmware_dir)):
-                    lpath = os.path.join(lpath, self._firmware_dir)
-    
+            if vn == '1':
+                fw_dir = self._lx_fw_dir
+                rpath = self._lx_remote_fw_dir
+                fw_files = self._lx_fw_files
+            
+            elif vn == '2':
+                fw_dir = self._lpad_fw_dir
+                rpath = self._lpad_remote_fw_dir
+                fw_files = self._lpad_fw_files
+            else:
+                self.error('Could not determine device')
+                
+            if os.path.basename(lpath) != fw_dir:
+                
+                if os.path.exists(os.path.join(lpath, fw_dir)) and os.path.isdir(os.path.join(lpath, fw_dir)):
+                    lpath = os.path.join(lpath, fw_dir)
+                else:
+                    self.error('Firmware directory not found.')  
+                        
+            elif not os.path.exists(lpath) or not os.path.isdir(lpath):
+                self.error('Firmware directory not found.')
+
             try:
-                self.exists(self._remote_firmware_dir)
+                self.exists(rpath)
             except:
-                self.sendrtn('MKD %s' % self._remote_firmware_dir)
-    
-            for item in self._firmware_files:
+                self.sendrtn('MKD %s' % rpath)
+ 
+            print 'Updating %s Firmware' % self.get_device_name()
+               
+            for item in fw_files:
                 local_path = os.path.join(lpath, item)
-                remote_path = '%s/%s' % (self._remote_firmware_dir, item)
+                remote_path = '%s/%s' % (rpath, item)
                     
                 if os.path.exists(local_path):
 
-                    try:                
-                        self.upload_file(local_path, remote_path)                    
+                    try:
+                        if self.debug:
+                            print '\n-------------------'
+                            print 'file: %s' % item 
+                            print 'local: %s' % lpath
+                            print 'remote: %s'% rpath
+                            print '\n'
+                        else:
+                            self.upload_file(local_path, remote_path)
+                            
                     except Exception, e:
-                        self.error('Upload Failed: %s' % e)
+                        self.error(e)
                 else:
-                    self.error('Update Failed: %s not found' % item)                                        
+                    print '%s not found, skipped.' % item
+                                        
             return True
         except Exception, e:
             self.rerror(e)

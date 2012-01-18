@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##############################################################################
-#    OpenLFConnect verson 0.2
+#    OpenLFConnect
 #
 #    Copyright (c) 2012 Jason Pruitt <jrspruitt@gmail.com>
 #
@@ -19,7 +19,16 @@
 #    along with OpenLFConnect.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-# OpenLFConnect version 0.2
+
+
+##############################################################################
+# Title:   OpenLFConnect
+# Version: Version 0.3
+# Author:  Jason Pruitt
+# Email:   jrspruitt@gmail.com
+# IRC:     #didj irc.freenode.org
+# Wiki:    http://elinux.org/LeapFrog_Pollux_Platform
+##############################################################################
 
 import os
 import sys

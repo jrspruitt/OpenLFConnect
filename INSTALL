@@ -1,8 +1,15 @@
-OpenLFConnect v0.2
-Author: Jason Pruitt
-Contact: jrspruitt@gmail.com
-IRC: #didj irc.freenode.org
-http://elinux.org/LeapFrog_Pollux_Platform
+
+
+##############################################################################
+# Title:   OpenLFConnect
+# Version: Version 0.3
+# Author:  Jason Pruitt
+# Email:   jrspruitt@gmail.com
+# IRC:     #didj irc.freenode.org
+# Wiki:    http://elinux.org/LeapFrog_Pollux_Platform
+##############################################################################
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 1. Requirements
 2. Installation
@@ -24,6 +31,8 @@ http://elinux.org/LeapFrog_Pollux_Platform
 			Windows ports of sg_raw, sg_scan, sg_verify included
 				for full set and licensing check http://sg.danny.cz/sg/sg3_utils.html
 			Linux commonly installed
+
+
 
 
 2. Installation
@@ -60,38 +69,4 @@ Windows - Didj
 
 
 Linux - General
-	Make sure you have sg3_utils installed, as this program relies on them being available. There are some inherent permission issues with the device files that will need to be dealt with. The easiest way is to use a udev rule, which will give a common user access to the device, and set up a presistent device name. In OpenLFConnect/src/udev you will find the rules. There is one for USB Storage device and one for Ethernet. It is highly recommened you install the USB Storage rules as they will be used by all three devices and makes connecting to them much easier.
-
-sudo cp OpenLFConnect/src/udev_rules/99-LeapFrog-Mass_Storage.rules /etc/udev/rules.d/
-sudo chmod 644 /etc/udev/rules.d/99-LeapFrog-Mass_Storage.rules
-sudo chown root:root /etc/udev/rules.d/99-LeapFrog-Mass_Storage.rules
-
-Then with your device plugged in, Didj in normal mode, LeapPad and Explorer in USB Boot mode run this, where sg2 is your device, check dmesg if needed:
-
-sudo udevadm test /sys/class/scsi_generic/sg2/
-
-if you choose not to install the rules, you will need to run OpenLFConnect with sudo, it will search out the correct /dev/sg[x] device.
-
-
-Linux - Explorer LeapPad
-	Plug in your device and turn it on, it will attempt a network connection. Open Network Connections and check to see if there is an entry such as "Auto eth1" that showed up after plug in. If there is, you'll want to open it up, and go to the ipv4 Settings section. Under Method set it to link local.
-	If you do not have an "Auto eth1" that shows up, and you have avahi-autoipd, you can use the Networking udev rule provided, this is essentially what Network Manager does when set to link local. It will pick a 169.254.x.x host address for you. OpenLFConnect will pick this up automatically for your reference, as the program itself has no use for it on Linux.
-	You could also set up a static IP on the 169.254 subnet if you are concerned with having the same IP everytime for your host computer. For Linux OpenLFConnect does not care which IP the host has, and will get any IP the device is set to. So you could pick different ones if you have access to the device to configure its IP.
-
-
-3. Issues:
-Windows - OpenLFConnect
-	Autocomplete does not work in the command prompt window.
-
-Linux - Didj
-	didj_eject and didj_lock, will not work once the drive has been mounted, you will need to manually unmount or eject the drive. The eject command will still be sent to the device, but nothing will happen until Linux unmounts it.
-
-
-
-
-
-
-
-
-
-
+	Make sure you have sg3_utils installed, as this program relies on them being available. There are some inherent permission issues with the device files that will need to be dealt with. The easiest way is to use a udev rule, which will give a common user access to the device, and set up a presistent device name. In OpenLFConnect/src/udev you will find the rules. There is one for USB Storage device and one for Ethernet. It is highly

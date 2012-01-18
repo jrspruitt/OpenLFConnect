@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##############################################################################
-#    OpenLFConnect verson 0.2
+#    OpenLFConnect
 #
 #    Copyright (c) 2012 Jason Pruitt <jrspruitt@gmail.com>
 #
@@ -19,7 +19,16 @@
 #    along with OpenLFConnect.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-# OpenLFConnect version 0.2
+
+
+##############################################################################
+# Title:   OpenLFConnect
+# Version: Version 0.3
+# Author:  Jason Pruitt
+# Email:   jrspruitt@gmail.com
+# IRC:     #didj irc.freenode.org
+# Wiki:    http://elinux.org/LeapFrog_Pollux_Platform
+##############################################################################
 
 import os
 import cmd
@@ -33,15 +42,18 @@ from services.didj import client as didjclient
 
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 # TODO
-# download/extract firmwares
-# Lpad integration sshd/firmware
-# clean out unused/unnecessary code
-# Didj needs_repair fix
+# documentation
+# download/extract firmwares?
+# LX add addres/size to bare named files
+# Didj needs_repair fix (bootflags.jffs2)?
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
 class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
+        print 'OpenLFConnect Version 0.3'
+        self.debug = False
+        
         self._prompt_suffix = '> '
         self.prompt = 'local%s' % self._prompt_suffix
 
@@ -72,12 +84,33 @@ class OpenLFConnect(cmd.Cmd, object):
         self._remote_set = False
         self.set_local()
         
-        print 'OpenLFConnect Version 0.2'
 
 #######################
 # OpenLFConnect.py
 #######################
+    def do_debug_on(self, s):
+        """
+Usage:
+    debug_on
 
+Setting this prevents updates from actually happening, instead printing the files that would have been uploaded.
+        """
+        self._dftp.debug = True
+        self._didj.debug = True
+        self.debug = True
+ 
+    def do_debug_off(self, s):
+        """
+Usage:
+    debug_off
+
+Turns off debugging mode. Updates will be attempted.
+        """
+        self._dftp.debug = False
+        self._didj.debug = False
+        self.debug = False
+
+     
     def pdebug(self, p, v='var'):
         print '\ndebug %s: %s\n' % (v, p)
 
@@ -124,7 +157,7 @@ class OpenLFConnect(cmd.Cmd, object):
             return '/'
 
 
-            
+
     def get_abspath(self, stub):
         if stub.startswith(self.get_path_prefix()):
             path = stub
@@ -257,7 +290,10 @@ class OpenLFConnect(cmd.Cmd, object):
 
     def do_set_dev_id(self, s):
         """
-set_dev_id <device id>\n Manually configures the device id, in Linux its the generic scsi
+Usage:
+    set_dev_id <device id>
+
+Manually configures the device id, in Linux its the generic scsi
 device file, ex. /dev/sg2 or harddrive /dev/sdb , in windows its the PhysicalDrive ex. PD1.
 This is only needed if for some reason, OpenLFConnect can not determine it.
         """
@@ -270,7 +306,10 @@ This is only needed if for some reason, OpenLFConnect can not determine it.
 
     def do_get_dev_id(self, s):
         """
-get_dev_id \n Returns the currently configured device id.
+Usage:
+    get_dev_id
+
+Returns the currently configured device id.
         """
         try:
             return self.get_dev_id()
@@ -281,7 +320,10 @@ get_dev_id \n Returns the currently configured device id.
 
     def do_set_mount_point(self, s):
         """
-set_mount_point <mount point>\n Manually configure the mount point, ex. Linux /media/didj, ex. Windows D:\
+Usage:
+    set_mount_point <mount point>
+
+Manually configure the mount point, ex. Linux /media/didj, ex. Windows D:\
 This is only needed if for some reason, OpenLFConnect can not determine it.
         """
         try:
@@ -293,7 +335,10 @@ This is only needed if for some reason, OpenLFConnect can not determine it.
 
     def do_get_mount_point(self, s):
         """
-get_mount_point\n Returns the currently configured mount point.
+Usage:
+    get_mount_point
+
+Returns the currently configured mount point.
         """
         try:
             return self.get_mount_point()
@@ -308,7 +353,10 @@ get_mount_point\n Returns the currently configured mount point.
 
     def do_didj_mount(self, s):
         """
-didj_mount [mount name] \n Unlock Didj to allow it to mount on host system.
+Usage:
+    didj_mount [mount name]
+
+Unlock Didj to allow it to mount on host system.
         """
         try:
             self._didj.mount(self.dev_id)
@@ -321,7 +369,10 @@ didj_mount [mount name] \n Unlock Didj to allow it to mount on host system.
 
     def do_didj_umount(self, s):
         """
-didj_umount\n Lock Didj which will un mount on host system. Only seems to work in Windows.
+Usage:
+    didj_umount
+
+Lock Didj which will un mount on host system. Only seems to work in Windows.
         """
         try:
             if self.is_mounted:
@@ -334,7 +385,10 @@ didj_umount\n Lock Didj which will un mount on host system. Only seems to work i
 
     def do_didj_eject(self, s):
         """
-didj_eject\n Eject the Didj which will unmount on host system, if the firmware updates are 
+Usage:
+    didj_eject
+
+Eject the Didj which will unmount on host system, if the firmware updates are 
 on the Didj, an update will be triggered. If they are not, it will ask you to unplug it. For
 Linux hosts, you'll also have to eject it from the system.
         """
@@ -357,16 +411,24 @@ Linux hosts, you'll also have to eject it from the system.
 
     def do_didj_update(self, s):
         """
-didj_update\n Update Didj firmware and bootloader. Files must be in bootloader-LF_LF1000 and 
-firmware-LF_LF1000 folders, searches from the current local directory. MD5 files will be created
-automatically.
+Usage:
+    didj_update <path>
+
+CAUTION:
+!!Attempts to flash firmware, could potentially be harmful.!!
+!!Make sure Battery's are Fresh, or A/C adpater is used!!
+
+Update Didj firmware and bootloader. Files must be in bootloader-LF_LF1000 and firmware-LF_LF1000 directories.
+Searches from the current local directory for the top level directory of the firmware, local path can be directly inside the top level directory or one above it.
+ MD5 files will be created automatically.
         """
         try:
             if self.is_mounted:
                 abspath = self.get_abspath(s)
                 self._didj.upload_firmware(abspath, self.mount_point)
-                self._didj.upload_bootloader(abspath, self.mount_point)                
-                self._didj.eject(self.dev_id)
+                self._didj.upload_bootloader(abspath, self.mount_point)
+                if not self.debug:                
+                    self._didj.eject(self.dev_id)
                 self.is_mounted = False
         except Exception, e:
             self.perror(e)
@@ -383,14 +445,23 @@ automatically.
 
     def do_didj_update_firmware(self, s):
         """
-didj_update_firmware\n Update Didj firmware. Files must be in firmware-LF_LF1000 folder,
-searches from the current local directory. MD5 files will be created automatically.
+Usage:
+    didj_update_firmware <path>
+
+CAUTION:
+!!Attempts to flash firmware, could potentially be harmful.!!
+!!Make sure Battery's are Fresh, or A/C adpater is used!!
+
+Update Didj firmware. Files must be in firmware-LF_LF1000 directory.
+Searches from the current local directory for the top level directory of the firmware, local path can be directly inside the top level directory or one above it.
+MD5 files will be created automatically.
         """
         try:
             if self.is_mounted:
                 abspath = self.get_abspath(s)
                 self._didj.upload_firmware(abspath, self.mount_point)                
-                self._didj.eject(self.dev_id)
+                if not self.debug:                
+                    self._didj.eject(self.dev_id)
                 self.is_mounted = False
         except Exception, e:
             self.perror(e)
@@ -407,14 +478,23 @@ searches from the current local directory. MD5 files will be created automatical
 
     def do_didj_update_bootloader(self, s):
         """
-didj_update_bootloader\n Update Didj bootloader. Files must be in bootloader-LF_LF1000 folder,
-searches from the current local directory. MD5 files will be created automatically.
+Usage:
+    didj_update_bootloader <path>
+
+CAUTION:
+!!Attempts to flash firmware, could potentially be harmful.!!
+!!Make sure Battery's are Fresh, or A/C adpater is used!!
+
+Update Didj bootloader. Files must be in bootloader-LF_LF1000 directory.
+Searches from the current local directory for the top level directory of the firmware, local path can be directly inside the top level directory or one above it.
+MD5 files will be created automatically.
         """        
         try:
             if self.is_mounted:
                 abspath = self.get_abspath(s)
                 self._didj.upload_bootloader(abspath, self.mount_point)                
-                self._didj.eject(self.dev_id)
+                if not self.debug:                
+                    self._didj.eject(self.dev_id)
                 self.is_mounted = False
         except Exception, e:
             self.perror(e)
@@ -423,7 +503,10 @@ searches from the current local directory. MD5 files will be created automatical
 
     def do_didj_update_cleanup(self, s):
         """
-didj_update_cleaup\n Remove Didj firmware and bootloader from device.
+Usage:
+    didj_update_cleaup
+
+Remove Didj firmware and bootloader from device.
         """
         try:
             if self.is_mounted:
@@ -440,7 +523,6 @@ didj_update_cleaup\n Remove Didj firmware and bootloader from device.
     def config_ip(self):        
         try:
             self._networking.establish_ip()
-            print 'Device IP: %s' % self.device_ip
         except Exception, e:
             self.error(e)
 
@@ -468,7 +550,10 @@ didj_update_cleaup\n Remove Didj firmware and bootloader from device.
 
     def do_ip(self, s):
         """
-ip [host|device]\n Returns the assigned IP address or both.
+Usage:
+    ip [host|device]
+
+Returns the assigned IP address or both.
         """
         try:
             hip = self.host_ip
@@ -493,8 +578,10 @@ ip [host|device]\n Returns the assigned IP address or both.
 
     def do_set_device_ip(self, s):
         """
-set_device_ip <IP>\n Manually set the device's IP to a known value, this will not reconfigure
-the devices's IP, should be set to it's actual IP.
+Usage:
+    set_device_ip <IP>
+
+Manually set the device's IP to a known value, this will not reconfigure the devices's IP, should be set to it's actual IP.
         """
         self.device_ip = s
         print 'Device IP set to %s' % self.device_ip
@@ -503,8 +590,10 @@ the devices's IP, should be set to it's actual IP.
 
     def do_set_host_ip(self, s):
         """
-set_host_ip <IP>\n Manually set the host's IP to a known value, this will not reconfigure the
-host's IP, should be set to it's actual IP.
+Usage:
+    set_host_ip <IP>
+
+Manually set the host's IP to a known value, this will not reconfigure the host's IP, should be set to it's actual IP.
         """
         self.host_ip = s
         print 'Hosts IP set to %s' % self.host_ip
@@ -525,7 +614,10 @@ host's IP, should be set to it's actual IP.
 
     def do_boot_surgeon(self, s):
         """
-boot_surgeon <path to surgeon.cbf>\n Uploads a Surgeon.cbf file to a device in USB Boot mode. 
+Usage:
+    boot_surgeon <path to surgeon.cbf>
+
+Uploads a Surgeon.cbf file to a device in USB Boot mode. 
 File can be any name, but must conform to CBF standards.
         """
         try:
@@ -533,6 +625,7 @@ File can be any name, but must conform to CBF standards.
                             
             if not self._path_module.is_dir(path):
                 self._pager.upload_firmware(path, self.dev_id)
+                self.do_dftp_connect('')
             else:
                 self.error('Path is not a file.')
         except Exception, e:
@@ -543,6 +636,73 @@ File can be any name, but must conform to CBF standards.
 #######################
 # dftp.py
 #######################
+    def get_version(self):
+        try:
+            return '%s' % self._dftp.version_number
+        except Exception, e:
+            self.error(e)
+
+
+
+    def do_dftp_server_version(self, s):
+        """
+Usage
+    dftp_server_version <number>
+
+Sets the version number of the dftp server.
+OpenLFConnect checks for version 1.12 for surgeon running before a firmware update.
+Set this to 1.12 if getting complaints, or surgeon has its dftp version updated.
+    """
+        if s != '':
+            self.get_version = s
+        else:
+            print 'No number selected'
+
+
+
+    def do_set_firmware_version(self, s):
+        """
+Usage:
+    set_firmware_version <number>
+
+Manually configure firmware version, useful if you've mixed and matched device firmware, or changed version numbers.
+Mostly used for update firmware style.
+1.x.x.x = Explorer
+2.x.x.x = LeapPad
+        """
+        if s != '':
+            self._dftp.version_number = s
+        else:
+            print 'No number selected'
+
+
+
+    def do_dftp_device_info(self, s):
+        """
+Usage:
+    dftp_device_info
+
+Returns the device name, LeapPad or Explorer if determined, and the firmware revision.
+Note: the firmware revision is accurate, device is guessed from it.
+1.x.x.x = Explorer
+2.x.x.x = LeapPad
+        """
+        try:
+            self.dftp_device_info()
+        except Exception, e:
+            self.perror(e)
+
+
+    def dftp_device_info(self):
+        try:
+            print 'Device:\t\t\t%s' % self._dftp.get_device_name()
+            print 'Firmware Version:\t%s' % self.get_version()
+            print 'IP:\t\t\t%s' % self.get_device_ip()
+            print 'DFTP Version: \t\t%s' % self._dftp.dftp_version
+        except Exception, e:
+            self.error(e)
+
+
 
     def send(self, cmd):
         try:
@@ -554,17 +714,24 @@ File can be any name, but must conform to CBF standards.
 
     def do_dftp_connect(self, s):
         """
-dftp_connect_\n Connect to device for dftp session.
+Usage:
+    dftp_connect
+
+Connect to device for dftp session.
         """
         try:
-            if sys.platform == 'win32':
+            if sys.platform == 'win32' and not self.host_ip:
                 self.host_ip = self._host_ip_default
 
-            self.config_ip()
+            if not self._is_connected:
+                self.config_ip()
+
             self.host_ip = self._dftp.create_client(self.device_ip)
             self.is_connected = True
             self.connection_path_init(self._dftp)
             self.set_remote()
+            self.dftp_device_info()
+            
         except Exception, e:
             self.perror(e)
 
@@ -590,8 +757,21 @@ dftp_connect_\n Connect to device for dftp session.
 
     def do_dftp_update(self, s):
         """
-update <local path>\n Uploads and flashes to NAND the files in <local path>. Files must conform
-to LF naming conventions and in a Firmware-Base/ directory, searches from the current local directory.
+Usage:
+    update <local path>
+
+CAUTION:
+!!Attempts to flash firmware, could potentially be harmful.!!
+!!Make sure Battery's are Fresh, or A/C adpater is used!!
+
+Uploads and flashes to NAND the files in <local path>.
+Note: Files must conform to LF naming conventions. Explorer in a Firmware-Base/* directory, LeapPad in firmware/sd/*
+Searches from the current local directory for the top level directory of the firmware, local path can be directly inside the top level directory or one above it.
+What firmware it to tries to upload depends on version number.
+1.x.x.x = Explorer
+2.x.x.x = LeapPad
+
+Caution: Has not been tested on LeapPad, theoretically it should work though, please confirm to author yes or no if you get the chance.
         """
         try:
             self.is_connected
@@ -614,12 +794,15 @@ to LF naming conventions and in a Firmware-Base/ directory, searches from the cu
     
     def do_dftp_reboot(self, s):
         """
-update_reboot\n After running update, run this to trigger a reboot
+Usage:
+    update_reboot
+
+After running update, run this to trigger a reboot
         """
         try:
             self.is_connected
             self._dftp.update_reboot()
-            self.set_is_connected = False
+            self.is_connected = False
         except Exception, e:
             self.perror(e)
 
@@ -627,7 +810,10 @@ update_reboot\n After running update, run this to trigger a reboot
 
     def do_send(self, s):
         """
-send <raw command>\n Advanced use only, don't know, probably shouldn't.
+Usage:
+    send <raw command>
+
+Advanced use only, don't know, probably shouldn't.
         """
         try:
             self.is_connected
@@ -644,7 +830,10 @@ send <raw command>\n Advanced use only, don't know, probably shouldn't.
 
     def do_remote(self, s):
         """
-remote\n Set to remote device for filesystem navigation.
+Usage:
+    remote
+
+Set to remote device for filesystem navigation.
         """
         try:
             self.is_connected
@@ -656,7 +845,10 @@ remote\n Set to remote device for filesystem navigation.
         
     def do_local(self, s):
         """
-local\n Set to prompt to local host for filesystem navigation.
+Usage:
+    local
+
+Set to prompt to local host for filesystem navigation.
         """
         try:
             self.set_local()
@@ -667,7 +859,10 @@ local\n Set to prompt to local host for filesystem navigation.
 
     def do_cwdr(self, s):
         """
-cwdr\n Print current remote directory path.
+Usage:
+    cwdr
+
+Print current remote directory path.
         """
         print self._remote_path
 
@@ -675,7 +870,10 @@ cwdr\n Print current remote directory path.
 
     def do_cwdl(self, s):
         """
-cwdl\n Print current local directory path.
+Usage:
+    cwdl
+
+Print current local directory path.
         """
         print self._local_path
 
@@ -683,7 +881,10 @@ cwdl\n Print current local directory path.
 
     def do_exit(self, s):
         """
-exit\n Exit OpenLFConnect
+Usage:
+    exit
+
+Exit OpenLFConnect
         """
         sys.exit(0)
 
@@ -699,7 +900,10 @@ exit\n Exit OpenLFConnect
 
     def do_ls(self, s):
         """
-ls [path]\n List directory contents. Where depends on which is set, remote or local
+Usage:
+    ls [path]
+
+List directory contents. Where depends on which is set, remote or local
         """            
         try:
             abspath = self.get_abspath(s)
@@ -738,7 +942,10 @@ ls [path]\n List directory contents. Where depends on which is set, remote or lo
 
     def do_cd(self, s):
         """
-cd <path>\n Change directories. Where depends on which is set, remote or local
+Usage:
+    cd <path>
+
+Change directories. Where depends on which is set, remote or local
         """
         try:
             if s == '':
@@ -760,7 +967,10 @@ cd <path>\n Change directories. Where depends on which is set, remote or local
 
     def do_mkdir(self, s):
         """
-mkdir <path>\n Create directory. Where depends on which is set, remote or local
+Usage:
+    mkdir <path>
+
+Create directory. Where depends on which is set, remote or local
         """
         try:
             abspath = self.get_abspath(s)
@@ -788,7 +998,10 @@ mkdir <path>\n Create directory. Where depends on which is set, remote or local
     
     def do_rmdir(self, s):
         """
-rmd <path>\n Delete directory. Where depends on which is set, remote or local
+Usage:
+    rmd <path>
+
+Delete directory. Where depends on which is set, remote or local
         """
         try:
             if s == '':
@@ -819,7 +1032,10 @@ rmd <path>\n Delete directory. Where depends on which is set, remote or local
 
     def do_rm(self, s):
         """
-rm <file>\n Delete file. Where depends on which is set, remote or local
+Usage:
+    rm <file>
+
+Delete file. Where depends on which is set, remote or local
         """
         try:
             if s == '':
@@ -857,14 +1073,17 @@ rm <file>\n Delete file. Where depends on which is set, remote or local
             if remote:
                 self.set_remote()
             return comp        
-        except Exception, e:
-            self.perror(e)
+        except:
+            pass
 
 
 
     def do_upload(self, s):
         """
-upload <local file>\n Upload the specified local file to the current remote directory, Will overwrite with out prompt.
+Usage:
+    upload <local file>
+
+Upload the specified local file to the current remote directory, Will overwrite with out prompt.
         """
         try:
             if s == '':
@@ -911,14 +1130,17 @@ upload <local file>\n Upload the specified local file to the current remote dire
                 self.set_local()
                 
             return comp
-        except Exception, e:
-            self.perror(e)
+        except:
+            pass
 
 
 
     def do_download(self, s):
         """
-download <remote file>\n Download the specified remote file to the current local directory, will over write with out prompt.
+Usage:
+    download <remote file>
+
+Download the specified remote file to the current local directory, will over write with out prompt.
         """
         try:
             if s == '':
@@ -946,10 +1168,15 @@ download <remote file>\n Download the specified remote file to the current local
 
     def do_enable_sshd(self, s):
         """
-enable_sshd\n Uploads two custom files, to enable the ssh server on boot, files
-found in <app path>/files/LX/sshd_enable/. After uploaded, reboot the device, and
-give it a minute to generate the keys, you should be able to log in with username:root
-password:<blank> after that.
+Usage:
+    enable_sshd
+    
+Uploads two custom files, to enable the ssh server on boot, files found in <app path>/files/[LX|Lpad]/sshd_enable/.
+After uploaded, after first reboot of the device, give it a minute to generate the keys before trying to connect.
+Username:root
+Password:<blank>
+
+Caution: Has not been tested on LeapPad, theoretically it should work though, please confirm to author yes or no if you get the chance.
         """
         try:
             self.is_connected
@@ -958,9 +1185,17 @@ password:<blank> after that.
             if not remote:
                 self.set_remote()
                 
-            self._path_module.upload_file('files/LX/enable_sshd/rcS', '/etc/init.d/rcS')
-            self._path_module.upload_file('files/LX/enable_sshd/sshd_config', '/etc/ssh/sshd_config')
+            vn = self.get_version()
             
+            if vn.split('.')[0] == '1':
+                self._path_module.upload_file('files/LX/enable_sshd/rcS', '/etc/init.d/rcS')
+                self._path_module.upload_file('files/LX/enable_sshd/sshd_config', '/etc/ssh/sshd_config')
+            elif vn.split('.')[0] == '2':
+                self._path_module.upload_file('files/Lpad/enable_sshd/rcS', '/etc/init.d/rcS')
+                self._path_module.upload_file('files/Lpad/enable_sshd/sshd_config', '/etc/ssh/sshd_config')
+            else:
+                self.error('Could not determine device: Firmware version: %s' % vn)
+                
             if not remote:
                 self.set_local()
         except Exception, e:

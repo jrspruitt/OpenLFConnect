@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##############################################################################
-#    OpenLFConnect verson 0.2
+#    OpenLFConnect
 #
 #    Copyright (c) 2012 Jason Pruitt <jrspruitt@gmail.com>
 #
@@ -19,7 +19,16 @@
 #    along with OpenLFConnect.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-# OpenLFConnect version 0.2
+
+
+##############################################################################
+# Title:   OpenLFConnect
+# Version: Version 0.3
+# Author:  Jason Pruitt
+# Email:   jrspruitt@gmail.com
+# IRC:     #didj irc.freenode.org
+# Wiki:    http://elinux.org/LeapFrog_Pollux_Platform
+##############################################################################
 
 import os
 import sys
@@ -30,6 +39,7 @@ import subprocess
 
 class client(object):
     def __init__(self):
+        self.debug = False
         self._didj_base = 'Base/'
         
         self._bootloader_dir = 'bootstrap-LF_LF1000'
@@ -37,7 +47,6 @@ class client(object):
         
         self._firmware_dir = 'firmware-LF_LF1000'
         self._firmware_files = ['kernel.bin', 'erootfs.jffs2']
-        
         
         self._cdb_cmds = {'lock':'C1', 'unlock':'C2', 'get_setting':'C3', 'disconnect':'C6'}
         self._settings = {'battery':'02', 'serial':'03', 'needs_repair':'06', '00':'00' }
@@ -130,7 +139,13 @@ class client(object):
     def move_update(self, lpath, rpath):
         try:
             if os.path.exists(lpath) and os.path.exists(os.path.dirname(rpath)):
-                shutil.copytree(lpath, rpath)
+                if self.debug:
+                    print '\n-------------------'
+                    print 'local: %s' % lpath
+                    print 'remote: %s' % rpath
+                    print '\n'
+                else:
+                    shutil.copytree(lpath, rpath)
             else:
                 self.error('One of the paths does not exist')
         except Exception, e:

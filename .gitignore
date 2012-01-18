@@ -4,10 +4,14 @@ files/LX/*
 files/Lpad/*
 files/Didj/*
 files/Downloads/*
+files/version
 
-!files/LX/firmware
-!files/Lpad/firmware
-!files/Didj/firmware
+!files/LX/firmware.urls
+!files/Lpad/firmware.urls
+!files/Didj/firmware.urls
+
+!files/Lpad/enable_ssh/*
+!files/LX/enable_ssh/*
 
 .project
 .pydevproject

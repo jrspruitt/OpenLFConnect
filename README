@@ -1,8 +1,15 @@
-OpenLFConnect v0.2
-Author: Jason Pruitt
-Contact: jrspruitt@gmail.com
-IRC: #didj irc.freenode.org
-http://elinux.org/LeapFrog_Pollux_Platform
+
+
+##############################################################################
+# Title:   OpenLFConnect
+# Version: Version 0.3
+# Author:  Jason Pruitt
+# Email:   jrspruitt@gmail.com
+# IRC:     #didj irc.freenode.org
+# Wiki:    http://elinux.org/LeapFrog_Pollux_Platform
+##############################################################################
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 OpenLFConnect is a Python and sg3_utils based replacement application for the LeapFrog LFConnect program. For Explorer and LeapPad it can use their dftpdevice to upload firmware. It also manages uploading the surgeon.cbf file for USB boot recovery mode and is capable of enabling sshd on both devices. For Didj it can mount the USB drive, copy firmware over, and send the eject command that will attempt to start flashing the firmware.
 
@@ -12,6 +19,13 @@ Check OpenLFConnect/INSTALL for installation and configuration.
 
 
 Build Log:
+Version 0.3
+	Added experimental LeapPad Update/sshd enable
+	Added functions for determining device name, firmware version, dftp server version
+	Added functions to set firmware version, and dftp server version
+		  these are used to determine which firmware to upload, Explorer style or LeapPad
+	Formated help text better
+
 Version 0.2
 	General code clean up and simplification and continuity.
 	Fixed local.py/get_device_id to work with out the udev rule in Linux
