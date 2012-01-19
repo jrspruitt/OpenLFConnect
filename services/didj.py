@@ -23,7 +23,7 @@
 
 ##############################################################################
 # Title:   OpenLFConnect
-# Version: Version 0.3
+# Version: Version 0.4
 # Author:  Jason Pruitt
 # Email:   jrspruitt@gmail.com
 # IRC:     #didj irc.freenode.org
@@ -32,14 +32,16 @@
 
 import os
 import sys
-import shlex
-import shutil
-import hashlib
-import subprocess
+from shlex import split as shlex_split
+from subprocess import Popen, PIPE
+from hashlib import md5
+from shutil import copytree, rmtree
 
 class client(object):
-    def __init__(self):
-        self.debug = False
+    def __init__(self, dev_id, debug):
+        self.debug = debug
+        self._dev_id = dev_id
+        self._mount_point = ''
         self._didj_base = 'Base/'
         
         self._bootloader_dir = 'bootstrap-LF_LF1000'
@@ -49,7 +51,7 @@ class client(object):
         self._firmware_files = ['kernel.bin', 'erootfs.jffs2']
         
         self._cdb_cmds = {'lock':'C1', 'unlock':'C2', 'get_setting':'C3', 'disconnect':'C6'}
-        self._settings = {'battery':'02', 'serial':'03', 'needs_repair':'06', '00':'00' }
+        self._settings = {'battery':'02', 'serial':'03', 'needs_repair':'06', 'None':'00'}
         self._battery_level = {'0':'Unknown' ,'1':'Critical' ,'2':'Low' ,'3':'Medium', '4':'High'}
 
         if sys.platform == 'win32':
@@ -58,7 +60,7 @@ class client(object):
             self._sg_raw = 'sg_raw'
 
 
-
+            
 #######################
 # Internal functions
 #######################
@@ -78,9 +80,9 @@ class client(object):
                 
                 if os.path.exists(file_path):
                     f = open(file_path, 'rb')
-                    md5 = hashlib.md5()
-                    md5.update(f.read())
-                    md5hash = md5.hexdigest()
+                    md5h = md5()
+                    md5h.update(f.read())
+                    md5hash = md5h.hexdigest()
                     f.close()
                     md5_file_name = os.path.splitext(os.path.basename(file_path))[0]
                     md5_file_path = os.path.join(lpath, '%s.md5' % md5_file_name)
@@ -93,26 +95,27 @@ class client(object):
 
 
 
-    def call_sg_raw(self, cmd, dev_id, arg='00'):
+    def call_sg_raw(self, cmd, arg='None'):
         try:
-                if len(self._settings[arg]) == 0:
-                    self.error('Bad settings value')                    
-                elif len(self._cdb_cmds[cmd]) == 0:
-                    self.error('Bad command')
+            if len(self._settings[arg]) == 0:
+                self.error('Bad settings value')                    
+            elif len(self._cdb_cmds[cmd]) == 0:
+                self.error('Bad command')
 
-                cmdl = '%s %s %s %s 00 00 00 00 00 00 00 00' % (self._sg_raw, dev_id, self._cdb_cmds[cmd], self._settings[arg])
-                cmd = shlex.split(cmdl)
-                p = subprocess.Popen(cmd, stderr=subprocess.PIPE)
-                err = p.stderr.read()
+            cmdl = '%s %s %s %s 00 00 00 00 00 00 00 00' % (self._sg_raw, self._dev_id, self._cdb_cmds[cmd], self._settings[arg])
                 
-                if err.find('Good') == -1:
-                    self.error('SCSI error.')       
+            cmd = shlex_split(cmdl)
+            p = Popen(cmd, stderr=PIPE)
+            err = p.stderr.read()
+                
+            if err.find('Good') == -1:
+                self.error('SCSI error.')       
         except Exception, e:
             self.error(e)
 
 
 
-    def get_update_paths(self, lpath, mpoint, type_dir):
+    def get_update_paths(self, lpath, type_dir):
         try:
             if lpath[-1:] == '/':
                 lpath = lpath[0:-1]
@@ -123,7 +126,7 @@ class client(object):
                 else:
                     self.error('Firmware directory not found.')
 
-            rpath = os.path.join(mpoint, self._didj_base)
+            rpath = os.path.join(self.mount_point, self._didj_base)
             
             if not os.path.exists(rpath):
                 self.error('Could not find Base/ path on device.')
@@ -145,7 +148,7 @@ class client(object):
                     print 'remote: %s' % rpath
                     print '\n'
                 else:
-                    shutil.copytree(lpath, rpath)
+                    copytree(lpath, rpath)
             else:
                 self.error('One of the paths does not exist')
         except Exception, e:
@@ -156,26 +159,45 @@ class client(object):
 #######################
 # Didj functions
 #######################
-    
-    def umount(self, dev_id):
+
+    def is_mounted(self):
         try:
-            self.call_sg_raw('lock', dev_id)
+            if os.path.exists(self.mount_point):
+                return True
+            else:
+                return False
+        except Exception, e:
+            self.rerror(e)
+
+
+    def get_mount_point(self):
+        return self._mount_point
+
+    def set_mount_point(self, mp):
+        self._mount_point = mp
+
+    mount_point = property(get_mount_point, set_mount_point)
+
+
+    def umount(self):
+        try:
+            self.call_sg_raw('lock')
         except Exception, e:
             self.rerror(e)
 
 
 
-    def mount(self, dev_id):
+    def mount(self):
         try:
-            self.call_sg_raw('unlock', dev_id)
+            self.call_sg_raw('unlock')
         except Exception, e:
             self.rerror(e)
 
 
 
-    def eject(self, dev_id):
+    def eject(self):
         try:
-            self.call_sg_raw('disconnect', dev_id)
+            self.call_sg_raw('disconnect')
             if not sys.platform == 'win32':
                 print 'Please eject the device from your system.'
         except Exception, e:
@@ -183,9 +205,9 @@ class client(object):
 
 
 
-    def upload_firmware(self, lpath, mpoint):
+    def upload_firmware(self, lpath):
         try:
-            lpath, rpath = self.get_update_paths(lpath, mpoint, self._firmware_dir)
+            lpath, rpath = self.get_update_paths(lpath, self._firmware_dir)
             self.md5_files(self._firmware_files, lpath)
             
             if os.path.exists(rpath):
@@ -196,9 +218,9 @@ class client(object):
 
 
 
-    def upload_bootloader(self, lpath, mpoint):
+    def upload_bootloader(self, lpath):
         try:
-            lpath, rpath = self.get_update_paths(lpath, mpoint, self._bootloader_dir)
+            lpath, rpath = self.get_update_paths(lpath, self._bootloader_dir)
             self.md5_files(self._bootloader_files, lpath)
             
             if os.path.exists(rpath):
@@ -208,9 +230,9 @@ class client(object):
             self.rerror(e)
 
 
-    def cleanup(self, mpoint):
+    def cleanup(self):
         try:
-            rpath = os.path.join(mpoint, self._didj_base)
+            rpath = os.path.join(self.mount_point, self._didj_base)
             
             if not os.path.exists(rpath):
                 self.error('Could not find Base/ path on device.')
@@ -219,9 +241,9 @@ class client(object):
                 blpath = os.path.join(rpath, self._bootloader_dir)
                 
                 if os.path.exists(fwpath):
-                    shutil.rmtree(fwpath)
+                    rmtree(fwpath)
                     
                 if os.path.exists(blpath):
-                    shutil.rmtree(blpath)               
+                    rmtree(blpath)               
         except Exception, e:
             self.rerror(e)

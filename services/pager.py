@@ -23,7 +23,7 @@
 
 ##############################################################################
 # Title:   OpenLFConnect
-# Version: Version 0.3
+# Version: Version 0.4
 # Author:  Jason Pruitt
 # Email:   jrspruitt@gmail.com
 # IRC:     #didj irc.freenode.org
@@ -31,12 +31,13 @@
 ##############################################################################
 
 import os
-import subprocess
 import sys
-import shlex
+from shlex import split as shlex_split
+from subprocess import Popen, PIPE
 
 class pager(object):
-    def __init__(self):
+    def __init__(self, debug):
+        self.debug = debug
         self._cbf_packet = 16384
         self._cbf_magic = '\xf0\xde\xbc\x9a'
         self._file_size = 0
@@ -101,9 +102,9 @@ class pager(object):
             
             for i in range(0, packets-1):
                 cmdl = '%s %s -b -s %s -n -k %s -i "%s" 2A 00 00 00 00 %s 00 00 20 00' % (self._sg_raw, dev_id, self._cbf_packet, last_total, path, byte1)
-                cmd = shlex.split(cmdl)
+                cmd = shlex_split(cmdl)
                 byte1 = '01'
-                p = subprocess.Popen(cmd, stderr=subprocess.PIPE)
+                p = Popen(cmd, stderr=PIPE)
                 err = p.stderr.read()
                 
                 if err.find('Good') == -1:
@@ -112,7 +113,7 @@ class pager(object):
                 total = last_total + self._cbf_packet - 1
                 last_total = total + 1
 
-            p = subprocess.Popen([self._sg_verify, dev_id], stderr=subprocess.PIPE)
+            p = Popen([self._sg_verify, dev_id], stderr=PIPE)
             err = p.stderr.read()
             
             if len(err) != 0:

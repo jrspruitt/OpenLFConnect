@@ -2,7 +2,7 @@
 
 ##############################################################################
 # Title:   OpenLFConnect
-# Version: Version 0.3
+# Version: Version 0.4
 # Author:  Jason Pruitt
 # Email:   jrspruitt@gmail.com
 # IRC:     #didj irc.freenode.org
@@ -19,6 +19,16 @@ Check OpenLFConnect/INSTALL for installation and configuration.
 
 
 Build Log:
+Version 0.4
+	Changed is_connected() to actually ping the device
+	Added windows search for host IP, no need for default or static (1.25min wait though)
+		as it will default to a zeroconfig 169.254.x.x
+	Added some cmd do_<command> checks to prevent commands running if no meant to be.
+	Started a debug feature, for added output and test runs on updates, printing, instead of flashing
+	Added cat command for printing files to console
+	Determines name from board id, instead of firmware version now
+
+
 Version 0.3
 	Added experimental LeapPad Update/sshd enable
 	Added functions for determining device name, firmware version, dftp server version

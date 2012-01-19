@@ -23,7 +23,7 @@
 
 ##############################################################################
 # Title:   OpenLFConnect
-# Version: Version 0.3
+# Version: Version 0.4
 # Author:  Jason Pruitt
 # Email:   jrspruitt@gmail.com
 # IRC:     #didj irc.freenode.org
@@ -35,8 +35,8 @@ import socket
 import time
 
 class client(object):
-    def __init__(self):
-        self.debug = False
+    def __init__(self, debug):
+        self.debug = debug
         
         self._sock0 = None
         self._sock1 = None
@@ -53,6 +53,7 @@ class client(object):
         self._dftp_version = 0
         self._surgeon_dftp_version = '1.12'
         self._version_number = 0
+        self._board_id = 0
 
 #######################
 # Internal functions
@@ -62,12 +63,12 @@ class client(object):
         assert False, '%s' % e
 
     def rerror(self, e):
-        assert False, 'Dftp Error: %s' % e
+        assert False, 'DFTP Error: %s' % e
 
     
     
-    def create_socket(self, device, port):
-        for serv_info in socket.getaddrinfo(device, port, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, socket.AI_PASSIVE):
+    def create_socket(self, device_ip, port):
+        for serv_info in socket.getaddrinfo(device_ip, port, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, socket.AI_PASSIVE):
             af, socktype, proto, canonname, sa = serv_info
         
             try:
@@ -148,27 +149,6 @@ class client(object):
 
 
 
-    def get_version(self):
-        try:
-            lpath = os.path.abspath('files')
-            loc_version = os.path.join(lpath, 'version')
-            self.download_file(loc_version, '/etc/version')
-            f = open(loc_version, 'rb')
-            buf = f.readline()
-            f.close()
-            os.remove(loc_version)
-            num = buf.strip()
-
-            if len(num):
-                return num
-            else:
-                return 0
-        except Exception, e:
-            self.error(e)
-
-
-
-
     def find_dftp_version(self):
         try:
             ret = self.sendrtn('INFO', True)
@@ -186,7 +166,7 @@ class client(object):
 # User functions
 #######################
 
-    def create_client(self, device_ip, device_port0 = 5000, device_port1 = 5001):
+    def create_client(self, host_ip, device_ip, device_port0 = 5000, device_port1 = 5001):
         try:
             self._sock0 = self.create_socket(device_ip, device_port0)
             host_ip = self._sock0.getsockname()[0]
@@ -200,20 +180,39 @@ class client(object):
             self.rerror(e)
 
 
+    def disconnect(self):
+        self._sock0.close()
+        self._sock0 = None
+        self._sock1.close()
+        self._sock1 = None
+
+
 
     def get_device_name(self):
-        major = self.version_number.split('.')[0]
-        if major == '2':
+        bid = self.get_board_id()
+        if bid > 2:
             return 'LeapPad'
-        elif major == '1':
+        elif bid == 2:
             return 'Explorer'
         else:
             return 'Could not determine device'
 
 
 
+    def get_board_id(self):
+        try:
+            if not self._board_id:
+                self._board_id = int(self.cat('/sys/devices/platform/lf1000-gpio/board_id').strip())
+            return self._board_id
+        except Exception, e:
+            self.rerror(e)
+
+
+
     def get_version_number(self):
-        return self._version_number or self.get_version()
+        if not self._version_number:
+            self._version_number = self.cat('/etc/version').strip()
+        return self._version_number
 
     def set_version_number(self, num):
         self._version_number = num
@@ -278,9 +277,9 @@ class client(object):
                 ret = True
                 
                 while ret:
-                    ret = self.receive(128)
-                    print ret
-                    if ret.find('500 Unknown command') != -1:
+                    ret = self.receive()
+                    
+                    if ret and ret.find('500 Unknown command') != -1:
                         self.error('Problem occured while uploading.')
     
                 print 'Sent %s bytes.' % bytes_sent
@@ -290,6 +289,32 @@ class client(object):
             else:
                 self.error('Failed to upload file.')
         except Exception, e:
+            self.rerror(e)
+
+            
+            
+    def cat(self, rpath):
+       try:
+            if self.exists(rpath):
+                
+                if self.sendrtn('RETR %s' % rpath):
+                    buf = ''
+                    retbuf = ''
+                    self.send('100 ACK: %s\x00' % 0)
+                    
+                    while True:                    
+                        buf = self.receive(8192)
+    
+                        if buf is False:
+                            continue                        
+                        elif buf.find('101 EOF') != -1:
+                            break
+                        else:
+                            self.send('100 ACK: %s\x00' % len(buf))
+                            retbuf += buf
+                            
+                    return retbuf
+       except Exception, e:
             self.rerror(e)
 
 

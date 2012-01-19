@@ -23,7 +23,7 @@
 
 ##############################################################################
 # Title:   OpenLFConnect
-# Version: Version 0.3
+# Version: Version 0.4
 # Author:  Jason Pruitt
 # Email:   jrspruitt@gmail.com
 # IRC:     #didj irc.freenode.org
@@ -32,16 +32,17 @@
 
 import os
 import sys
-import subprocess
-import shutil
-import time
+from shutil import copy
+from time import sleep
+from subprocess import Popen, PIPE
 
 if sys.platform == 'win32':
     import win32api
 
 
 class filesystem(object):
-    def __init__(self):
+    def __init__(self, debug):
+        self.debug = debug
         self._linux_dev = '/dev/leapfrog'
         self._vendor_name = 'leapfrog'
         self._dev_id = ''
@@ -102,22 +103,22 @@ class filesystem(object):
     def find_dev_id(self):
         try:
             if not os.path.exists(self._linux_dev):
-                child = subprocess.Popen(self._sg_scan, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                err = child.stderr.read()
+                p = Popen(self._sg_scan, stdout=PIPE, stderr=PIPE)
+                err = p.stderr.read()
 
                 if not err:
-                    ret = child.stdout.read()
+                    ret = p.stdout.read()
                     lines = ret.split('\n')
                     
                     for line in lines:
-                        if sys.platform == 'win32':
-                            if line.lower().find(self._vendor_name) != -1:
+                    
+                        if line.strip().lower().find(self._vendor_name) != -1:
+                            if sys.platform == 'win32':
                                 self.dev_id = '%s' % line.split(' ')[0]
-                                return self.dev_id
-                        else:
-                            if line.strip().lower().find(self._vendor_name) != -1:
+                            else:
                                 self.dev_id = '%s' % lines[lines.index(line) -1].split(' ')[0].replace(':', '')
-                                return self.dev_id
+
+                            return self.dev_id
                             
                     self.error('Device not found')
                 else:
@@ -138,13 +139,14 @@ class filesystem(object):
             while index:
                 if sys.platform == 'win32':
                     drive_list = win32api.GetLogicalDriveStrings()
-                    drive_list = drive_list.split('\\\x00')[1:]
+                    drive_list = drive_list.split('\x00')[1:]
                     
                     for drive in drive_list:
+                    
                         try:
                             info = win32api.GetVolumeInformation(drive)[0]
                             if info.lower() == win_label:
-                                self.mount_point = '%s\\' % drive
+                                self.mount_point = '%s' % drive
                                 return self.mount_point
                         except: pass
                 else:
@@ -166,7 +168,7 @@ class filesystem(object):
                                     f.close()
                                     return self._mount_point
                             f.close()
-                time.sleep(1)
+                sleep(1)
                 index -= 1
             self.error('Mount not found.')
         except Exception, e:
@@ -201,7 +203,7 @@ class filesystem(object):
     def cp(self, src, dst):
         try:
             if os.path.exists(src):
-                shutil.copy(src, dst)
+                copy(src, dst)
         except Exception, e:
             self.rerror(e)
 
@@ -233,5 +235,16 @@ class filesystem(object):
                 os.remove(path)
             else:
                 self.error('File does not exist')
+        except Exception, e:
+            self.rerror(e)
+
+
+
+    def cat(self, path):
+        try:
+            f = open(path, 'r')
+            buf = f.read()
+            f.close()
+            return buf
         except Exception, e:
             self.rerror(e)

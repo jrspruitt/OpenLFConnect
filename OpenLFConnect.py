@@ -23,7 +23,7 @@
 
 ##############################################################################
 # Title:   OpenLFConnect
-# Version: Version 0.3
+# Version: Version 0.4
 # Author:  Jason Pruitt
 # Email:   jrspruitt@gmail.com
 # IRC:     #didj irc.freenode.org
@@ -34,7 +34,7 @@ import os
 import cmd
 import sys
 
-from services.networking import config
+from services.networking import config as netconfig
 from services.pager import pager
 from services.dftp import client as dftpclient
 from services.local import filesystem
@@ -57,15 +57,12 @@ class OpenLFConnect(cmd.Cmd, object):
         self._prompt_suffix = '> '
         self.prompt = 'local%s' % self._prompt_suffix
 
-        self._networking = config()
-        self._dftp = dftpclient()
-        self._didj = didjclient()
-        self._pager = pager()
-        self._local_fs = filesystem()
-        
-        self._is_connected = False
-        self._is_mounted = False
-
+        self._networking = netconfig(self.debug)
+        self._dftp = None
+        self._didj = None
+        self._pager = None
+        self._local_fs = filesystem(self.debug)
+                
         self._remote_path_module = None
         self._local_path_module = self._local_fs
         self._path_module = self._local_path_module
@@ -77,9 +74,6 @@ class OpenLFConnect(cmd.Cmd, object):
         self._remote_path_dir_list = []
         self._local_path_dir_list = []
         self._path_dir_list = []
-
-
-        self._host_ip_default = '169.254.0.1'
 
         self._remote_set = False
         self.set_local()
@@ -95,9 +89,18 @@ Usage:
 
 Setting this prevents updates from actually happening, instead printing the files that would have been uploaded.
         """
-        self._dftp.debug = True
-        self._didj.debug = True
         self.debug = True
+        if self._dftp:
+            self._dftp.debug = self.debug
+        if self._didj:
+            self._didj.debug = self.debug
+        if self._networking:
+            self._networking.debug = self.debug
+        if self._local_fs:
+            self._local_fs.debug = self.debug
+        if self._pager:
+            self._pager.debug = self.debug
+
  
     def do_debug_off(self, s):
         """
@@ -106,9 +109,17 @@ Usage:
 
 Turns off debugging mode. Updates will be attempted.
         """
-        self._dftp.debug = False
-        self._didj.debug = False
         self.debug = False
+        if self._dftp:
+            self._dftp.debug = self.debug
+        if self._didj:
+            self._didj.debug = self.debug
+        if self._networking:
+            self._networking.debug = self.debug
+        if self._local:
+            self._local_fs.debug = self.debug
+        if self._pager:
+            self._pager.debug = self.debug
 
      
     def pdebug(self, p, v='var'):
@@ -122,29 +133,37 @@ Turns off debugging mode. Updates will be attempted.
 
 
 
-    def get_is_connected(self):
-        if self._is_connected:
-            return self._is_connected 
+    def is_network_client(self, ret_bool=False):
+        if self._dftp and self.is_connected(True):
+            return True
         else:
-            self.error('Device not connected')
-    
-    def set_is_connected(self, status):
-        self._is_connected = status
-
-    is_connected = property(get_is_connected, set_is_connected)
-
+            self._network_client = False
+            if ret_bool:
+                return False
+            else:
+                self.error('A network client is not running.')
 
 
-    def get_is_mounted(self):
-        if self._is_mounted:
-            return self._is_mounted 
+    def is_connected(self, ret_bool=False):
+        if self._networking and self._networking.is_connected():
+            return True 
         else:
-            self.error('Device not mounted')
-    
-    def set_is_mounted(self, status):
-        self._is_mounted = status
+            if ret_bool:
+                return False
+            else:
+                self.error('Device not connected')
 
-    is_mounted = property(get_is_mounted, set_is_mounted)
+
+
+    def is_mounted(self, ret_bool=False):
+        try:
+            self._local_fs.mount_point
+            return True
+        except:
+            if ret_bool:
+                return False
+            else:
+                self.error('Device not mounted')
 
 
 
@@ -222,7 +241,7 @@ Turns off debugging mode. Updates will be attempted.
 
 
     def set_remote(self):
-        if self.is_connected:
+        if self.is_connected() and self._remote_path_module:
             self._path_dir_list = self._remote_path_dir_list
             self._path_module = self._remote_path_module
             self._path = self._remote_path
@@ -298,9 +317,9 @@ device file, ex. /dev/sg2 or harddrive /dev/sdb , in windows its the PhysicalDri
 This is only needed if for some reason, OpenLFConnect can not determine it.
         """
         try:
-            self.set_dev_id(s)
+            self.set_dev_id = s
         except Exception, e:
-            self.rerror(e)
+            self.perror(e)
 
 
 
@@ -312,9 +331,9 @@ Usage:
 Returns the currently configured device id.
         """
         try:
-            return self.get_dev_id()
+            print self.dev_id
         except Exception, e:
-            self.rerror(e)
+            self.perror(e)
 
 
 
@@ -329,7 +348,7 @@ This is only needed if for some reason, OpenLFConnect can not determine it.
         try:
             self.set_mount_point(s)
         except Exception, e:
-            self.rerror(e)
+            self.perror(e)
 
 
 
@@ -341,15 +360,26 @@ Usage:
 Returns the currently configured mount point.
         """
         try:
-            return self.get_mount_point()
+            print self.get_mount_point()
         except Exception, e:
-            self.rerror(e)
+            self.perror(e)
 
 
 
 #######################
 # didj.py
-#######################     
+#######################
+   
+    def is_didj(self, ret_bool=True):
+        if self._didj and self.is_mounted(ret_bool):
+            return True
+        else:
+            if ret_bool:
+                return False
+            else:
+                self.error('Didj client not running.')
+
+
 
     def do_didj_mount(self, s):
         """
@@ -359,10 +389,15 @@ Usage:
 Unlock Didj to allow it to mount on host system.
         """
         try:
-            self._didj.mount(self.dev_id)
-            print 'Mounted on: %s' % self.mount_point
-            self.is_mounted = True
+            if not self.is_didj(True):
+                self._didj = didjclient(self.dev_id, self.debug)  
+                self._didj.mount()
+                self._didj.mount_point = self.mount_point
+                print 'Mounted on: %s' % self.mount_point
+            else:
+                print 'Didj is already mounted.'
         except Exception, e:
+            self._didj = None
             self.perror(e)
 
 
@@ -375,9 +410,9 @@ Usage:
 Lock Didj which will un mount on host system. Only seems to work in Windows.
         """
         try:
-            if self.is_mounted:
-                self._didj.umount(self.dev_id)
-                self.is_mounted = False
+            self.is_didj()
+            self._didj.umount()
+            self._didj = None
         except Exception, e:
             self.perror(e)
 
@@ -393,9 +428,9 @@ on the Didj, an update will be triggered. If they are not, it will ask you to un
 Linux hosts, you'll also have to eject it from the system.
         """
         try:
-            if self.is_mounted:
-                self._didj.eject(self.dev_id)
-                self.is_mounted = False
+            self.is_didj()
+            self._didj.eject()
+            self._didj = None
         except Exception, e:
             self.perror(e)
 
@@ -423,13 +458,13 @@ Searches from the current local directory for the top level directory of the fir
  MD5 files will be created automatically.
         """
         try:
-            if self.is_mounted:
-                abspath = self.get_abspath(s)
-                self._didj.upload_firmware(abspath, self.mount_point)
-                self._didj.upload_bootloader(abspath, self.mount_point)
-                if not self.debug:                
-                    self._didj.eject(self.dev_id)
-                self.is_mounted = False
+            self.is_didj()
+            abspath = self.get_abspath(s)
+            self._didj.upload_firmware(abspath)
+            self._didj.upload_bootloader(abspath)
+            if not self.debug:      
+                self._didj.eject()
+                self._didj = None
         except Exception, e:
             self.perror(e)
 
@@ -457,12 +492,12 @@ Searches from the current local directory for the top level directory of the fir
 MD5 files will be created automatically.
         """
         try:
-            if self.is_mounted:
-                abspath = self.get_abspath(s)
-                self._didj.upload_firmware(abspath, self.mount_point)                
-                if not self.debug:                
-                    self._didj.eject(self.dev_id)
-                self.is_mounted = False
+            self.is_didj()
+            abspath = self.get_abspath(s)
+            self._didj.upload_firmware(abspath)
+            if not self.debug:                
+                self._didj.eject()
+                self._didj = None
         except Exception, e:
             self.perror(e)
 
@@ -490,12 +525,12 @@ Searches from the current local directory for the top level directory of the fir
 MD5 files will be created automatically.
         """        
         try:
-            if self.is_mounted:
-                abspath = self.get_abspath(s)
-                self._didj.upload_bootloader(abspath, self.mount_point)                
-                if not self.debug:                
-                    self._didj.eject(self.dev_id)
-                self.is_mounted = False
+            self.is_didj()
+            abspath = self.get_abspath(s)
+            self._didj.upload_bootloader(abspath)
+            if not self.debug:                
+                self._didj.eject()
+                self._didj = None
         except Exception, e:
             self.perror(e)
 
@@ -509,8 +544,8 @@ Usage:
 Remove Didj firmware and bootloader from device.
         """
         try:
-            if self.is_mounted:
-                self._didj.cleanup(self.mount_point)                
+            self.is_didj()
+            self._didj.cleanup()
         except Exception, e:
             self.perror(e)
 
@@ -522,9 +557,25 @@ Remove Didj firmware and bootloader from device.
 
     def config_ip(self):        
         try:
-            self._networking.establish_ip()
+            self._networking.config_ip()
         except Exception, e:
+            self._networking = None
             self.error(e)
+
+
+    def do_config_ip(self, s):
+        """
+Usage:
+    config_ip
+
+Gets the IP addresses of the Device and Host, and if on Windows, sets the necessary Route to establish connectivity.
+This could take a minute or so, if you just booted the device.
+        """
+        try:
+            self.config_ip()
+            self.do_ip(False)
+        except Exception, e:
+            self.perror(e)
 
 
 
@@ -570,7 +621,8 @@ Returns the assigned IP address or both.
             elif s == 'device':
                 print '%s' % dip
             else:
-                print 'Host:\t\t%s\nDevice:\t\t%s' % (hip, dip)
+                print 'Host:\t\t%s' % hip
+                print 'Device:\t\t%s' % dip
         except Exception, e:
             self.perror(e)
 
@@ -583,9 +635,10 @@ Usage:
 
 Manually set the device's IP to a known value, this will not reconfigure the devices's IP, should be set to it's actual IP.
         """
-        self.device_ip = s
-        print 'Device IP set to %s' % self.device_ip
-
+        try:
+            self.device_ip = s
+        except Exception, e:
+            self.perror(e)
 
 
     def do_set_host_ip(self, s):
@@ -594,40 +647,10 @@ Usage:
     set_host_ip <IP>
 
 Manually set the host's IP to a known value, this will not reconfigure the host's IP, should be set to it's actual IP.
-        """
-        self.host_ip = s
-        print 'Hosts IP set to %s' % self.host_ip
-
-
-
-#######################
-# pager.py
-#######################    
-
-    def complete_boot_surgeon(self, text, line, begidx, endidx):
-        try:
-            return self.path_completion(text, line, begidx, endidx)
-        except Exception, e:
-            self.perror(e)
-
-
-
-    def do_boot_surgeon(self, s):
-        """
-Usage:
-    boot_surgeon <path to surgeon.cbf>
-
-Uploads a Surgeon.cbf file to a device in USB Boot mode. 
-File can be any name, but must conform to CBF standards.
+If running on Windows, will attempt to set a route to the device.
         """
         try:
-            path = self.get_abspath(s)
-                            
-            if not self._path_module.is_dir(path):
-                self._pager.upload_firmware(path, self.dev_id)
-                self.do_dftp_connect('')
-            else:
-                self.error('Path is not a file.')
+            self.host_ip = s
         except Exception, e:
             self.perror(e)
 
@@ -636,8 +659,66 @@ File can be any name, but must conform to CBF standards.
 #######################
 # dftp.py
 #######################
+    def is_dftp(self, ret_bool=False):
+        if self._dftp and self.is_connected():
+            return True
+        else:
+            if ret_bool:
+                return False
+            else:
+                self.error('DFTP is not running,')
+            
+                    
+
+    def do_dftp_connect(self, s):
+        """
+Usage:
+    dftp_connect
+
+Connect to device for dftp session.
+Will attempt to configure IPs as needed.
+This could take a minute or so, if you just booted the device.
+        """
+        try:
+            if not self.is_dftp(True):
+                self.config_ip()
+                self._dftp = dftpclient(self.debug)
+                host_ip = self._dftp.create_client(self.host_ip, self.device_ip)
+
+                if sys.platform != 'win32':
+                    self.host_ip = host_ip
+
+                self.connection_path_init(self._dftp)
+                self.set_remote()
+                self.dftp_device_info()
+            else:
+                self.error('DFTP client already running')
+        except Exception, e:
+            self._dftp = None
+            self.perror(e)
+
+
+
+    def do_dftp_disconnect(self, s):
+        """
+Usage:
+    dftp_disconnect
+
+Disconnect DFTP client.
+This will cause the DFTP server to start announcing its IP again, except Explorer's surgeon.cbf version, which will reboot the device
+        """
+        try:
+            self.is_dftp()
+            self._dftp.disconnect()
+            self._dftp = None
+            self.set_local()
+        except Exception, e:
+            self.perror(e)
+
+
     def get_version(self):
         try:
+            self.is_dftp()
             return '%s' % self._dftp.version_number
         except Exception, e:
             self.error(e)
@@ -653,10 +734,14 @@ Sets the version number of the dftp server.
 OpenLFConnect checks for version 1.12 for surgeon running before a firmware update.
 Set this to 1.12 if getting complaints, or surgeon has its dftp version updated.
     """
-        if s != '':
-            self.get_version = s
-        else:
-            print 'No number selected'
+        try:
+            self.is_dftp()
+            if s != '':
+                self.get_version = s
+            else:
+                print 'No number selected'
+        except Exception, e:
+            self.perror(e)
 
 
 
@@ -670,11 +755,14 @@ Mostly used for update firmware style.
 1.x.x.x = Explorer
 2.x.x.x = LeapPad
         """
-        if s != '':
-            self._dftp.version_number = s
-        else:
-            print 'No number selected'
-
+        try:
+            self.is_dftp()
+            if s != '':
+                self._dftp.version_number = s
+            else:
+                print 'No number selected'
+        except Exception, e:
+            self.perror(e)
 
 
     def do_dftp_device_info(self, s):
@@ -688,6 +776,7 @@ Note: the firmware revision is accurate, device is guessed from it.
 2.x.x.x = LeapPad
         """
         try:
+            self.is_dftp()
             self.dftp_device_info()
         except Exception, e:
             self.perror(e)
@@ -695,9 +784,12 @@ Note: the firmware revision is accurate, device is guessed from it.
 
     def dftp_device_info(self):
         try:
+            self.is_dftp()
             print 'Device:\t\t\t%s' % self._dftp.get_device_name()
             print 'Firmware Version:\t%s' % self.get_version()
-            print 'IP:\t\t\t%s' % self.get_device_ip()
+            print 'Board ID:\t\t%s' % self._dftp.get_board_id()
+            print 'Device IP:\t\t%s' % self.get_device_ip()
+            print 'Host IP:\t\t%s' % self.get_host_ip()
             print 'DFTP Version: \t\t%s' % self._dftp.dftp_version
         except Exception, e:
             self.error(e)
@@ -706,39 +798,16 @@ Note: the firmware revision is accurate, device is guessed from it.
 
     def send(self, cmd):
         try:
+            self.is_dftp()
             print self._dftp.sendrtn(cmd)
         except Exception, e:
             self.error(e)
-            
-                    
-
-    def do_dftp_connect(self, s):
-        """
-Usage:
-    dftp_connect
-
-Connect to device for dftp session.
-        """
-        try:
-            if sys.platform == 'win32' and not self.host_ip:
-                self.host_ip = self._host_ip_default
-
-            if not self._is_connected:
-                self.config_ip()
-
-            self.host_ip = self._dftp.create_client(self.device_ip)
-            self.is_connected = True
-            self.connection_path_init(self._dftp)
-            self.set_remote()
-            self.dftp_device_info()
-            
-        except Exception, e:
-            self.perror(e)
 
 
 
     def complete_dftp_update(self, text, line, begidx, endidx):
         try:
+            self.is_dftp()
             remote = self._remote_set
             
             if remote:
@@ -774,7 +843,7 @@ What firmware it to tries to upload depends on version number.
 Caution: Has not been tested on LeapPad, theoretically it should work though, please confirm to author yes or no if you get the chance.
         """
         try:
-            self.is_connected
+            self.is_dftp()
             remote = self._remote_set
             
             if remote:
@@ -800,9 +869,11 @@ Usage:
 After running update, run this to trigger a reboot
         """
         try:
-            self.is_connected
+            self.is_dftp()
             self._dftp.update_reboot()
-            self.is_connected = False
+            self._dftp.disconnect()
+            self._dftp = None
+            self.set_local()
         except Exception, e:
             self.perror(e)
 
@@ -816,8 +887,43 @@ Usage:
 Advanced use only, don't know, probably shouldn't.
         """
         try:
-            self.is_connected
+            self.is_dftp()
             self.send(s)
+        except Exception, e:
+            self.perror(e)
+
+
+
+#######################
+# pager.py
+#######################    
+
+    def complete_boot_surgeon(self, text, line, begidx, endidx):
+        try:
+            return self.path_completion(text, line, begidx, endidx)
+        except Exception, e:
+            self.perror(e)
+
+
+
+    def do_boot_surgeon(self, s):
+        """
+Usage:
+    boot_surgeon <path to surgeon.cbf>
+
+Uploads a Surgeon.cbf file to a device in USB Boot mode. 
+File can be any name, but must conform to CBF standards.
+        """
+        try:
+            self._pager = pager(self.debug)
+            abspath = self.get_abspath(s)
+
+            if not self._path_module.is_dir(abspath):
+                self._pager.upload_firmware(abspath, self.dev_id)
+            else:
+                self.error('Path is not a file.')
+
+            self._pager = None
         except Exception, e:
             self.perror(e)
 
@@ -836,7 +942,7 @@ Usage:
 Set to remote device for filesystem navigation.
         """
         try:
-            self.is_connected
+            self.is_network_client()
             self.set_remote()
         except Exception, e:
             self.perror(e)
@@ -1063,7 +1169,7 @@ Delete file. Where depends on which is set, remote or local
 
     def complete_upload(self, text, line, begidx, endidx):
         try:
-            self.is_connected
+            self.is_network_client()
             remote = self._remote_set
             
             if remote:
@@ -1086,10 +1192,10 @@ Usage:
 Upload the specified local file to the current remote directory, Will overwrite with out prompt.
         """
         try:
+            self.is_network_client()
             if s == '':
                 self.error('No path set.')
                 
-            self.is_connected
             remote = self._remote_set
             
             if remote:
@@ -1118,7 +1224,7 @@ Upload the specified local file to the current remote directory, Will overwrite 
 
     def complete_download(self, text, line, begidx, endidx):
         try:
-            self.is_connected
+            self.is_network_client()
             remote = self._remote_set
             
             if not remote:
@@ -1143,10 +1249,11 @@ Usage:
 Download the specified remote file to the current local directory, will over write with out prompt.
         """
         try:
+            self.is_network_client()
+            
             if s == '':
                 self.error('No path set.')
                 
-            self.is_connected
             remote = self._remote_set
             
             if not remote:
@@ -1165,6 +1272,26 @@ Download the specified remote file to the current local directory, will over wri
             self.perror(e)
 
 
+    def do_cat(self, s):
+        """
+Usage:
+    cat <path>
+
+Prints the contents of a file to the screen.
+Doesn't care what kind or how big of a file.
+        """
+        try:
+            if s == '':
+                self.error('No path selected.')
+
+            abspath = self.get_abspath(s)
+            if not self._path_module.is_dir(abspath):
+                print self._path_module.cat(abspath)
+            else:
+                self.error('Path not set to a file')
+        except Exception, e:
+            self.perror(e)
+
 
     def do_enable_sshd(self, s):
         """
@@ -1179,7 +1306,7 @@ Password:<blank>
 Caution: Has not been tested on LeapPad, theoretically it should work though, please confirm to author yes or no if you get the chance.
         """
         try:
-            self.is_connected
+            self.is_connected()
             remote = self._remote_set
             
             if not remote:

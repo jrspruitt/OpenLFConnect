@@ -2,7 +2,7 @@
 
 ##############################################################################
 # Title:   OpenLFConnect
-# Version: Version 0.3
+# Version: Version 0.4
 # Author:  Jason Pruitt
 # Email:   jrspruitt@gmail.com
 # IRC:     #didj irc.freenode.org
@@ -49,23 +49,25 @@ General
 The program makes every attempt to figure out what it needs to know on its own. If you run into problems there are helper functions that should be able to let you manually configure around it.
 
 Windows - General
-	Disable Monitor.exe in the Task Manager first. This will prevent LFConnect from opening when one of your devices is pluged in. Warning it will be started on next reboot, or if LFConnect is opened. To permenantly disable it, look for this registry key and delete, this example is from XP Pro.
+	Disable Monitor.exe in the Task Manager first. This will prevent LFConnect from opening when one of your devices is plugged in. Warning it will be started on next reboot, or if LFConnect is opened. To permenantly disable it, look for this registry key and delete, this example is from XP Pro.
 
 HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\Monitor
 
 Windows - Explorer or LeapPad
-	Turn your device on and plug in the USB cable. You should see a network icon, attempting to connect, or look in your network devices	for the new connection. You want to open up the properties, got to TCP/IP go to properties, and change the settings from obtain IP from DHCP and instead use a static IP address.
+    Windows seems to default to a 169.254. zeroconf subnet, it tooks about a minute and a half for it to do so on XP. If you want you can leave it this way, and it will be detected, the time out for getting the host IP is 2 minutes. Setting a static IP greatly speeds this up.
+	Turn your device on and plug in the USB cable. You should see a network icon, attempting to connect, or look in your network devices for the new connection. You want to open up the properties, got to TCP/IP go to properties, and change the settings from obtain IP from DHCP and instead use a static IP address.
 
 Static IP 169.254.0.1
 Netmask   255.255.0.0
 
-You can use any IP you want that starts with 169.254 This is the zeroconfig subnet the devices will be on. The only time the host IP address will be needed, is when connecting to the device, a route will need to be set. If you choose something different than the example change the default in OpenLFConnect.py in the applications root directory.
+You can use any IP you want that starts with 169.254 This is the zeroconfig subnet the devices will be on. The only time the host IP address will be needed, is when connecting to the device, a route will need to be set. OpenLFConnect normally searches for a network interface with an IP starting with 169.254. If you want something different than the example change the default in services/networking.py in the applications root directory. You can also prevent a host IP look up at all, but configuring the host IP there too.
 
-self._host_ip_default = '169.254.0.1'
+self._subnet = '169.254.'
+self._host_ip = '169.254.0.1'
 
 
 Windows - Didj
-	Plug your device in, and go to manage your computer. You want to find the disks section, there you will find a roughly 250mb FAT disk. You'll need to assign it a drive letter, as LFConnect mounts it in a different way. The drive letter does not matter, just one that is not conflicting with other devices. OpenLFConnect will go through the disks and find the right one.
+	Plug your device in, and go to manage your computer. You want to find the disks section, there you will find a removable disk, with no media. You'll need to assign it a drive letter, as LFConnect mounts it in a different way. The drive letter does not matter, just one that is not conflicting with other devices. OpenLFConnect will go through the disks and find the right one.
 
 
 Linux - General

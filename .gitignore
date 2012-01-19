@@ -1,17 +1,19 @@
 *.py[co]
 
-files/LX/*
-files/Lpad/*
-files/Didj/*
+
+files/LX/Firmware-Base
+files/LX/surgeon.lx.cbf
+files/LX/surgeon.cbf
+
+files/Lpad/firmware/*
+files/Lpad/surgeon.lpad.cbf
+files/Lpad/surgeon.cbf
+
+files/Didj/bootloader-LF_LF1000/*
+files/DIdj/firmware-LF_LF1000/*
 files/Downloads/*
-files/version
+!files/Downloads/doom
 
-!files/LX/firmware.urls
-!files/Lpad/firmware.urls
-!files/Didj/firmware.urls
-
-!files/Lpad/enable_ssh/*
-!files/LX/enable_ssh/*
 
 .project
 .pydevproject
@@ -23,7 +25,6 @@ dist
 build
 eggs
 parts
-bin
 var
 sdist
 develop-eggs

@@ -1,0 +1,217 @@
+#!/bin/sh
+
+TIM=true; # TIM=tim; # for timing
+
+# set environment variables
+. /etc/profile
+
+# mount other file systems
+mount -t tmpfs mdev /dev
+/usr/bin/make_dev_nodes.sh
+mount -a; $TIM done "mount -a"
+
+# FIXME: Have to put keyboard input device in before mdev -s or vbus
+# input events don't work (e.g. /usr/bin/surgeon-usb-socket, vbus-monitor).
+# Remove this once this driver is generating hotplug events instead.
+modprobe lf1000_udc
+
+# initial mdev device enumeration
+mdev -s; $TIM end mdev -s
+
+# FIXME: Show version -- This doesn't even work!
+# if grep B /sys/devices/platform/lf1000-gpio/board_id > /dev/null; then
+#  	/usr/bin/drawtext-fb /dev/fb0 /var/fonts/monotext8x16.rgb "LPAD rcS `cat /etc/version`" 10 5 1
+# fi
+
+# load audio drivers
+/etc/init.d/alsa start
+
+# set host name using serial number
+hostname Explorer-`mfgdata get sn`
+
+# Speed NAND up
+/usr/bin/faster-nand-timing
+
+# start low-level settings daemon
+/etc/init.d/lfd start
+
+# Stop showing movie
+# touch /tmp/splash
+
+# Determine if we booted from ATAP
+ATAP=0
+if [ `grep lf1000-nor /proc/iomem | cut -d '-' -f 1` = "84000000" ]; then
+	if [ `cat /sys/devices/platform/lf1000-gpio/board_id` != 3 ]; then
+		ATAP=0 # Don't enable for now...  
+	fi
+fi
+
+if [ `cat /sys/devices/platform/lf1000-gpio/boot_image` = "RECOVERY" ]; then
+	# Recovery boot
+	echo "Recovery Mode"
+	# Launch in background; it will "poweroff" when done
+	/usr/bin/recovery &
+	exit 0
+elif [ `cat /sys/devices/platform/lf1000-gpio/request` = "TRAPDOOR" ]; then
+	# Manufacturing test mode
+	echo "Manufacturing Test Trapdoor Mode"
+	# Launch in background; it will "poweroff" when done
+	/usr/bin/trapdoor &
+	exit 0
+elif [ `cat /sys/devices/platform/lf1000-gpio/request` = "SHORT" -a \
+	-e /flags/developer ]; then
+	# Short circuit boot
+	/usr/bin/short-circuit "Short Circuit Boot" &
+	exit 0
+elif [ $ATAP = 1 ]; then
+	# ATAP boot
+	/usr/bin/short-circuit "External ATAP Boot" &
+	exit 0
+else
+	# Normal Play boot
+	ulimit -c unlimited
+        echo "|/bin/sh /usr/bin/sysdump.sh /LF/Base/FR %e %p" > /proc/sys/kernel/core_pattern	
+
+	# start logging service before everything else
+	/etc/init.d/flight-recorder start
+
+	# Log Keep-alives
+	/usr/bin/show-scr | head -1 | logger -s -t "Recovery Keep-Alives" -p local4.notice
+
+	# # 8 second delay for first boot... about 6 seconds from here
+	# if [ `cat /sys/devices/platform/lf1000-gpio/power` = "COLD" ]; then
+	# 	# But real developers will not want this at all!!
+	# 	if [ ! -e /flags/no8sec ]; then
+	# 		echo "Twiddle thumbs for 6 seconds more..."
+	# 		sleep 6;
+	# 	fi
+	# fi
+
+	# Sound and other misc, in background, but early
+	(
+		# Display screen before sound starts
+
+		LANGUAGE=`mfgdata get locale | cut -d '-' -f1`
+		SCREEN=/var/screens-$LANGUAGE/LEGAL.png
+		if [ ! -r "$SCREEN" ]; then
+			# If we can't find it, the default to english
+			logger -s -t "Emerald Base" -p local4.notice "Locale: could not find $SCREEN, defaulting to english"
+			SCREEN=/var/screens/LEGAL.png
+		fi
+		if grep B /sys/devices/platform/lf1000-gpio/board_id > /dev/null; then
+			SCREEN=/var/screens/Madrid-Boot-logoCW.png
+		fi
+		logger -s -t "Emerald Base" -p local4.notice "Locale: Loading $SCREEN"
+		imager-fb /dev/fb0 "$SCREEN"
+
+		
+		# Ensure that the bus clock is set up for 144MHz to give the
+		# correct USB host clock rate.  Older bootstraps set the clock
+		# to 147MHz so we'll change it here and hide the "flicker" in
+		# updating the screen contents.                             
+		echo "3,64,2" > /sys/devices/platform/lf1000-clock/pll1
+		$TIM done "display legal"
+
+		# adjust the CPU speed if requested
+		if [ -e /flags/cpu_freq_in_hz ]; then
+			cat /flags/cpu_freq_in_hz > /sys/devices/platform/lf1000-clock/cpu_freq_in_hz
+		fi
+
+		# restore volume setting if one exists
+		if [ -e /flags/volume ]; then
+			lfd-ctrl set volume `cat /flags/volume`
+		fi
+
+		# play sound
+		( $TIM begin "sounds/startup.wav"
+		  aplay /var/sounds/startup.wav; $TIM end "sounds/startup.wav"
+		) &
+
+		# Set Backlight low-setting.  This is the physical value to use
+		# for lowest backlight brightness
+		if [ -e /sys/devices/platform/lf1000-dpc/backlight_threshold ]; then
+			mfgdata get bl > /sys/devices/platform/lf1000-dpc/backlight_threshold
+		fi
+
+		# if nonzero NOR values then set battery ADC slope and offset 
+		if [ "`mfgdata get adc`" != "0 0" ]; then
+			logger -s -t "Emerald Base" -p local4.notice "Use ADC settings from NOR `mfgdata get adc`"
+			mfgdata get adc | cut -d ' ' -f 1 > /sys/devices/platform/lf1000-power/adc_constant
+			mfgdata get adc | cut -d ' ' -f 2 > /sys/devices/platform/lf1000-power/adc_slope_256
+		else
+			logger -s -t "Emerald Base" -p local4.notice "Use default ADC settings (NOR invalid)"
+		fi
+
+		# USB gadget driver needs to start early to respond to existing connections
+		/etc/init.d/usbether start; # $TIM done "usbether"
+
+		# Get touchscreen driver loaded before app
+		/etc/init.d/touchscreen start; # $TIM done "touchscreen" 
+		/usr/bin/setcal; # $TIM done "setcal"
+
+		# set date to avoid errors in mq_timesend() and mq_timereceive() POSIX funcs
+		if [[ `date +%Y` -lt "2008" -o "2030" -lt `date +%Y` ]]
+		then
+			date 010101012008
+			hwclock --systohc
+		fi
+
+	) &
+
+	# This is a calculated race with AppManager, who needs this
+	# working within a couple seconds of his starting up.
+	( sleep 2; 
+		$TIM begin "mounts at 2s";
+		/etc/init.d/mounts start;
+		$TIM done "mounts"
+	) &
+
+	# Late start these guys in background
+	( sleep 10; $TIM begin "Rest of networking at 10s";
+		nice -10 /etc/init.d/dbus-1 start; # $TIM done "dbus-1"
+		nice -10 /etc/init.d/networking start; # $TIM done "networking"
+		nice -10 /etc/init.d/avahi-daemon start; # $TIM done "avahi-daemon"
+		nice -10 /etc/init.d/sshd start; # $TIM done "sshd started"
+		/etc/init.d/vbus start; # $TIM done "vbus start"
+		# start telnet and ftp only for developers
+		if [ -e /flags/developer ]; then
+			/etc/init.d/telnetd start; # $TIM done "telnetd"
+			/etc/init.d/vsftpd start; # $TIM done "vsftpd"
+			logger -s -t "Emerald Base" -p local4.notice "starting telnetd and vsftpd"
+		fi
+		$TIM done "Rest of networking"
+			) &
+
+	( sleep 15; $TIM begin "Version Logging at 15s"
+		BOOT_DEV=/dev/`grep NOR_Boot /proc/mtd | cut -d : -f 1`
+		logger -s -t "Emerald Base" -p local4.notice "hostname:         '`hostname`'"
+		logger -s -t "Emerald Base" -p local4.notice "Board ID:         '`cat /sys/devices/platform/lf1000-gpio/board_id`'"
+		logger -s -t "Emerald Base" -p local4.notice "NOR BootVersion:  '`nice -10 get-bootstrap-version < $BOOT_DEV`'"  # 0.3s
+		logger -s -t "Emerald Base" -p local4.notice "NOR SerialNumber: '`mfgdata get sn`'"
+		logger -s -t "Emerald Base" -p local4.notice "NAND BootVersion: '`nice -10 get-bootstrap-version < /dev/mtd0`'" # 0.6s
+		/etc/init.d/logversion;
+		$TIM end "Version Logging"
+	) &
+
+	# Cosmic spaghetti surrounds AppManager launch
+	if [ -e /flags/main_app ] ; then 
+	   	APP="`cat /flags/main_app`"
+		if [ "X$APP" != "X" ] ; then 
+			logger -s -t "Emerald Base" -p local4.notice "/flags/main_app exists. Contains '$APP'"
+			if [ -x "$APP" ] ; then
+				$APP & 
+			else
+				rm /flags/main_app		
+				logger -s -t "Emerald Base" -p local4.notice "$APP does not exist or is not executable.  Removing flags/main_app and starting normally!"
+			fi
+		else 
+			logger -s -t "Emerald Base" -p local4.notice "Started in Console Only mode due to empty flags/main_app present."
+		fi
+	fi
+
+	if [ ! -e /flags/main_app ]; then
+		$TIM begin "app"
+		echo "Launching AppManager normally"
+		/usr/bin/app &	
+	fi
+fi
