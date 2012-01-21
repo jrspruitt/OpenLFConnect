@@ -32,21 +32,22 @@
 
 import os
 import sys
-from shutil import copy
+from shutil import copytree, copyfile
 from time import sleep
 from subprocess import Popen, PIPE
 
 if sys.platform == 'win32':
     import win32api
 
-
-class filesystem(object):
-    def __init__(self, debug):
+class config(object):
+    def __init__(self, dev_id='', mount_point='', debug=False):
         self.debug = debug
         self._linux_dev = '/dev/leapfrog'
         self._vendor_name = 'leapfrog'
-        self._dev_id = ''
-        self._mount_point = ''
+        self._dev_id = dev_id
+        self._mount_point = mount_point
+        
+        self._time_out = 30
 
         if sys.platform == 'win32':
             self._sg_scan = ['bin/sg_scan']
@@ -65,68 +66,37 @@ class filesystem(object):
         assert False, 'Local FS Error: %s' % e
 
 
-    def exists(self, path):
-        try:
-            if os.path.exists(path):
-                return True
-            else:
-                self.error('Directory does not exist')
-        except Exception, e:
-            self.error(e)
-
-
-
-#######################
-# Filesystem functions
-#######################
-
-    def set_dev_id(self, dev_id):
-        self._dev_id = dev_id
-
-    def get_dev_id(self):
-        return self._dev_id or self.find_dev_id()
-
-    dev_id = property(get_dev_id, set_dev_id)
-
-
-
-    def set_mount_point(self, mount_point):
-        self._mount_point = mount_point
-
-    def get_mount_point(self):
-        return self._mount_point or self.find_mount_point()
-    
-    mount_point = property(get_mount_point, set_mount_point)
-
-
 
     def find_dev_id(self):
         try:
-            if not os.path.exists(self._linux_dev):
-                p = Popen(self._sg_scan, stdout=PIPE, stderr=PIPE)
-                err = p.stderr.read()
+            time_out = self._time_out
+            while time_out:
+                if not os.path.exists(self._linux_dev):
+                    p = Popen(self._sg_scan, stdout=PIPE, stderr=PIPE)
+                    err = p.stderr.read()
+    
+                    if not err:
+                        ret = p.stdout.read()
+                        lines = ret.split('\n')
+                        
+                        for line in lines:
+                        
+                            if line.strip().lower().find(self._vendor_name) != -1:
+                                if sys.platform == 'win32':
+                                    self.dev_id = '%s' % line.split(' ')[0]
+                                else:
+                                    self.dev_id = '%s' % lines[lines.index(line) -1].split(' ')[0].replace(':', '')
+    
+                                return self.dev_id
 
-                if not err:
-                    ret = p.stdout.read()
-                    lines = ret.split('\n')
-                    
-                    for line in lines:
-                    
-                        if line.strip().lower().find(self._vendor_name) != -1:
-                            if sys.platform == 'win32':
-                                self.dev_id = '%s' % line.split(' ')[0]
-                            else:
-                                self.dev_id = '%s' % lines[lines.index(line) -1].split(' ')[0].replace(':', '')
-
-                            return self.dev_id
-                            
-                    self.error('Device not found')
                 else:
-                    self.error(err)
-                    
-            else:
-                self.dev_id = self._linux_dev
-                return self.dev_id
+                    self.dev_id = self._linux_dev
+                    return self.dev_id
+                
+                time_out -= 1
+                sleep(1)
+                                
+            self.error('Device not found.')
         except Exception, e:
             self.rerror(e)
 
@@ -176,6 +146,74 @@ class filesystem(object):
 
 
 
+#######################
+# User functions
+#######################
+
+    def set_dev_id(self, dev_id):
+        self._dev_id = dev_id
+
+    def get_dev_id(self):
+        return self._dev_id or self.find_dev_id()
+
+    dev_id = property(get_dev_id, set_dev_id)
+
+
+
+    def set_mount_point(self, mount_point):
+        self._mount_point = mount_point
+
+    def get_mount_point(self):
+        return self._mount_point or self.find_mount_point()
+    
+    mount_point = property(get_mount_point, set_mount_point)
+
+
+
+    def is_connected(self):
+        try:
+            if os.path.exists(self.mount_point):
+                return True
+            else:
+                return False
+        except Exception, e:
+            self.rerror(e)
+        
+            
+
+class client(object):
+    def __init__(self, debug):
+        self.debug = debug
+    
+
+#######################
+# Internal functions
+#######################
+
+    def error(self, e):
+        assert False, '%s' % e
+
+    def rerror(self, e):
+        assert False, 'Local FS Error: %s' % e
+
+
+    def exists(self, path):
+        try:
+            if os.path.exists(path):
+                return True
+            else:
+                self.error('Directory does not exist')
+        except Exception, e:
+            self.error(e)
+
+
+
+#######################
+# Filesystem User functions
+#######################
+
+
+
     def dir_list(self, path):
         try:
             dir_list = []
@@ -200,19 +238,15 @@ class filesystem(object):
 
 
 
-    def cp(self, src, dst):
-        try:
-            if os.path.exists(src):
-                copy(src, dst)
-        except Exception, e:
-            self.rerror(e)
-
-
-
     def mkdir(self, path):
         try:
             if not os.path.exists(path):
-                os.mkdir(path)
+                if self.debug:
+                    print '\n-------------------'
+                    print 'made: %s' % path
+                    print '\n'
+                else:
+                    os.mkdir(path)
             else:
                 self.error('Directory already exists')
         except Exception, e:
@@ -223,7 +257,12 @@ class filesystem(object):
     def rmdir(self, path):
         try:
             if os.path.exists(path):
-                os.rmdir(path)
+                if self.debug:
+                    print '\n-------------------'
+                    print 'removed: %s' % path
+                    print '\n'
+                else:
+                    os.rmdir(path)
         except Exception, e:
             self.rerror(e)
 
@@ -232,12 +271,69 @@ class filesystem(object):
     def rm(self, path):
         try:
             if os.path.exists(path):
-                os.remove(path)
+                if self.debug:
+                    print '\n-------------------'
+                    print 'Removed: %s' % path
+                    print '\n'
+                else:
+                    os.remove(path)
             else:
                 self.error('File does not exist')
         except Exception, e:
             self.rerror(e)
 
+
+
+    def upload_file(self, lpath, rpath):
+        try:
+            if not os.path.exists(lpath):
+                self.error('Path does not exist.')
+                
+            if self.debug:
+                print '\n-------------------'
+                print 'local: %s' % lpath
+                print 'remote: %s' % rpath
+                print '\n'
+            else:
+                copyfile(lpath, rpath)
+                print 'Uploaded %s bytes' % os.path.getsize(rpath)
+        except Exception, e:
+            self.rerror(e)
+
+
+
+    def upload_dir(self, lpath, rpath):
+        try:
+            if os.path.exists(lpath):
+                
+                if self.debug:
+                    print '\n-------------------'
+                    print 'local: %s' % lpath
+                    print 'remote %s' % rpath
+                    print '\n'
+                else:
+                    copytree(lpath, rpath)
+                    print 'Uploaded %s bytes' % os.path.getsize(rpath)
+        except Exception, e:
+            self.rerror(e)
+
+
+
+    def download_file(self, lpath, rpath):
+        try:
+            if not os.path.exists(rpath):
+                self.error('Path does not exist.')
+                
+            if self.debug:
+                print '\n-------------------'
+                print 'local: %s' % lpath
+                print 'remote: %s' % rpath
+                print '\n'
+            else:
+                copyfile(rpath, lpath)
+                print 'Downloaded %s bytes' % os.path.getsize(lpath)
+        except Exception, e:
+            self.rerror(e)
 
 
     def cat(self, path):

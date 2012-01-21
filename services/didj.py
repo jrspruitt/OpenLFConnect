@@ -38,9 +38,10 @@ from hashlib import md5
 from shutil import copytree, rmtree
 
 class client(object):
-    def __init__(self, dev_id, debug):
+    def __init__(self, local_config, debug=False):
         self.debug = debug
-        self._dev_id = dev_id
+        self._local_config = local_config
+        self._dev_id = self._local_config.dev_id
         self._mount_point = ''
         self._didj_base = 'Base/'
         
@@ -126,7 +127,7 @@ class client(object):
                 else:
                     self.error('Firmware directory not found.')
 
-            rpath = os.path.join(self.mount_point, self._didj_base)
+            rpath = os.path.join(self._local_config.mount_point, self._didj_base)
             
             if not os.path.exists(rpath):
                 self.error('Could not find Base/ path on device.')
@@ -142,13 +143,7 @@ class client(object):
     def move_update(self, lpath, rpath):
         try:
             if os.path.exists(lpath) and os.path.exists(os.path.dirname(rpath)):
-                if self.debug:
-                    print '\n-------------------'
-                    print 'local: %s' % lpath
-                    print 'remote: %s' % rpath
-                    print '\n'
-                else:
-                    copytree(lpath, rpath)
+                copytree(lpath, rpath)
             else:
                 self.error('One of the paths does not exist')
         except Exception, e:
@@ -157,27 +152,8 @@ class client(object):
 
   
 #######################
-# Didj functions
+# User functions
 #######################
-
-    def is_mounted(self):
-        try:
-            if os.path.exists(self.mount_point):
-                return True
-            else:
-                return False
-        except Exception, e:
-            self.rerror(e)
-
-
-    def get_mount_point(self):
-        return self._mount_point
-
-    def set_mount_point(self, mp):
-        self._mount_point = mp
-
-    mount_point = property(get_mount_point, set_mount_point)
-
 
     def umount(self):
         try:
@@ -212,7 +188,14 @@ class client(object):
             
             if os.path.exists(rpath):
                 self.error('Found %s on device already.' % self._firmware_dir)
-            self.move_update(lpath, rpath)
+            
+            if self.debug:
+                print '\n-------------------'
+                print 'local: %s' % lpath
+                print 'remote: %s' % rpath
+                print '\n'
+            else:                
+                self.move_update(lpath, rpath)
         except Exception, e:
             self.rerror(e)
 
@@ -225,14 +208,21 @@ class client(object):
             
             if os.path.exists(rpath):
                 self.error('Found %s on device already.' % self._bootloader_dir)
-            self.move_update(lpath, rpath)
+            
+            if self.debug:
+                print '\n-------------------'
+                print 'local: %s' % lpath
+                print 'remote: %s' % rpath
+                print '\n'
+            else:
+                self.move_update(lpath, rpath)
         except Exception, e:
             self.rerror(e)
 
 
     def cleanup(self):
         try:
-            rpath = os.path.join(self.mount_point, self._didj_base)
+            rpath = os.path.join(self._local_config.mount_point, self._didj_base)
             
             if not os.path.exists(rpath):
                 self.error('Could not find Base/ path on device.')
@@ -240,10 +230,20 @@ class client(object):
                 fwpath = os.path.join(rpath, self._firmware_dir)
                 blpath = os.path.join(rpath, self._bootloader_dir)
                 
-                if os.path.exists(fwpath):
-                    rmtree(fwpath)
+                if os.path.exists(fwpath):            
+                    if self.debug:
+                        print '\n-------------------'
+                        print 'firware path: %s' % fwpath
+                        print '\n'
+                    else:
+                        rmtree(fwpath)
                     
-                if os.path.exists(blpath):
-                    rmtree(blpath)               
+                if os.path.exists(blpath):          
+                    if self.debug:
+                        print '\n-------------------'
+                        print 'bootloader path: %s' % blpath
+                        print '\n'
+                    else:                
+                        rmtree(blpath)               
         except Exception, e:
             self.rerror(e)
