@@ -36,9 +36,9 @@ from shlex import split as shlex_split
 from subprocess import Popen, PIPE
 
 class client(object):
-    def __init__(self, local_config, debug=False):
+    def __init__(self, mount_config, debug=False):
         self.debug = debug
-        self._local_config = local_config
+        self._mount_config = mount_config
         
         self._cbf_packet = 16384
         self._cbf_magic = '\xf0\xde\xbc\x9a'
@@ -103,7 +103,7 @@ class client(object):
             last_total = 0
             
             for i in range(0, packets-1):
-                cmdl = '%s %s -b -s %s -n -k %s -i "%s" 2A 00 00 00 00 %s 00 00 20 00' % (self._sg_raw, self._local_config.dev_id, self._cbf_packet, last_total, path, byte1)
+                cmdl = '%s %s -b -s %s -n -k %s -i "%s" 2A 00 00 00 00 %s 00 00 20 00' % (self._sg_raw, self._mount_config.device_id, self._cbf_packet, last_total, path, byte1)
                 cmd = shlex_split(cmdl)
                 byte1 = '01'
                 p = Popen(cmd, stderr=PIPE)
@@ -115,7 +115,7 @@ class client(object):
                 total = last_total + self._cbf_packet - 1
                 last_total = total + 1
 
-            p = Popen([self._sg_verify, self._local_config.dev_id], stderr=PIPE)
+            p = Popen([self._sg_verify, self._mount_config.device_id], stderr=PIPE)
             err = p.stderr.read()
             
             if len(err) != 0:

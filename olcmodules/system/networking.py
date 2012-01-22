@@ -99,13 +99,13 @@ class connection(object):
             self.error(e)
 
 
-    def get_net_interface(self):
+    def get_net_interface(self, search_ip):
         ifs = ni.interfaces()
                     
         for intf in ifs:
             try:
                 ip = ni.ifaddresses(intf)[2][0]['addr']
-                if ip.startswith(self._subnet):
+                if ip.startswith(search_ip):
                     return ip
             except:
                 pass
@@ -119,7 +119,7 @@ class connection(object):
             timeout = self._host_ip_timeout
             while timeout:
                 
-                ip = self.get_net_interface()
+                ip = self.get_net_interface(self._subnet)
                 if ip:
                     self._host_ip = ip
                     return ip
@@ -190,7 +190,7 @@ class connection(object):
 
     def is_connected_i(self):
         try:
-            return self.get_net_interface()
+            return self.get_net_interface(self._host_ip)
         except Exception, e:
             self.error(e)
 

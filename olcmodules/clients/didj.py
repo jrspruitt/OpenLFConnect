@@ -36,6 +36,7 @@ from shlex import split as shlex_split
 from subprocess import Popen, PIPE
 from hashlib import md5
 from shutil import copytree, rmtree
+from time import sleep
 
 class client(object):
     def __init__(self, mount_config, debug=False):
@@ -94,19 +95,30 @@ class client(object):
 
     def call_sg_raw(self, cmd, arg='None'):
         try:
+            buf_len = ''
+            
             if len(self._settings[arg]) == 0:
                 self.error('Bad settings value')                    
             elif len(self._cdb_cmds[cmd]) == 0:
                 self.error('Bad command')
-
-            cmdl = '%s %s %s %s 00 00 00 00 00 00 00 00' % (self._sg_raw, self._mount_config.device_id, self._cdb_cmds[cmd], self._settings[arg])
                 
+            if arg != 'None':
+                buf_len = '-r32 -b'
+                
+            cmdl = '%s %s %s %s %s 00 00 00 00 00 00 00 00' % (self._sg_raw, buf_len, self._mount_config.device_id, self._cdb_cmds[cmd], self._settings[arg])
             cmd = shlex_split(cmdl)
-            p = Popen(cmd, stderr=PIPE)
+            p = Popen(cmd, stdout=PIPE, stderr=PIPE)
             err = p.stderr.read()
-                
+
             if err.find('Good') == -1:
-                self.error('SCSI error.')       
+                if arg != 'None':
+                    return False
+                else:
+                    self.error('SCSI error.')
+                
+            if arg != 'None':
+                sleep(1)
+                return p.stdout.read()      
         except Exception, e:
             self.error(e)
 
@@ -123,7 +135,7 @@ class client(object):
                 else:
                     self.error('Firmware directory not found.')
 
-            rpath = os.path.join(self._mount_config.mount_point, self._didj_base)
+            rpath = os.path.join(self._mount_config.host_id, self._didj_base)
             
             if not os.path.exists(rpath):
                 self.error('Could not find Base/ path on device.')
@@ -139,16 +151,74 @@ class client(object):
     def move_update(self, lpath, rpath):
         try:
             if os.path.exists(lpath) and os.path.exists(os.path.dirname(rpath)):
-                copytree(lpath, rpath)
+                if self.debug:
+                    print '\n-------------------'
+                    print 'local: %s' % lpath
+                    print 'remote: %s' % rpath
+                    print '\n'
+                else:                
+                    copytree(lpath, rpath)
             else:
                 self.error('One of the paths does not exist')
         except Exception, e:
             self.error(e)
 
 
-  
+
+    def get_battery_value(self):
+        try:
+            ret = self.call_sg_raw('get_setting', 'battery')
+            if ret:
+                return ord(ret)
+            else:
+                return 0
+        except Exception, e:
+            self.error(e)
+            
 #######################
-# User functions
+# Client User Didj Information Functions
+#######################
+
+    def get_battery_level(self):
+        try:
+            ret = str(self.get_battery_value())
+            return self._battery_level[ret]
+        except Exception, e:
+            self.rerror(e)
+    battery_level = property(get_battery_level)
+
+
+
+    def get_serial_number(self):
+        try:
+            ret = self.call_sg_raw('get_setting', 'serial')
+            if ret:
+                return ret
+            else:
+                return 'Unknown.'
+        except Exception, e:
+            self.rerror(e)
+    serial_number = property(get_serial_number)
+
+
+
+    def get_needs_repair(self):
+        try:
+            ret = self.call_sg_raw('get_setting', 'needs_repair')
+            
+            if ret:
+                if ord(ret):                
+                    return True
+                else:
+                    return False
+            else:
+                return 'Unknown.'
+        except Exception, e:
+            self.rerror(e)
+    needs_repair = property(get_needs_repair)
+ 
+#######################
+# Client User Command Functions
 #######################
 
     def umount(self):
@@ -185,13 +255,7 @@ class client(object):
             if os.path.exists(rpath):
                 self.error('Found %s on device already.' % self._firmware_dir)
             
-            if self.debug:
-                print '\n-------------------'
-                print 'local: %s' % lpath
-                print 'remote: %s' % rpath
-                print '\n'
-            else:                
-                self.move_update(lpath, rpath)
+            self.move_update(lpath, rpath)
         except Exception, e:
             self.rerror(e)
 
@@ -205,20 +269,14 @@ class client(object):
             if os.path.exists(rpath):
                 self.error('Found %s on device already.' % self._bootloader_dir)
             
-            if self.debug:
-                print '\n-------------------'
-                print 'local: %s' % lpath
-                print 'remote: %s' % rpath
-                print '\n'
-            else:
-                self.move_update(lpath, rpath)
+            self.move_update(lpath, rpath)
         except Exception, e:
             self.rerror(e)
 
 
     def cleanup(self):
         try:
-            rpath = os.path.join(self._mount_config.mount_point, self._didj_base)
+            rpath = os.path.join(self._mount_config.host_id, self._didj_base)
             
             if not os.path.exists(rpath):
                 self.error('Could not find Base/ path on device.')

@@ -46,14 +46,18 @@ class client(object):
         
         self._lx_fw_files = ['1048576,8,FIRST.32.rle', '2097152,64,kernel.cbf', '10485760,688,erootfs.ubi']
         self._lpad_fw_files = ['sd/ext4/3/rfs', 'sd/raw/1/FIRST_Lpad.cbf', 'sd/raw/2/kernel.cbf', 'sd/partition/mbr2G.image']
-          
-        self._lx_remote_fw_dir = os.path.join('/LF/Bulk/Downloads/', self._lx_fw_dir)
-        self._lpad_remote_fw_dir = os.path.join('/LF/fuse/', self._lpad_fw_dir)
+
+        self._lx_remote_fw_root = '/LF/Bulk/Downloads/'
+        self._lx_remote_fw_dir = os.path.join(self._lx_remote_fw_root, self._lx_fw_dir)
+        self._lpad_remote_fw_root = '/LF/fuse/'
+        self._lpad_remote_fw_dir = os.path.join(self._lpad_remote_fw_root, self._lpad_fw_dir)
         
         self._dftp_version = 0
         self._surgeon_dftp_version = '1.12'
         self._firmware_version = 0
         self._board_id = 0
+        
+        self._recieve_timeout = .1
 
 
 
@@ -92,7 +96,10 @@ class client(object):
                 
             self.send('%s\x00' % cmd)
             ret = self.receive()
-            retarr = ret.split('\n')
+            if ret:
+                retarr = ret.split('\n')
+            else:
+                self.error('Receiving error.')
             ok = False
             
             for item in retarr:
@@ -149,30 +156,22 @@ class client(object):
         except Exception, e:
             self.error(e)
 
-#######################
-# Client User Functions
-#######################
 
-    def create_client(self):
+
+    def get_battery_value(self):
         try:
-            self._sock0 = self.create_socket(self._net_config.device_id, 5000)
-            self._sock0.sendall('ETHR %s 1383\x00' % self._net_config.host_id)
-            time.sleep(2)
-            self._sock1 = self.create_socket(self._net_config.device_id, 5001)
-            self._sock1.settimeout(5)
-            self.receive()
+            ret = self.sendrtn('GETS BATTERYLEVEL', True)
+            for value in ret:
+                if value.startswith('BATTERYLEVEL'):
+                    return value.split('=')[1]
+                
+            return False
         except Exception, e:
-            self.rerror(e)
-
-
-
-    def disconnect(self):
-        self._sock0.close()
-        self._sock0 = None
-        self._sock1.close()
-        self._sock1 = None
-
-
+            self.error(e)
+            
+#######################
+# Client User Information Functions
+#######################
 
     def get_device_name(self):
         bid = self.get_board_id()
@@ -183,8 +182,43 @@ class client(object):
         else:
             return 'Could not determine device'
 
+    device_name = property(get_device_name)
 
 
+
+    def get_serial_number(self):
+        try:
+            ret = self.sendrtn('GETS SERIAL', True)
+            for value in ret:
+                if value.startswith('SERIAL'):
+                    return value.split('=')[1].replace('"','')
+                
+            return 'Unknown.'
+        except Exception, e:
+            self.rerror(e)
+        # parse serial number and return
+        
+    serial_number = property(get_serial_number)
+
+
+
+    def get_battery_level(self):
+        try:
+            ret = self.get_battery_value()
+            if ret:
+                ################################################
+                # need to figure out values
+                return ret
+            else:
+                return 'Unknown.'
+        except Exception, e:
+            self.rerror(e)
+        # parse battery level
+    
+    battery_level = property(get_battery_level)
+
+
+    
     def get_board_id(self):
         try:
             if not self._board_id:
@@ -192,6 +226,8 @@ class client(object):
             return self._board_id
         except Exception, e:
             self.rerror(e)
+            
+    board_id = property(get_board_id)
 
 
 
@@ -206,10 +242,7 @@ class client(object):
         except Exception, e:
             self.error(e)
 
-    def set_firmware_version(self, num):
-        self._firmware_version = num
-
-    firmware_version = property(get_firmware_version, set_firmware_version)
+    firmware_version = property(get_firmware_version)
 
 
 
@@ -227,27 +260,50 @@ class client(object):
 
     dftp_version = property(get_dftp_version, set_dftp_version)
 
+#######################
+# Client User Command Functions
+#######################
+
+    def create_client(self):
+        try:
+            self._sock0 = self.create_socket(self._net_config.device_id, 5000)
+            self._sock0.sendall('ETHR %s 1383\x00' % self._net_config.host_id)
+            time.sleep(2)
+            self._sock1 = self.create_socket(self._net_config.device_id, 5001)
+            self._sock1.settimeout(self._recieve_timeout)
+            self.receive()
+        except Exception, e:
+            self.rerror(e)
+
+
+
+    def disconnect(self):
+        self._sock0.close()
+        self._sock0 = None
+        self._sock1.close()
+        self._sock1 = None
+
 
 
     def update_firmware(self, lpath):
         try:
             if self._surgeon_dftp_version != self.dftp_version:
                 self.error('Device is not in USB boot mode.')
-
-            vn = self.firmware_version.split('.')[0]
             
-            if vn == '1':
+            if self.exists_i(self._lpad_remote_fw_root):
+                print 'Fuse update.'
+                fw_dir = self._lpad_fw_dir
+                rpath = self._lpad_remote_fw_dir
+                fw_files = self._lpad_fw_files
+            
+            elif self.exists_i(self._lx_remote_fw_root):
+                print 'DFTP update'
                 fw_dir = self._lx_fw_dir
                 rpath = self._lx_remote_fw_dir
                 fw_files = self._lx_fw_files
             
-            elif vn == '2':
-                fw_dir = self._lpad_fw_dir
-                rpath = self._lpad_remote_fw_dir
-                fw_files = self._lpad_fw_files
-                
             else:
-                self.error('Could not determine device')
+                self.error('Could not determine update application to use.')
                 
             if os.path.basename(lpath) != fw_dir:
                 

@@ -322,16 +322,12 @@ Usage:
 Setting this prevents updates from actually happening, instead printing the files that would have been uploaded.
         """
         self.debug = True
-        if self._dftp_client:
-            self._dftp_client.debug = self.debug
-        if self._didj_client:
-            self._didj_client.debug = self.debug
         if self._remote_conn:
             self._remote_conn.debug = self.debug
         if self._local_client:
             self._local_client.debug = self.debug
-        if self._pager_client:
-            self._pager_client.debug = self.debug
+        if self._remote_client:
+            self._remote_client.debug = self.debug
 
  
     def do_debug_off(self, s):
@@ -342,10 +338,12 @@ Usage:
 Turns off debugging mode. Updates will be attempted.
         """
         self.debug = False
-        if self._local_fs:
-            self._local_fs.debug = self.debug
-        if self._remote_fs:
-            self._remote_fs.debug = self.debug
+        if self._remote_conn:
+            self._remote_conn.debug = self.debug
+        if self._local_client:
+            self._local_client.debug = self.debug
+        if self._remote_client:
+            self._remote_client.debug = self.debug
 
 
 
@@ -491,7 +489,17 @@ This should be set before connecting to a device, or establishing a network conn
         return self.path_complete_local(text, line, begidx, endidx)
 
 
-
+    def didj_device_info(self):
+        try:
+            print 'Device Name:\t\tDidj'
+            print 'Serial Number:\t\t%s' % self._didj_client.serial_number
+            print 'Battery Level:\t\t%s' % self._didj_client.battery_level
+            print 'Needs Repair:\t\t%s' % self._didj_client.needs_repair
+            print 'Device ID:\t\t%s' % self._remote_conn.device_id
+            print 'Mount Point:\t\t%s' % self._remote_conn.host_id
+        except Exception, e:
+            self.error(e)
+            
 #######################
 # Didj User Functions
 # clients.didj
@@ -511,7 +519,7 @@ Unlock Didj to allow it to mount on host system.
                 self.remote_connection_init(mc, fs_iface(local_client(self.debug)), self._didj_client)
                 self._didj_client.mount()
                 self.remote_path_init()
-                print 'Mounted on: %s' % self._remote_conn.host_id
+                self.didj_device_info()
             else:
                 self.error('Didj already running.')
         except Exception, e:
@@ -548,6 +556,20 @@ Linux hosts, you'll also have to eject it from the system.
             self.is_remote(self._didj_client)
             self._didj_client.eject()
             self.remote_destroy()
+        except Exception, e:
+            self.perror(e)
+
+
+    def do_didj_device_info(self, s):
+        """
+Usage:
+    didj_device_info
+
+Returns various information about device and mount.
+        """
+        try:
+            self.is_remote(self._didj_client)
+            self.didj_device_info()
         except Exception, e:
             self.perror(e)
 
@@ -652,21 +674,18 @@ Remove Didj firmware and bootloader from device.
 
 
 
-    def get_version(self):
-        try:
-            return '%s' % self._dftp_client.version_number
-        except Exception, e:
-            self.error(e)
-
-
-
     def dftp_device_info(self):
         try:
-            print 'Device:\t\t\t%s' % self._dftp_client.get_device_name()
+            device_name = self._dftp_client.device_name
+            serial = self._dftp_client.serial_number
+            print 'Device:\t\t\t%s' % device_name
             print 'Firmware Version:\t%s' % self._dftp_client.firmware_version
-            print 'Board ID:\t\t%s' % self._dftp_client.get_board_id()
+            print 'Serial Number\t\t%s' % serial
+            print 'Board ID:\t\t%s' % self._dftp_client.board_id
+            print 'Battery Level\t\t%s' % self._dftp_client.battery_level
             print 'Device IP:\t\t%s' % self._remote_conn.device_id
             print 'Host IP:\t\t%s' % self._remote_conn.host_id
+            print 'Host Name:\t\t%s-%s' % (device_name, serial)
             print 'DFTP Version: \t\t%s' % self._dftp_client.dftp_version
         except Exception, e:
             self.error(e)
@@ -729,9 +748,9 @@ This will cause the DFTP server to start announcing its IP again, except Explore
     def do_dftp_server_version(self, s):
         """
 Usage
-    dftp_server_version <number>
+    dftp_server_version [number]
 
-Sets the version number of the dftp server.
+Sets the version number of the dftp server. Or retrieves if none specified
 OpenLFConnect checks for version 1.12 for surgeon running before a firmware update.
 Set this to 1.12 if getting complaints, or surgeon has its dftp version updated.
     """
@@ -740,30 +759,10 @@ Set this to 1.12 if getting complaints, or surgeon has its dftp version updated.
             if s != '':
                 self._dftp_client.dftp_version = s
             else:
-                print 'No number selected'
+                print self._dftp_client.dftp_version
         except Exception, e:
             self.perror(e)
 
-
-
-    def do_set_firmware_version(self, s):
-        """
-Usage:
-    set_firmware_version <number>
-
-Manually configure firmware version, useful if you've mixed and matched device firmware, or changed version numbers.
-Mostly used for update firmware style.
-1.x.x.x = Explorer
-2.x.x.x = LeapPad
-        """
-        try:
-            self.is_remote(self._dftp_client)
-            if s != '':
-                self._dftp_client.version_number = s
-            else:
-                print 'No number selected'
-        except Exception, e:
-            self.perror(e)
 
 
     def do_dftp_device_info(self, s):
@@ -771,10 +770,8 @@ Mostly used for update firmware style.
 Usage:
     dftp_device_info
 
-Returns the device name, LeapPad or Explorer if determined, and the firmware revision.
-Note: the firmware revision is accurate, device is guessed from it.
-1.x.x.x = Explorer
-2.x.x.x = LeapPad
+Returns various information about the device, and connection.
+Note: Device name is guessed from board id.
         """
         try:
             self.is_remote(self._dftp_client)
@@ -878,8 +875,9 @@ File can be any name, but must conform to CBF standards.
             abspath = self.get_abspath(s)
 
             if not self._fs.is_dir(abspath):
-                self._pager_client = pager_client(mount_connection())
+                self._pager_client = pager_client(conn_iface(mount_connection()))
                 self._pager_client.upload_firmware(abspath)
+                print 'Booting surgeon.'
                 self._pager_client = None
             else:
                 self.error('Path is not a file.')
