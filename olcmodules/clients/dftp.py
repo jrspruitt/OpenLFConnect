@@ -114,16 +114,27 @@ class client(object):
 
 
 
-    def exists(self, path):
-        try:
-            ret = self.sendrtn('LIST %s' % path)
-    
-            if ret.startswith('550'):
-                self.error('Path does not exist.')
-            else:
-                return True
-        except Exception, e:
-            self.error(e)
+    def create_socket(self, device_ip, port):               
+        for info in socket.getaddrinfo(device_ip, port, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, socket.AI_PASSIVE):
+            af, socktype, proto, canonname, sa = info
+            
+            try:
+                sock = socket.socket(af, socktype, proto)
+            except socket.error, e:
+                sock = None
+                continue
+            
+            try:
+                sock.connect(sa)
+            except socket.error, e:
+                sock.close()
+                sock = None
+                continue
+            
+        if sock is None:
+            self.error('Could not create socket to: %s' % (device_ip))
+        else:
+            return sock
 
 
 
@@ -138,23 +149,21 @@ class client(object):
         except Exception, e:
             self.error(e)
 
-
-
 #######################
 # Client User Functions
 #######################
 
     def create_client(self):
         try:
-            self._net_config.config_ip()
-            self._sock0 = self._net_config.create_socket(self._net_config.device_ip, 5000)
-            self._sock0.sendall('ETHR %s 1383\x00' % self._net_config.host_ip)
+            self._sock0 = self.create_socket(self._net_config.device_id, 5000)
+            self._sock0.sendall('ETHR %s 1383\x00' % self._net_config.host_id)
             time.sleep(2)
-            self._sock1 = self._net_config.create_socket(self._net_config.device_ip, 5001)
+            self._sock1 = self.create_socket(self._net_config.device_id, 5001)
             self._sock1.settimeout(5)
             self.receive()
         except Exception, e:
             self.rerror(e)
+
 
 
     def disconnect(self):
@@ -179,7 +188,7 @@ class client(object):
     def get_board_id(self):
         try:
             if not self._board_id:
-                self._board_id = int(self.cat('/sys/devices/platform/lf1000-gpio/board_id').strip())
+                self._board_id = int(self.cat_i('/sys/devices/platform/lf1000-gpio/board_id').strip())
             return self._board_id
         except Exception, e:
             self.rerror(e)
@@ -187,9 +196,15 @@ class client(object):
 
 
     def get_firmware_version(self):
-        if not self._firmware_version:
-            self._firmware_version = self.cat('/etc/version').strip()
-        return self._firmware_version
+        try:
+            if not self._firmware_version:
+                path = '/etc/version'
+                if self.rfile_check(path):
+                    self._firmware_version = self.cat_i(path).strip()
+                    
+            return self._firmware_version
+        except Exception, e:
+            self.error(e)
 
     def set_firmware_version(self, num):
         self._firmware_version = num
@@ -230,6 +245,7 @@ class client(object):
                 fw_dir = self._lpad_fw_dir
                 rpath = self._lpad_remote_fw_dir
                 fw_files = self._lpad_fw_files
+                
             else:
                 self.error('Could not determine device')
                 
@@ -243,15 +259,8 @@ class client(object):
             elif not os.path.exists(lpath) or not os.path.isdir(lpath):
                 self.error('Firmware directory not found.')
 
-            try:
-                self.exists(rpath)
-            except:
-                if self.debug:                        
-                    print '\n-------------------'
-                    print 'make: %s' % rpath
-                    print '\n'
-                else:
-                    self.sendrtn('MKD %s' % rpath)
+            if not self.exists_i(rpath):
+                self.mkdir_i(rpath)
  
             print 'Updating %s Firmware' % self.get_device_name()
                
@@ -262,13 +271,7 @@ class client(object):
                 if os.path.exists(local_path):
 
                     try:
-                        if self.debug:
-                            print '\n-------------------'
-                            print 'local: %s' % lpath
-                            print 'remote: %s'% rpath
-                            print '\n'
-                        else:
-                            self.upload_file(local_path, remote_path)
+                        self.upload_file_i(local_path, remote_path)
                             
                     except Exception, e:
                         self.error(e)
@@ -288,93 +291,115 @@ class client(object):
             self.sendrtn('DCON')
         except Exception, e:
             self.rerror(e) 
-
-
-
+ 
 #######################
-# Filesystem User Functions
+# Filesystem Interface Functions
 #######################
 
-    def dir_list(self, path):
+    def exists_i(self, path):
         try:
-            if self.exists(path):
-                dir_list = []
-                path_arr = self.sendrtn('LIST %s' % path, True)
-                
-                for path in path_arr:
-                    dir_list.append(path[15:].replace('\r', '').replace('\n', ''))
-                    
+            ret = self.sendrtn('LIST %s' % path)
+    
+            if ret.startswith('550'):
+                return False
+            else:
+                return True
+        except Exception, e:
+            self.error(e)
+
+
+
+    def is_dir_i(self, path):
+        try:
+            path = path.replace('\x00', '')
+            ret_arr = self.sendrtn('LIST %s' % path, True)
+            if len(ret_arr) > 1 and ret_arr[0].startswith('D'):
+                return True
+            else:
+                return False
+        except Exception, e:
+            self.error(e)
+ 
+
+
+    def dir_list_i(self, path):
+        try:
+            dir_list = []
+            path_arr = self.sendrtn('LIST %s' % path, True)
+            
+            for path in path_arr:
+                path = path[15:].replace('\r', '').replace('\n', '')
+                dir_list.append(path)
+            
+            if len(dir_list) > 0:
                 return dir_list
             else:
-                self.error('Path does not exist.')
+                return False
         except Exception, e:
-            self.rerror(e)
+            self.error(e)
 
 
 
-    def is_dir(self, path):
-        try:
-            if self.exists(path):
-                path = path.replace('\x00', '')
-                ret_arr = self.sendrtn('LIST %s' % path, True)
-                print ret_arr
-                if len(ret_arr) > 1 and ret_arr[0].startswith('D'):
-                    return True
-                else:
-                    return False
-        except Exception, e:
-            self.rerror(e)    
-
-
-
-    def mkdir(self, rpath):
+    def rm_i(self, path):
         try:
             if self.debug:
                 print '\n-------------------'
-                print 'made: %s' % rpath
+                print 'Remove: %s' % path
                 print '\n'
             else:
-                self.sendrtn('MKD %s' % rpath)
+                self.sendrtn('RM %s' % path)
         except Exception, e:
-            self.rerror(e)
+            self.error(e)
 
 
-    def rmdir(self, rpath):
+
+    def rmdir_i(self, path):
         try:
-            if self.exists(rpath):
-                if self.debug:
-                    print '\n-------------------'
-                    print 'removed: %s' % rpath
-                    print '\n'
-                else:
-                    self.sendrtn('RMD %s' % rpath, False)
-        except Exception, e:
-            self.rerror(e)
-
-
-    def rm(self, rpath):
-        try:
-            if self.exists(rpath):
-                if self.debug:
-                    print '\n-------------------'
-                    print 'removed: %s' % rpath
-                    print '\n'
-                else:
-                    self.sendrtn('RM %s' % rpath, False)
-        except Exception, e:
-            self.rerror(e)
-
-
-
-    def download_file(self, lpath, rpath):
-        try:
-            if not self.exists(rpath):
-                self.error('Path does not exist.')
-                
             if self.debug:
                 print '\n-------------------'
-                print 'local: %s' % lpath
-                print 'remote: %s' % rpath
+                print 'Remove: %s' % path
+                print '\n'
+            else:
+                self.sendrtn('RMD %s' % path)
+        except Exception, e:
+            self.error(e)
+
+
+
+    def mkdir_i(self, path):
+        try:
+            if self.debug:
+                print '\n-------------------'
+                print 'Made: %s' % path
+                print '\n'
+            else:
+                self.sendrtn('MKD %s' % path)
+        except Exception, e:
+            self.error(e)
+
+
+
+    def lmkdir_i(self, path):
+        try:
+            if self.debug:
+                print '\n-------------------'
+                print 'Made: %s' % path
+                print '\n'
+            else:
+                os.mkdir(path)
+        except Exception, e:
+            self.error(e)
+
+
+
+    def download_file_i(self, lpath, rpath):
+        try:
+            error = False
+            if self.debug:
+                print '\n-------------------'
+                print 'Download'
+                print 'Local: %s' % lpath
+                print 'Remote: %s' % rpath
                 print '\n'                    
             else:
                 if self.sendrtn('RETR %s' % rpath):
@@ -389,65 +414,57 @@ class client(object):
                             continue                        
                         elif buf.find('101 EOF') != -1:
                             break
+                        elif buf.lower().find('500 unknown command') != -1:
+                            error = True
+                            break
                         else:
                             self.send('100 ACK: %s\x00' % len(buf))
                             f.write(buf)
-                    print 'Downloaded %s : %s Bytes' % (os.path.basename(rpath), len(buf))
-                    f.close()
-        except Exception, e:
-            self.rerror(e)
-
-
-
-    def download_dir(self, lpath, rpath):
-        try:
-            if not os.path.exists(lpath):
-                if self.debug:                        
-                    print '\n-------------------'
-                    print 'make: %s' % rpath
-                    print '\n'
-                else:
-                    os.mkdir(lpath)
-              
-            for item in self.dir_list(rpath):
-                if item != './' and item != '../':
-                    item_lpath = os.path.join(lpath, item)
-                    item_rpath = os.path.join(rpath, item).replace('\x00','')
-                    
-                    if self.is_dir(item_rpath):
-                        if self.debug:                        
-                            print '\n-------------------'
-                            print 'make: %s' % item_lpath
-                            print '\n'
-                        else:
-                            os.mkdir(item_lpath)
-                        self.download_dir(item_lpath, item_rpath)
+                    if not error:
+                        print 'Downloaded %s: %s Bytes' % (os.path.basename(rpath), len(buf))
                     else:
-                        if self.debug:
-                            print '\n-------------------'
-                            print 'local: %s' % item_lpath
-                            print 'remote: %s' % item_rpath
-                            print '\n'
-                        else: 
-                            try:
-                                if self.exists(item_rpath):
-                                    self.download_file(item_lpath, item_rpath)
-                            except:
-                                print 'not downloaded %s' % item_rpath
+                        print 'Error downloading %s' % os.path.basename(rpath)
+                    f.close()
         except Exception, e:
             self.error(e)
 
 
 
-    def upload_file(self, lpath, rpath):
+    def download_dir_i(self, lpath, rpath):
         try:
             if not os.path.exists(lpath):
-                self.error('Path does not exist.')
-                
+                self.lmkdir_i(lpath)
+                    
+            for item in self.dir_list_i(rpath):
+                if item != './' and item != '../':
+                    item_lpath = os.path.join(lpath, item)
+                    item_rpath = os.path.join(rpath, item).replace('\x00','')
+                    
+                    if self.is_dir_i(item_rpath) and not os.path.exists(item_lpath):
+                        self.lmkdir_i(item_lpath)
+                            
+                        if self.exists_i(item_rpath):
+                            self.download_dir_i(item_lpath, item_rpath)
+                        else:
+                            print 'Skipped dir: %s' % item_rpath
+
+                    else:
+                        if self.exists_i(item_rpath):
+                            self.download_file_i(item_lpath, item_rpath)
+                        else:
+                            print 'Skipped file: %s' % item_rpath
+                            
+        except Exception, e:
+            self.error(e)
+
+
+
+    def upload_file_i(self, lpath, rpath):
+        try:
             if self.debug:
                 print '\n-------------------'
-                print 'local: %s' % lpath
-                print 'remote: %s' % rpath
+                print 'Local: %s' % lpath
+                print 'Remote: %s' % rpath
                 print '\n'                    
             else:
                 if self.sendrtn('STOR %s' % rpath):
@@ -463,76 +480,116 @@ class client(object):
                         if ret and ret.find('500 Unknown command') != -1:
                             self.error('Problem occured while uploading.')
             
-                    print 'Uploaded %s : %s Bytes.' % (os.path.basename(lpath), bytes_sent)
-                
+                    print 'Uploaded %s : %s Bytes.' % (os.path.basename(lpath), bytes_sent)                
                     self.sendrtn('101 EOF')
-                    return True
                 else:
                     self.error('Failed to upload file.')
+        except Exception, e:
+            self.error(e)
+
+
+
+    def upload_dir_i(self, lpath, rpath):
+        try:
+            if not self.exists_i(rpath):
+                self.mkdir_i(rpath)
+          
+            for item in os.listdir(lpath):
+                item_lpath = os.path.join(lpath, item)
+                item_rpath = os.path.join(rpath, item)
+                
+                if os.path.isdir(item_lpath):
+                    self.mkdir_i(item_rpath)
+                    
+                    if not self.debug:                        
+                        self.upload_dir_i(item_lpath, item_rpath)
+                else:
+                    self.upload_file_i(item_lpath, item_rpath)
+                    
+        except Exception, e:
+            self.error(e)
+
+
+
+    def cat_i(self, path):
+        try:
+            if self.sendrtn('RETR %s' % path):
+                buf = ''
+                retbuf = ''
+                self.send('100 ACK: %s\x00' % 0)
+                
+                while True:                    
+                    buf = self.receive(8192)
+        
+                    if buf is False:
+                        continue                        
+                    elif buf.find('101 EOF') != -1:
+                        break
+                    else:
+                        self.send('100 ACK: %s\x00' % len(buf))
+                        retbuf += buf
+                        
+                return retbuf
+        except Exception, e:
+            self.error(e) 
+
+
+
+    def rfile_check(self, path):
+        try:
+            if self.exists_i(path):
+                if not self.is_dir_i(path):
+                    return True
+                else:
+                    self.error('Path is not a file.')
+            else:
+                self.error('Path does not exist.')
+                
         except Exception, e:
             self.rerror(e)
 
 
 
-    def upload_dir(self, lpath, rpath):
+    def rdir_check(self, path):
         try:
-            if os.path.isdir(lpath):
-                try:
-                    self.exists(rpath)
-                except:
-                    if self.debug:                        
-                        print '\n-------------------'
-                        print 'make: %s' % rpath
-                        print '\n'
-                    else:
-                        self.mkdir(rpath)
-                  
-                for item in os.listdir(lpath):
-                    item_lpath = os.path.join(lpath, item)
-                    item_rpath = os.path.join(rpath, item)
-                    
-                    if os.path.isdir(item_lpath):
-                        if self.debug:                        
-                            print '\n-------------------'
-                            print 'make: %s' % item_rpath
-                            print '\n'
-                        else:
-                            self.mkdir(item_rpath)
-                            self.upload_dir(item_lpath, item_rpath)
-                    else:
-                        if self.debug:
-                            print '\n-------------------'
-                            print 'local: %s' % item_lpath
-                            print 'remote: %s' % item_rpath
-                            print '\n'
-                        else: 
-                            self.upload_file(item_lpath, item_rpath)                    
-        except Exception, e:
-            self.error(e)
-            
-            
-            
-    def cat(self, rpath):
-        try:
-            if self.exists(rpath):
+            if self.exists_i(path):
+                if self.is_dir_i(path):
+                    return True
+                else:
+                    self.error('Path is not a directory.')
+            else:
+                self.error('Path does not exist.')
                 
-                if self.sendrtn('RETR %s' % rpath):
-                    buf = ''
-                    retbuf = ''
-                    self.send('100 ACK: %s\x00' % 0)
-                    
-                    while True:                    
-                        buf = self.receive(8192)
-    
-                        if buf is False:
-                            continue                        
-                        elif buf.find('101 EOF') != -1:
-                            break
-                        else:
-                            self.send('100 ACK: %s\x00' % len(buf))
-                            retbuf += buf
-                            
-                    return retbuf
+        except Exception, e:
+            self.rerror(e)
+
+
+
+    def lfile_check(self, path):
+        try:
+            if os.path.exists(path):
+                if not os.path.isdir(path):
+                    return True
+                else:
+                    self.error('Path is not a file.')
+            else:
+                    self.error('Path does not exist.')
+                
+        except Exception, e:
+            self.rerror(e)
+
+
+
+    def ldir_check(self, path):
+        try:
+            if os.path.exists(path):
+                if os.path.isdir(path):
+                    return True
+                else:
+                    self.error('Path is not a directory.')
+            else:
+                    self.error('Path does not exist.')
+                
         except Exception, e:
             self.rerror(e)
 

@@ -40,9 +40,12 @@ from time import sleep
 from shlex import split as shlex_split
 from subprocess import Popen, PIPE
 
-class config(object):
+class connection(object):
     def __init__(self, host_ip='', device_ip='', debug=False):
         self.debug = debug
+        self._conn_type = 'networking'
+        self._root_dir = '/'
+        
         self._host_ip = host_ip
         self._device_ip = device_ip
         self._subnet = '169.254.'
@@ -68,52 +71,11 @@ class config(object):
     def rerror(self, e):
         assert False, 'Networking Error: %s' % e
 
-    
-    
-    def create_socket(self, device_ip, port, mcast=False):
-        try:
-                
-            if mcast:              
-                af = socket.AF_INET
-                socktype = socket.SOCK_DGRAM
-                proto = socket.IPPROTO_UDP
-            else:
-                
-                for info in socket.getaddrinfo(device_ip, port, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, socket.AI_PASSIVE):
-                    af, socktype, proto, canonname, sa = info
-
-            sock = socket.socket(af, socktype, proto)
-                    
-            if not mcast:
-                sock.connect(sa)
-
-            return sock
-        except socket.error, e:
-            self.error('Could not create socket to: %s' % (device_ip))
-
-
-
-    def ping(self):
-        try:
-            ping = '%s %s' % (self._ping, self.device_ip)
-            cmd = shlex_split(ping)
-            p = Popen(cmd, stdout=PIPE, stderr=PIPE)
-            ret = p.stdout.read()
-            
-            if ret.lower().find('destination host unreachable') != -1:
-                return False
-            elif ret.lower().find('request timed out') != -1:
-                return False          
-            else:
-                return True
-        except Exception, e:
-            self.error(e)
-
 
 
     def multicast_listen_socket(self, m_ip, m_port):
-        try:
-            sock = self.create_socket(m_ip, m_port, True)
+        try:            
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.bind(('', m_port))
             mreq = struct.pack("4sl", socket.inet_aton(m_ip), socket.INADDR_ANY)
@@ -159,10 +121,11 @@ class config(object):
                 
                 ip = self.get_net_interface()
                 if ip:
-                    self.host_ip = ip
+                    self._host_ip = ip
                     return ip
                 sleep(1)
                 timeout -= 1
+                
             self.error('Timed out waiting for host IP.')
         except Exception, e:
             self.error(e)
@@ -183,8 +146,8 @@ class config(object):
                 sock.close()
                 
                 if m:
-                    self.device_ip = m.group('ip')
-                    return self.device_ip
+                    self._device_ip = m.group('ip')
+                    return self._device_ip
                 else:
                     self.error('Couldn\'t get IP address.')
     
@@ -192,51 +155,59 @@ class config(object):
                 self.error('Timed out waiting for device IP.')
         except Exception, e:
             self.error(e)
-
-
-
+        
 #######################
-# User Config Options
+# Connection Interface Functions
 #######################
 
-    def get_device_ip(self):
+    def get_conn_type_i(self):
+        return self._conn_type
+
+
+    def get_root_dir_i(self):
+        return self._root_dir
+
+
+
+    def get_device_id_i(self):
         return self._device_ip or self.find_device_ip()
-
-    def set_device_ip(self, ip):
+    
+    def set_device_id_i(self, ip):
         self._device_ip = ip
         self.set_windows_route()
 
-    device_ip = property(get_device_ip, set_device_ip)
 
 
 
-    def get_host_ip(self):
+    def get_host_id_i(self):
         return self._host_ip or self.find_host_ip()
 
-    def set_host_ip(self, ip):
-            self._host_ip = ip
-            self.set_windows_route()
-            
-    host_ip = property(get_host_ip, set_host_ip)
+    def set_host_id_i(self, ip):
+        self._host_ip = ip
+        self.set_windows_route()
 
 
 
-    def config_ip(self):
-        try:
-            self.host_ip
-            self.device_ip
-                
-        except Exception, e:
-            self.rerror(e)
-
-
-    def is_connected(self):
-        # change to checking if net interface is up, instead of ping
+    def is_connected_i(self):
         try:
             return self.get_net_interface()
-            #return self.ping()
         except Exception, e:
-            self.rerror(e)
+            self.error(e)
+
+
+
+    def ip_check(self, ip):
+        pass
+        #check conforms to ip
+        #throw exceptions
+
+
+
+    def device_check(self, ip):
+        self.ip_check(ip)
+        
+    def host_check(self, ip):
+        self.ip_check(ip)
 
 if __name__ == '__main__':
     print 'No example yet'

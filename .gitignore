@@ -9,8 +9,8 @@ files/Lpad/firmware/*
 files/Lpad/surgeon.lpad.cbf
 files/Lpad/surgeon.cbf
 
-files/Didj/bootloader-LF_LF1000/*
-files/DIdj/firmware-LF_LF1000/*
+files/Didj/bootloader-LF_LF1000
+files/DIdj/firmware-LF_LF1000
 files/Downloads/*
 !files/Downloads/doom
 

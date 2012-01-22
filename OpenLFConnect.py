@@ -34,12 +34,15 @@ import os
 import cmd
 import sys
 
-from services.networking import config as netconfig
-from services.pager import pager
-from services.dftp import client as dftpclient
-from services.local import client as localclient
-from services.didj import client as didjclient
-from services.local import config as localconfig
+from olcmodules.system.networking import connection as net_connection
+from olcmodules.system.mount import connection as mount_connection
+from olcmodules.system.interface import config as conn_iface
+
+from olcmodules.clients.pager import client as pager_client
+from olcmodules.clients.dftp import client as dftp_client
+from olcmodules.clients.local import client as local_client
+from olcmodules.clients.didj import client as didj_client
+from olcmodules.clients.interface import filesystem as fs_iface
 
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 # TODO
@@ -58,36 +61,29 @@ class OpenLFConnect(cmd.Cmd, object):
         self._prompt_suffix = '> '
         self.prompt = 'local%s' % self._prompt_suffix
 
-        self._dftp = None
-        self._didj = None
-        self._pager = None
-        self._local_fs = localclient(self.debug)
-
-        self._remote_path_client = None
-        self._remote_path_config = None        
-        self._local_path_client = self._local_fs
-        self._path_module = self._local_path_client
+        self._dftp_client = None
+        self._didj_client = None
+        self._pager_client = None
+        self._local_client = local_client(self.debug)
+        self._remote_client = None
+        self._remote_conn = None
         
-        self._remote_type = None
         self._remote_set = False
+        
+        self._local_fs = fs_iface(self._local_client)
+        self._remote_fs = None        
+        self._fs = self._local_fs
         
         self._local_path_init = os.path.abspath(os.path.join(os.path.dirname(__file__), 'files')).replace('\\', '/')
         self._local_path = self._local_path_init
         self._remote_path_init = '/'
-        self._remote_path = self._remote_path_init
-        
-        self._path = ''
-        
-        self._remote_path_dir_list = []
-        self._local_path_dir_list = []
-        self._path_dir_list = []
+        self._remote_path = self._remote_path_init        
+        self._path = ''        
 
-        self._host_ip = ''
-        self._device_ip = ''
-        self._dev_id = ''
-        self._mount_point = ''
+        self._host_id = ''
+        self._device_id = ''
         
-        self.set_local_path(self._local_path)
+        self.set_local(self._local_path)
 
 
 
@@ -102,59 +98,27 @@ class OpenLFConnect(cmd.Cmd, object):
     def perror(self, e):
         print '%s' % e
 
+#######################
+# Remote Local Functions
+#######################
 
-
-# Remote/Local Client Functions
-
-    def get_dir_list(self, path):
-        try:
-            dlist = self._path_module.dir_list(path)
-            dir_list = []
-            
-            for item in dlist:
-                if not item.startswith(('../', './')):
-                    dir_list.append(item)
-                    
-            dir_list.sort(key=str.lower)
-            return dir_list
-        except Exception, e:
-            self.error(e)
-
-
-
-    def set_remote_path(self, path):
-        lists = self.get_dir_list(path)
-        self._remote_path_dir_list = lists
-        self._remote_path = path
-        self.set_remote()
-        
-
-    def set_local_path(self, path):
-        lists = self.get_dir_list(path)
-        self._local_path_dir_list = lists
-        self._local_path = path
-        self.set_local()
-
-
-
-    def set_remote(self):
-        self._path_dir_list = self._remote_path_dir_list
-        self._path_module = self._remote_path_client
+    def set_remote(self, path=''):
+        if path:
+            self._remote_path = path
+        self._fs = self._remote_fs
         self._path = self._remote_path
         self._remote_set = True
         self.prompt = 'remote%s' % self._prompt_suffix
 
 
 
-    def set_local(self):
-        if self._local_path_client:
-            self._path_dir_list = self._local_path_dir_list
-            self._path_module = self._local_path_client
-            self._path = self._local_path
-            self._remote_set = False
-            self.prompt = 'local%s' % self._prompt_suffix
-        else:
-            self.error('No local client running.')
+    def set_local(self, path=''):
+        if path:
+            self._local_path = path
+        self._fs = self._local_fs
+        self._path = self._local_path
+        self._remote_set = False
+        self.prompt = 'local%s' % self._prompt_suffix
 
 
 
@@ -165,10 +129,10 @@ class OpenLFConnect(cmd.Cmd, object):
         if rmod is None:
             rmod = True
 
-        if not self._remote_path_config:
+        if not self._remote_conn:
             error = 'No connection established.'            
         else:
-            connected = self._remote_path_config.is_connected()
+            connected = self._remote_conn.is_connected()
 
             if not connected:
                 self.remote_destroy()
@@ -177,10 +141,10 @@ class OpenLFConnect(cmd.Cmd, object):
             elif connected and rmod is False:
                 return True
                 
-            elif connected and rmod is not self._remote_path_client:
+            elif connected and rmod is not self._remote_client:
                 self.error('Device connected, but wrong client is running.')
                 
-            elif connected and rmod is self._remote_path_client:
+            elif connected and rmod is self._remote_client:
                 return True
                 
             else:
@@ -194,18 +158,16 @@ class OpenLFConnect(cmd.Cmd, object):
         
 
 
-    def remote_config_init(self, config, client, rtype):
-        self._remote_path_config = config
-        self._remote_type = rtype
-        self._remote_path_client = client
+    def remote_connection_init(self, conn_iface, fs_iface, client):
+        self._remote_client = client
+        self._remote_conn = conn_iface
+        self._remote_fs = fs_iface
 
 
 
     def remote_path_init(self):
-        if self._remote_type == 'network':
-            self.set_remote_path(self._remote_path)
-        elif self._remote_type == 'mount':
-            self.set_remote_path(self._remote_path_config.mount_point)
+        if self._remote_conn:
+            self.set_remote(self._remote_conn.root_dir)
         else:
             self.set_local()
             self.error('No remote module present.')
@@ -213,19 +175,42 @@ class OpenLFConnect(cmd.Cmd, object):
  
  
     def remote_destroy(self):
-        self._dftp = None
-        self._didj = None
-        self._didj_client = None
-        self._remote_path_config = None
-        self._remote_type = None
-        self._remote_path_client = None
+        self._remote_client = None
+        self._remote_conn = None
+        self._remote_fs = None
         self._remote_set = False
         self._remote_path = self._remote_path_init
-        self.set_local()
-        self.set_local_path(self._local_path_init)
+        self.set_local(self._local_path_init)
+
+#######################
+# Path Formatting Functions
+#######################
+
+    def set_path(self, path):
+        if self._remote_set:            
+            if self._fs.is_dir(path):
+                self.set_remote('%s' % path)
+            else:
+                self.error('Is not a directory')
+        else:
+            
+            if self._local_fs.is_dir(path):
+                self.set_local('%s' % path)
+            else:
+                self.error('Is not a directory')
 
 
-# Path Functions
+
+    def get_path_prefix(self):
+        if sys.platform == 'win32' and not self._remote_set:
+            return '%s/' % os.path.splitdrive(self._local_path)[0]
+        elif sys.platform == 'linux2':
+            return '/'
+        else:
+            return '/'
+
+
+
     def get_abspath(self, stub):
         if stub.startswith(self.get_path_prefix()):
             path = stub
@@ -238,15 +223,31 @@ class OpenLFConnect(cmd.Cmd, object):
 
         return ret
 
+#######################
+# Path Completion Functions
+#######################
 
-
-    def get_path_prefix(self):
-        if sys.platform == 'win32' and not self._remote_set:
-            return '%s/' % os.path.splitdrive(self._local_path)[0]
-        elif sys.platform == 'linux2':
-            return '/'
+    def is_empty(self, s):
+        if s == '':
+            self.error('No path was set.')
         else:
-            return '/'
+            return True
+
+
+
+    def get_dir_list(self, path):
+        try:
+            dlist = self._fs.dir_list(path)
+            dir_list = []
+            
+            for item in dlist:
+                if not item.startswith(('../', './')):
+                    dir_list.append(item)
+                    
+            dir_list.sort(key=str.lower)
+            return dir_list
+        except Exception, e:
+            self.error(e)
 
 
 
@@ -263,22 +264,6 @@ class OpenLFConnect(cmd.Cmd, object):
             return [s for s in self.get_dir_list(abspath) if s.startswith(stub)]
         except:
             return ''
-
-
-
-    def set_path(self, path):
-        if self._remote_set:
-            
-            if self._path_module.is_dir(path):
-                self.set_remote_path('%s' % path)
-            else:
-                self.error('Is not a directory')
-        else:
-            
-            if self._local_path_client.is_dir(path):
-                self.set_local_path('%s' % path)
-            else:
-                self.error('Is not a directory')
 
 
 
@@ -337,16 +322,16 @@ Usage:
 Setting this prevents updates from actually happening, instead printing the files that would have been uploaded.
         """
         self.debug = True
-        if self._dftp:
-            self._dftp.debug = self.debug
-        if self._didj:
-            self._didj.debug = self.debug
-        if self._remote_path_config:
-            self._remote_path_config.debug = self.debug
-        if self._local_fs:
-            self._local_fs.debug = self.debug
-        if self._pager:
-            self._pager.debug = self.debug
+        if self._dftp_client:
+            self._dftp_client.debug = self.debug
+        if self._didj_client:
+            self._didj_client.debug = self.debug
+        if self._remote_conn:
+            self._remote_conn.debug = self.debug
+        if self._local_client:
+            self._local_client.debug = self.debug
+        if self._pager_client:
+            self._pager_client.debug = self.debug
 
  
     def do_debug_off(self, s):
@@ -357,26 +342,58 @@ Usage:
 Turns off debugging mode. Updates will be attempted.
         """
         self.debug = False
-        if self._local_path_client:
-            self._local_path_client.debug = self.debug
-        if self._remote_path_client:
-            self._remote_path_client.debug = self.debug
+        if self._local_fs:
+            self._local_fs.debug = self.debug
+        if self._remote_fs:
+            self._remote_fs.debug = self.debug
 
 
 
-    def do_is_connected(self):
-        if self._remote_path_config and self._remote_path_config.is_connected():
+    def do_is_connected(self, s):
+        print self._didj_client
+        if self._remote_conn is not None and self._remote_conn.is_connected():
             print 'Device is connected' 
         else:
             self.perror('Device not connected')
 
-
-
 #######################
-# local.py
+# Internal Connection Config Functions
+# Connection Config Functions
 #######################
 
-    def do_set_dev_id(self, s):
+    def get_device_id(self):
+        return self._device_id
+
+    def set_device_id(self, did):
+        self._device_id = did
+
+    device_id = property(get_device_id, set_device_id)
+
+
+
+    def get_host_id(self):
+        return self._host_id
+
+    def set_host_id(self, hid):
+        self._host_id = hid
+
+    host_id = property(get_host_id, set_host_id)
+                         
+#######################
+# User Connection Config Functions
+# system.mount.connection
+#######################
+
+    def do_get_device_id(self, s):
+        """
+Usage:
+    get_dev_id
+
+Returns the currently configured device id.
+        """
+        return self.device_id
+
+    def do_set_device_id(self, s):
         """
 Usage:
     set_dev_id <device id>
@@ -386,42 +403,7 @@ device file, ex. /dev/sg2 or harddrive /dev/sdb , in windows its the PhysicalDri
 This needs to be set before attempting to connect or set up a network connection.
 This is only needed if for some reason, OpenLFConnect can not determine it.
         """
-        if s == '':
-            self.error('No device ID selected.')
-        self._dev_id = s
-
-
-
-    def do_get_dev_id(self, s):
-        """
-Usage:
-    get_dev_id
-
-Returns the currently configured device id.
-        """
-        try:
-            if self._remote_type == 'mount' and self.is_remote(None, True):
-                print self._remote_path_config.dev_id
-            else:
-                self.error('Mounted remote client not running.')
-        except Exception, e:
-            self.perror(e)
-
-
-
-    def do_set_mount_point(self, s):
-        """
-Usage:
-    set_mount_point <mount point>
-
-Manually configure the mount point, ex. Linux /media/didj, ex. Windows D:\
-This needs to be set before a attempting to connect to or mount the device.
-This is only needed if for some reason, OpenLFConnect can not determine it.
-        """
-        if s == '':
-            self.error('No mount point selected.')
-
-        self._mount_point = s
+        self.device_id = s
 
 
 
@@ -432,19 +414,67 @@ Usage:
 
 Returns the currently configured mount point.
         """
-        try:
-            if self._remote_type == 'mount' and self.is_remote(None, True):
-                print self._remote_path_config.mount_point
-            else:
-                self.error('Mounted remote client not running.')
-        except Exception, e:
-            self.perror(e)
+        return self.host_id
 
+    def do_set_mount_point(self, s):
+        """
+Usage:
+    set_mount_point <mount point>
 
+Manually configure the mount point, ex. Linux /media/didj, ex. Windows D:\
+This needs to be set before a attempting to connect to or mount the device.
+This is only needed if for some reason, OpenLFConnect can not determine it.
+        """
+        self.host_id = s
 
 #######################
-# didj.py
-# Internal Functions
+# Connection Config User Functions
+# system.networking.connection
+#######################
+
+    def get_device_ip(self):
+        """
+Usage:
+    get_device_ip
+
+Returns currently configured device IP.
+        """
+        return self.device_id
+
+    def do_set_device_ip(self, s):
+        """
+Usage:
+    set_device_ip <IP>
+
+Manually set the device's IP to a known value, this will not reconfigure the devices's IP, should be set to it's actual IP.
+This should be set before connecting to a device, or establishing a network connection.
+        """
+        self.device_id = s
+
+
+
+    def do_get_host_ip(self):
+        """
+Usage:
+    get_host_ip
+
+Returns currently configured host IP.
+        """
+        return self.host_id
+
+    def do_set_host_ip(self, s):
+        """
+Usage:
+    set_host_ip <IP>
+
+Manually set the host's IP to a known value, this will not reconfigure the host's IP, should be set to it's actual IP.
+This should be set before connecting to a device, or establishing a network connection.
+        """
+        self.host_id = s
+
+#######################
+# Didj Internal Functions
+# clients.didj
 #######################
 
     def complete_didj_update_bootloader(self, text, line, begidx, endidx):
@@ -463,8 +493,8 @@ Returns the currently configured mount point.
 
 
 #######################
-# didj.py
-# User Functions
+# Didj User Functions
+# clients.didj
 #######################
 
     def do_didj_mount(self, s):
@@ -475,15 +505,13 @@ Usage:
 Unlock Didj to allow it to mount on host system.
         """
         try:
-            if not self.is_remote(None, True) and self._remote_type != 'mount':
-                lc = localconfig(self._dev_id, self._mount_point, self.debug)
-                self._didj_client = localclient(self.debug)
-                self.remote_config_init(lc, self._didj_client, 'mount')
-                self._didj = didjclient(lc, self.debug)
-                
-                self._didj.mount()
+            if not self.is_remote(None, True):
+                mc = conn_iface(mount_connection(self.device_id, self.host_id, self.debug))
+                self._didj_client = didj_client(mc, self.debug)                
+                self.remote_connection_init(mc, fs_iface(local_client(self.debug)), self._didj_client)
+                self._didj_client.mount()
                 self.remote_path_init()
-                print 'Mounted on: %s' % self._remote_path_config.mount_point
+                print 'Mounted on: %s' % self._remote_conn.host_id
             else:
                 self.error('Didj already running.')
         except Exception, e:
@@ -500,7 +528,7 @@ Lock Didj which will un mount on host system. Only seems to work in Windows.
         """
         try:
             self.is_remote(self._didj_client)
-            self._didj.umount()
+            self._didj_client.umount()
             self.remote_destroy()
         except Exception, e:
             self.perror(e)
@@ -518,7 +546,7 @@ Linux hosts, you'll also have to eject it from the system.
         """
         try:
             self.is_remote(self._didj_client)
-            self._didj.eject()
+            self._didj_client.eject()
             self.remote_destroy()
         except Exception, e:
             self.perror(e)
@@ -541,10 +569,10 @@ Searches from the current local directory for the top level directory of the fir
         try:
             self.is_remote(self._didj_client)
             abspath = self.get_abspath(s)
-            self._didj.upload_firmware(abspath)
-            self._didj.upload_bootloader(abspath)
+            self._didj_client.upload_firmware(abspath)
+            self._didj_client.upload_bootloader(abspath)
             if not self.debug:      
-                self._didj.eject()
+                self._didj_client.eject()
                 self.remote_destroy()
         except Exception, e:
             self.perror(e)
@@ -567,9 +595,9 @@ MD5 files will be created automatically.
         try:
             self.is_remote(self._didj_client)
             abspath = self.get_abspath(s)
-            self._didj.upload_firmware(abspath)
+            self._didj_client.upload_firmware(abspath)
             if not self.debug:                
-                self._didj.eject()
+                self._didj_client.eject()
                 self.remote_destroy()
         except Exception, e:
             self.perror(e)
@@ -592,9 +620,9 @@ MD5 files will be created automatically.
         try:
             self.is_remote(self._didj_client)
             abspath = self.get_abspath(s)
-            self._didj.upload_bootloader(abspath)
+            self._didj_client.upload_bootloader(abspath)
             if not self.debug:                
-                self._didj.eject()
+                self._didj_client.eject()
                 self.remote_destroy()
         except Exception, e:
             self.perror(e)
@@ -610,162 +638,36 @@ Remove Didj firmware and bootloader from device.
         """
         try:
             self.is_remote(self._didj_client)
-            self._didj.cleanup()
+            self._didj_client.cleanup()
         except Exception, e:
             self.perror(e)
-
-
 
 #######################
-# networking.py
+# DFTP Internal Functions
+# clients.dftp
 #######################
-
-    def config_ip(self):        
-        try:
-            self._remote_path_config.config_ip()
-        except Exception, e:
-            self._remote_path_config = None
-            self.error(e)
-
-
-    def do_config_ip(self, s):
-        """
-Usage:
-    config_ip
-
-Gets the IP addresses of the Device and Host, and if on Windows, sets the necessary Route to establish connectivity.
-This could take a minute or so, if you just booted the device.
-        """
-        try:
-            self.config_ip()
-            self.do_ip(None)
-        except Exception, e:
-            self.perror(e)
-
-
-
-
-    def do_ip(self, s):
-        """
-Usage:
-    ip [host|device]
-
-Returns the assigned IP address or both.
-        """
-        try:
-            hip = self.do_get_host_ip(None)
-            dip = self.do_get_device_ip(None)
-            
-            if not hip:
-                hip = 'Not Set'
-                
-            if not dip:
-                dip = 'Not Set'
-    
-            if s == 'host':
-                print '%s' % hip
-            elif s == 'device':
-                print '%s' % dip
-            else:
-                print 'Host:\t\t%s' % hip
-                print 'Device:\t\t%s' % dip
-        except Exception, e:
-            self.perror(e)
-
-
-
-    def get_device_ip(self):
-        """
-Usage:
-    get_device_ip
-
-Returns currently configured device IP.
-        """
-        try:
-            if self._remote_type == 'network' and self.is_remote(None, True):
-                print self._remote_path_config.host_ip
-            else:
-                self.error('Networked remote client not running.')
-        except Exception, e:
-            self.perror(e)
-
-
-
-    def do_set_device_ip(self, s):
-        """
-Usage:
-    set_device_ip <IP>
-
-Manually set the device's IP to a known value, this will not reconfigure the devices's IP, should be set to it's actual IP.
-This should be set before connecting to a device, or establishing a network connection.
-        """
-        if s == '':
-            self.error('No IP selected.')
-
-        self._device_ip = s
-
-
-
-    def do_get_host_ip(self):
-        """
-Usage:
-    get_host_ip
-
-Returns currently configured host IP.
-        """
-        try:
-            if self._remote_type == 'network' and self.is_remote(None, True):
-                print self._remote_path_config.host_ip
-            else:
-                self.error('Networked remote client not running.')
-        except Exception, e:
-            self.perror(e)
-
-
-
-    def do_set_host_ip(self, s):
-        """
-Usage:
-    set_host_ip <IP>
-
-Manually set the host's IP to a known value, this will not reconfigure the host's IP, should be set to it's actual IP.
-This should be set before connecting to a device, or establishing a network connection.
-        """
-        if s == '':
-            self.error('No IP selected.')
-            
-        self._host_ip = s
-
-
-
-#######################
-# dftp.py
-# Internal Functions
-#######################
-
-
 
     def complete_dftp_update(self, text, line, begidx, endidx):
         return self.complete_local(text, line, begidx, endidx)
 
 
 
-
     def get_version(self):
         try:
-            return '%s' % self._dftp.version_number
+            return '%s' % self._dftp_client.version_number
         except Exception, e:
             self.error(e)
 
 
+
     def dftp_device_info(self):
         try:
-            print 'Device:\t\t\t%s' % self._dftp.get_device_name()
-            print 'Firmware Version:\t%s' % self._dftp.firmware_version
-            print 'Board ID:\t\t%s' % self._dftp.get_board_id()
-            print 'Device IP:\t\t%s' % self._remote_path_config.device_ip
-            print 'Host IP:\t\t%s' % self._remote_path_config.host_ip
-            print 'DFTP Version: \t\t%s' % self._dftp.dftp_version
+            print 'Device:\t\t\t%s' % self._dftp_client.get_device_name()
+            print 'Firmware Version:\t%s' % self._dftp_client.firmware_version
+            print 'Board ID:\t\t%s' % self._dftp_client.get_board_id()
+            print 'Device IP:\t\t%s' % self._remote_conn.device_id
+            print 'Host IP:\t\t%s' % self._remote_conn.host_id
+            print 'DFTP Version: \t\t%s' % self._dftp_client.dftp_version
         except Exception, e:
             self.error(e)
 
@@ -773,15 +675,13 @@ This should be set before connecting to a device, or establishing a network conn
 
     def send(self, cmd):
         try:
-            print self._dftp.sendrtn(cmd)
+            print self._dftp_client.sendrtn(cmd)
         except Exception, e:
             self.error(e)
 
-
-
 #######################
-# dftp.py
-# User Functions
+# DFTP User Functions
+# clients.dftp
 #######################
 
     def do_dftp_connect(self, s):
@@ -794,11 +694,11 @@ Will attempt to configure IPs as needed.
 This could take a minute or so, if you just booted the device.
         """
         try:
-            if not self.is_remote(self._dftp, True):
-                nc = netconfig(self._host_ip, self._device_ip, self.debug)
-                self.remote_config_init(nc, dftpclient(nc, self.debug), 'network')
-                self._dftp = self._remote_path_client
-                self._dftp.create_client()
+            if not self.is_remote(self._dftp_client, True):
+                nc = conn_iface(net_connection(self.host_id, self.device_id, self.debug))
+                self._dftp_client = dftp_client(nc, self.debug)
+                self.remote_connection_init(nc, fs_iface(self._dftp_client), self._dftp_client)
+                self._dftp_client.create_client()
                 self.remote_path_init()
                 self.dftp_device_info()
             else:
@@ -817,9 +717,9 @@ Disconnect DFTP client.
 This will cause the DFTP server to start announcing its IP again, except Explorer's surgeon.cbf version, which will reboot the device
         """
         try:
-            self.is_remote(self._dftp)
-            self._dftp.disconnect()
-            self._dftp = None
+            self.is_remote(self._dftp_client)
+            self._dftp_client.disconnect()
+            self._dftp_client = None
             self.remote_destroy()
         except Exception, e:
             self.perror(e)
@@ -836,9 +736,9 @@ OpenLFConnect checks for version 1.12 for surgeon running before a firmware upda
 Set this to 1.12 if getting complaints, or surgeon has its dftp version updated.
     """
         try:
-            self.is_remote(self._dftp)
+            self.is_remote(self._dftp_client)
             if s != '':
-                self._dftp.dftp_version = s
+                self._dftp_client.dftp_version = s
             else:
                 print 'No number selected'
         except Exception, e:
@@ -857,9 +757,9 @@ Mostly used for update firmware style.
 2.x.x.x = LeapPad
         """
         try:
-            self.is_remote(self._dftp)
+            self.is_remote(self._dftp_client)
             if s != '':
-                self._dftp.version_number = s
+                self._dftp_client.version_number = s
             else:
                 print 'No number selected'
         except Exception, e:
@@ -877,7 +777,7 @@ Note: the firmware revision is accurate, device is guessed from it.
 2.x.x.x = LeapPad
         """
         try:
-            self.is_remote(self._dftp)
+            self.is_remote(self._dftp_client)
             self.dftp_device_info()
         except Exception, e:
             self.perror(e)
@@ -903,7 +803,7 @@ What firmware it to tries to upload depends on version number.
 Caution: Has not been tested on LeapPad, theoretically it should work though, please confirm to author yes or no if you get the chance.
         """
         try:
-            self.is_remote(self._dftp)
+            self.is_remote(self._dftp_client)
             remote = self._remote_set
             
             if remote:
@@ -911,8 +811,8 @@ Caution: Has not been tested on LeapPad, theoretically it should work though, pl
             
             path = self.get_abspath(s)
             
-            if self._path_module.is_dir(path):
-                self._dftp.update_firmware(path)
+            if self._fs.is_dir(path):
+                self._dftp_client.update_firmware(path)
             else:
                 self.error('Path is not a directory.')
 
@@ -929,10 +829,10 @@ Usage:
 After running update, run this to trigger a reboot
         """
         try:
-            self.is_remote(self._dftp)
-            self._dftp.update_reboot()
-            self._dftp.disconnect()
-            self._dftp = None
+            self.is_remote(self._dftp_client)
+            self._dftp_client.update_reboot()
+            self._dftp_client.disconnect()
+            self._dftp_client = None
             self.remote_destroy()
         except Exception, e:
             self.perror(e)
@@ -947,21 +847,23 @@ Usage:
 Advanced use only, don't know, probably shouldn't.
         """
         try:
-            self.is_remote(self._dftp)
+            self.is_remote(self._dftp_client)
             self.send(s)
         except Exception, e:
             self.perror(e)
 
-
-
 #######################
-# pager.py
+# Pager Internal Functions
+# clients.pager
 #######################    
 
     def complete_boot_surgeon(self, text, line, begidx, endidx):
         return self.complete_path(text, line, begidx, endidx)
 
-
+#######################
+# Pager User Functions
+# clients.pager
+#######################
 
     def do_boot_surgeon(self, s):
         """
@@ -972,25 +874,23 @@ Uploads a Surgeon.cbf file to a device in USB Boot mode.
 File can be any name, but must conform to CBF standards.
         """
         try:
-            self._pager = pager(self.debug)
+            self._pager_client = pager_client(self.debug)
             abspath = self.get_abspath(s)
 
-            if not self._path_module.is_dir(abspath):
-                self._pager = pager(localconfig())
-                self._pager.upload_firmware(abspath)
-                self._pager = None
+            if not self._fs.is_dir(abspath):
+                self._pager_client = pager_client(mount_connection())
+                self._pager_client.upload_firmware(abspath)
+                self._pager_client = None
             else:
                 self.error('Path is not a file.')
 
-            self._pager = None
+            self._pager_client = None
         except Exception, e:
             self.perror(e)
 
-
-
 #######################
-# Module independant
-# Filesystem commands
+# UI Internal Functions
+# OpenLFConnect
 #######################
 
     def complete_ls(self, text, line, begidx, endidx):
@@ -1016,8 +916,10 @@ File can be any name, but must conform to CBF standards.
     def complete_rm(self, text, line, begidx, endidx):
         return self.complete_path(text, line, begidx, endidx)
 
-
-
+#######################
+# UI User Functions
+# OpenLFConnect
+#######################
 
     def do_remote(self, s):
         """
@@ -1090,25 +992,20 @@ List directory contents. Where depends on which is set, remote or local
         """            
         try:
             abspath = self.get_abspath(s)
-
-            if self._path_module.is_dir(abspath):
-                dlist = self.get_dir_list(abspath)
-                flist = []
+            dlist = self.get_dir_list(abspath)
+            flist = []
+            
+            for item in dlist:
                 
-                for item in dlist:
-                    
-                    if item[-1:] == '/':
-                        print '%s' % item
-                    else:
-                        flist.append(item)
-                        
-                flist.sort(key=str.lower)
-                
-                for item in flist:
+                if item[-1:] == '/':
                     print '%s' % item
+                else:
+                    flist.append(item)
                     
-            else:
-                self.perror('Is not a directory.')
+            flist.sort(key=str.lower)
+            
+            for item in flist:
+                print '%s' % item
         except Exception, e:
             self.perror(e)
 
@@ -1123,13 +1020,9 @@ Usage:
 Change directories. Where depends on which is set, remote or local
         """
         try:
-            if s == '':
-                self.error('No path set.')
+            self.is_empty(s)
             abspath = self.get_abspath(s)
-            if self._path_module.is_dir(abspath):
-                self.set_path(abspath)
-            else:
-                print 'Path is not in a directory'
+            self.set_path(abspath)
         except Exception, e:
             self.perror(e)
 
@@ -1143,19 +1036,14 @@ Usage:
 Create directory. Where depends on which is set, remote or local
         """
         try:
-            if s == '':
-                self.error('No path set.')
-                
+            self.is_empty(s)                
             abspath = self.get_abspath(s)
             
             if abspath == self.get_path_prefix():
                 self.error('No directory selected.')
             else:
-                
-                if self._path_module.is_dir(os.path.dirname(abspath)):
-                    self._path_module.mkdir(abspath)
-                else:
-                    print 'Path is not in a directory'
+                self._fs.mkdir(abspath)
+
         except Exception, e:
             self.perror(e)
 
@@ -1169,19 +1057,14 @@ Usage:
 Delete directory. Where depends on which is set, remote or local
         """
         try:
-            if s == '':
-                self.error('No path set.')
-                
+            self.is_empty(s)                
             abspath = self.get_abspath(s)
             
             if abspath == self.get_path_prefix():
                 self.error('No directory selected.')
             else:
+                self._fs.rmdir(abspath)
                 
-                if self._path_module.is_dir(os.path.dirname(abspath)):
-                    self._path_module.rmdir(abspath)
-                else:
-                    print 'Path is not in a directory'
         except Exception, e:
             self.perror(e)
 
@@ -1195,27 +1078,21 @@ Usage:
 Delete file. Where depends on which is set, remote or local
         """
         try:
-            if s == '':
-                self.error('No path set.')
-                
+            self.is_empty(s)                
             abspath = self.get_abspath(s)
             
             if abspath == self.get_path_prefix():
                 self.error('No directory selected.')
             else:
-                
-                if not self._path_module.is_dir(abspath):
-                    self._path_module.rm(abspath)
-                else:
-                    print 'Path is not in file'
+                self._fs.rm(abspath)
+
         except Exception, e:
             self.perror(e)
 
-
-
 #######################
-# Remote Device
-# Upload/Download Commands
+# UI Up/Download Internal Functions
+# OpenLFConnect
+# Requires Connection to device
 #######################
 
     def complete_download(self, text, line, begidx, endidx):
@@ -1233,8 +1110,11 @@ Delete file. Where depends on which is set, remote or local
     def complete_cat(self, text, line, begidx, endidx):
         return self.complete_path(text, line, begidx, endidx)
 
-
-
+#######################
+# UI Up/Download User Functions
+# OpenLFConnect
+# Requires Connection to device
+#######################
 
     def do_upload(self, s):
         """
@@ -1245,32 +1125,27 @@ Upload the specified local file to the current remote directory, Will overwrite 
         """
         try:
             self.is_remote()
-            
-            if s == '':
-                self.error('No path set.')
-                
+            self.is_empty(s)
             remote = self._remote_set
             
             if remote:
                 self.set_local()
                 
             abspath = self.get_abspath(s)
-            
-            if not self._path_module.is_dir(abspath):
-                self.set_remote()
-                
-                remote_path = os.path.join(self._path, os.path.basename(abspath))
+            self.set_remote()
+            remote_path = os.path.join(self._path, os.path.basename(abspath))
 
-                if sys.platform == 'win32':
-                    remote_path = remote_path.replace('\\', '/')
-                
-                self._path_module.upload_file(abspath, remote_path)
-                
-                if not remote:
-                    self.set_local()
-            else:
-                self.error('Path not set to a file.')
+            if sys.platform == 'win32':
+                remote_path = remote_path.replace('\\', '/')
+            
+            self._fs.upload_file(abspath, remote_path)
+            
+            if not remote:
+                self.set_local()
+                    
         except Exception, e:
+            #if not remote:
+                #self.set_local()
             self.perror(e)
 
 
@@ -1285,32 +1160,27 @@ Upload the specified local directory into the current remote directory, Will ove
         """
         try:
             self.is_remote()
-            
-            if s == '':
-                self.error('No path set.')
-                
+            self.is_empty(s)
             remote = self._remote_set
             
             if remote:
                 self.set_local()
                 
             abspath = self.get_abspath(s)
-            
-            if self._path_module.is_dir(abspath):
-                self.set_remote()
-                
-                remote_path = os.path.join(self._path, os.path.basename(abspath))
+            self.set_remote()
+            remote_path = os.path.join(self._path, os.path.basename(abspath))
 
-                if sys.platform == 'win32':
-                    remote_path = remote_path.replace('\\', '/')
-                
-                self._path_module.upload_dir(abspath, remote_path)
-                
-                if not remote:
-                    self.set_local()
-            else:
-                self.error('Path not set to a directory.')
+            if sys.platform == 'win32':
+                remote_path = remote_path.replace('\\', '/')
+            
+            self._fs.upload_dir(abspath, remote_path)
+            
+            if not remote:
+                self.set_local()
+
         except Exception, e:
+            if not remote:
+                self.set_local()
             self.perror(e)
 
 
@@ -1324,9 +1194,7 @@ Download the specified remote file to the current local directory, will over wri
         """
         try:
             self.is_remote() 
-            if s == '':
-                self.error('No path set.')
-                
+            self.is_empty(s) 
             remote = self._remote_set
             
             if not remote:
@@ -1334,14 +1202,14 @@ Download the specified remote file to the current local directory, will over wri
                 
             abspath = self.get_abspath(s)
             
-            if not self._path_module.is_dir(abspath):
-                self._path_module.download_file(os.path.join(self._local_path, os.path.basename(abspath)), abspath)
-                if not remote:
-                    self.set_local()
-            else:
-                self.error('Path not set to a file.')
+            self._fs.download_file(os.path.join(self._local_path, os.path.basename(abspath)), abspath)
+            
+            if not remote:
+                self.set_local()
 
         except Exception, e:
+            if not remote:
+                self.set_local()
             self.perror(e)
 
 
@@ -1355,24 +1223,21 @@ Download the specified remote directory into the current local directory, will o
         """
         try:
             self.is_remote() 
-            if s == '':
-                self.error('No path set.')
-                
+            self.is_empty(s)   
             remote = self._remote_set
             
             if not remote:
                 self.set_remote()
                 
             abspath = self.get_abspath(s)
-            
-            if self._path_module.is_dir(abspath):
-                self._path_module.download_dir(os.path.join(self._local_path, os.path.basename(abspath)), abspath)
-                if not remote:
-                    self.set_local()
-            else:
-                self.error('Path not set to a directory.')
+
+            self._fs.download_dir(os.path.join(self._local_path, os.path.basename(abspath)), abspath)
+            if not remote:
+                self.set_local()
 
         except Exception, e:
+            if not remote:
+                self.set_local()
             self.perror(e)
 
 
@@ -1385,21 +1250,17 @@ Prints the contents of a file to the screen.
 Doesn't care what kind or how big of a file.
         """
         try:
-            if s == '':
-                self.error('No path selected.')
+            self.is_empty(s)
 
             abspath = self.get_abspath(s)
-            if not self._path_module.is_dir(abspath):
-                print self._path_module.cat(abspath)
-            else:
-                self.error('Path not set to a file')
+            print self._fs.cat(abspath)
         except Exception, e:
             self.perror(e)
 
-
-
 #######################
-# Convenience Functions
+# UI Convenience Functions
+# OpenLFConnect
+# No Rules Below, Whatever goes goes.
 #######################
 
     def do_enable_sshd(self, s):
@@ -1421,20 +1282,22 @@ Caution: Has not been tested on LeapPad, theoretically it should work though, pl
             if not remote:
                 self.set_remote()
                 
-            vn = self._dftp.board_id()
+            vn = self._dftp_client.board_id()
             
             if vn.split('.')[0] == '1':
-                self._path_module.upload_file('files/LX/enable_sshd/rcS', '/etc/init.d/rcS')
-                self._path_module.upload_file('files/LX/enable_sshd/sshd_config', '/etc/ssh/sshd_config')
+                self._fs.upload_file('files/LX/enable_sshd/rcS', '/etc/init.d/rcS')
+                self._fs.upload_file('files/LX/enable_sshd/sshd_config', '/etc/ssh/sshd_config')
             elif vn.split('.')[0] == '2':
-                self._path_module.upload_file('files/Lpad/enable_sshd/rcS', '/etc/init.d/rcS')
-                self._path_module.upload_file('files/Lpad/enable_sshd/sshd_config', '/etc/ssh/sshd_config')
+                self._fs.upload_file('files/Lpad/enable_sshd/rcS', '/etc/init.d/rcS')
+                self._fs.upload_file('files/Lpad/enable_sshd/sshd_config', '/etc/ssh/sshd_config')
             else:
                 self.error('Could not determine device: Firmware version: %s' % vn)
                 
             if not remote:
                 self.set_local()
         except Exception, e:
+            if not remote:
+                self.set_local()
             self.perror(e)
 
 

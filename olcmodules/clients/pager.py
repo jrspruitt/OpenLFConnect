@@ -35,7 +35,7 @@ import sys
 from shlex import split as shlex_split
 from subprocess import Popen, PIPE
 
-class pager(object):
+class client(object):
     def __init__(self, local_config, debug=False):
         self.debug = debug
         self._local_config = local_config
@@ -125,7 +125,7 @@ class pager(object):
 
 
 if __name__ == '__main__':
-        u = pager()
+    print 'No examples yet.'
         
 
 

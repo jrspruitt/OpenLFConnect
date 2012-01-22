@@ -38,11 +38,9 @@ from hashlib import md5
 from shutil import copytree, rmtree
 
 class client(object):
-    def __init__(self, local_config, debug=False):
+    def __init__(self, mount_config, debug=False):
         self.debug = debug
-        self._local_config = local_config
-        self._dev_id = self._local_config.dev_id
-        self._mount_point = ''
+        self._mount_config = mount_config
         self._didj_base = 'Base/'
         
         self._bootloader_dir = 'bootstrap-LF_LF1000'
@@ -59,9 +57,7 @@ class client(object):
             self._sg_raw = 'bin/sg_raw'
         else:
             self._sg_raw = 'sg_raw'
-
-
-            
+ 
 #######################
 # Internal functions
 #######################
@@ -103,7 +99,7 @@ class client(object):
             elif len(self._cdb_cmds[cmd]) == 0:
                 self.error('Bad command')
 
-            cmdl = '%s %s %s %s 00 00 00 00 00 00 00 00' % (self._sg_raw, self._dev_id, self._cdb_cmds[cmd], self._settings[arg])
+            cmdl = '%s %s %s %s 00 00 00 00 00 00 00 00' % (self._sg_raw, self._mount_config.device_id, self._cdb_cmds[cmd], self._settings[arg])
                 
             cmd = shlex_split(cmdl)
             p = Popen(cmd, stderr=PIPE)
@@ -127,7 +123,7 @@ class client(object):
                 else:
                     self.error('Firmware directory not found.')
 
-            rpath = os.path.join(self._local_config.mount_point, self._didj_base)
+            rpath = os.path.join(self._mount_config.mount_point, self._didj_base)
             
             if not os.path.exists(rpath):
                 self.error('Could not find Base/ path on device.')
@@ -222,7 +218,7 @@ class client(object):
 
     def cleanup(self):
         try:
-            rpath = os.path.join(self._local_config.mount_point, self._didj_base)
+            rpath = os.path.join(self._mount_config.mount_point, self._didj_base)
             
             if not os.path.exists(rpath):
                 self.error('Could not find Base/ path on device.')
