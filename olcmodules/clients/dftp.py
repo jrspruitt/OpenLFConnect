@@ -52,14 +52,12 @@ class client(object):
         self._lpad_remote_fw_root = '/LF/fuse/'
         self._lpad_remote_fw_dir = os.path.join(self._lpad_remote_fw_root, self._lpad_fw_dir)
         
-        self._dftp_version = 0
         self._surgeon_dftp_version = '1.12'
+        
         self._firmware_version = 0
         self._board_id = 0
-        
-        self._recieve_timeout = .1
-
-
+        self._dftp_version = 0
+        self._recieve_timeout = 1
 
 #######################
 # Internal Functions
@@ -121,7 +119,7 @@ class client(object):
 
 
 
-    def create_socket(self, device_ip, port):               
+    def create_socket(self, device_ip, port):
         for info in socket.getaddrinfo(device_ip, port, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, socket.AI_PASSIVE):
             af, socktype, proto, canonname, sa = info
             
@@ -266,10 +264,12 @@ class client(object):
 
     def create_client(self):
         try:
-            self._sock0 = self.create_socket(self._net_config.device_id, 5000)
-            self._sock0.sendall('ETHR %s 1383\x00' % self._net_config.host_id)
+            device_id = self._net_config.device_id
+            host_id = self._net_config.host_id
+            self._sock0 = self.create_socket(device_id, 5000)
+            self._sock0.sendall('ETHR %s 1383\x00' % host_id)
             time.sleep(2)
-            self._sock1 = self.create_socket(self._net_config.device_id, 5001)
+            self._sock1 = self.create_socket(device_id, 5001)
             self._sock1.settimeout(self._recieve_timeout)
             self.receive()
         except Exception, e:

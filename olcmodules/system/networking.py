@@ -55,12 +55,6 @@ class connection(object):
         self._m_ip = '224.0.0.251'
         self._m_port = 5002
 
-        if sys.platform == 'win32':
-            self._ping = 'ping -n 2 -w 500'
-        else:
-            self._ping = 'ping -c 2 -W 500'
-
-
 #######################
 # Internal functions
 #######################
@@ -89,8 +83,8 @@ class connection(object):
 
     def set_windows_route(self):
         try:
-            if sys.platform == 'win32' and self._device_ip and self._host_ip:
-                child = Popen(['route.exe','ADD',self.device_ip, self.host_ip], stdout=PIPE, stderr=PIPE)
+            if sys.platform == 'win32' and self.get_device_id_i() and self.get_host_id_i():
+                child = Popen(['route.exe','ADD', self.get_device_id_i(), self.get_host_id_i()], stdout=PIPE, stderr=PIPE)
                 err = child.stderr.read()
                 
                 if err:
@@ -122,6 +116,8 @@ class connection(object):
                 ip = self.get_net_interface(self._subnet)
                 if ip:
                     self._host_ip = ip
+                    if sys.platform == 'win32':
+                        self.set_windows_route()
                     return ip
                 sleep(1)
                 timeout -= 1
