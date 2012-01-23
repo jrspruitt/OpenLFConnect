@@ -35,9 +35,6 @@ import sys
 from time import sleep
 from subprocess import Popen, PIPE
 
-if sys.platform == 'win32':
-    import win32api
-
 class connection(object):
     def __init__(self, device_id='', mount_point='', debug=False):
         self.debug = debug
@@ -67,35 +64,47 @@ class connection(object):
         assert False, 'Mount Error: %s' % e
 
 
+    def sg_scan(self):
+        try:
+            p = Popen(self._sg_scan, stdout=PIPE, stderr=PIPE)
+            err = p.stderr.read()
+            
+            if not err:
+                ret = p.stdout.read()
+                
+                if ret.lower().find(self._vendor_name) != -1:
+                    return ret
+                else:
+                    return False
+
+        except Exception, e:
+            self.error(e)
+
+
 
     def find_device_id(self):
         try:
             print 'Finding device ID'
             time_out = self._time_out
-            while time_out:
-                if not os.path.exists(self._linux_dev):
-                    p = Popen(self._sg_scan, stdout=PIPE, stderr=PIPE)
-                    err = p.stderr.read()
-    
-                    if not err:
-                        ret = p.stdout.read()
-                        lines = ret.split('\n')
-                        
-                        for line in lines:
-                            if line.strip().lower().find(self._vendor_name) != -1:
-                                if sys.platform == 'win32':
-                                    self._device_id = '%s' % line.split(' ')[0]
-                                else:
-                                    self._device_id = '%s' % lines[lines.index(line) -1].split(' ')[0].replace(':', '')
-    
-                                return self._device_id
+            if not os.path.exists(self._linux_dev):
+                while time_out:
+                    lines = self.sg_scan()
+                    
+                    for line in lines.split('\n'):
+                        if line.lower().find(self._vendor_name) != -1:
+                            if sys.platform == 'win32':
+                                self._device_id = '%s' % line.split(' ')[0]
+                            else:
+                                self._device_id = '%s' % lines[lines.index(line) -1].split(' ')[0].replace(':', '')
+            
+                            return self._device_id
+                    
+                    time_out -= 1
+                    sleep(1)
 
-                else:
-                    self._device_id = self._linux_dev
-                    return self._device_id
-                
-                time_out -= 1
-                sleep(1)
+            else:
+                self._device_id = self._linux_dev
+                return self._device_id
                                 
             self.error('Device not found.')
         except Exception, e:
@@ -106,21 +115,17 @@ class connection(object):
     def find_mount_point(self, win_label='didj'):
         try:
             print 'Finding mount point'
-            index = 10
+            timeout = 10
             
-            while index:
+            while timeout:
                 if sys.platform == 'win32':
-                    drive_list = win32api.GetLogicalDriveStrings()
-                    drive_list = drive_list.split('\x00')[1:]
-                    
-                    for drive in drive_list:
-                    
-                        try:
-                            info = win32api.GetVolumeInformation(drive)[0]
-                            if info.lower() == win_label:
-                                self._mount_point = '%s' % drive
-                                return self._mount_point
-                        except: pass
+                    lines = self.sg_scan()
+                    for line in lines.split('\n'):
+                        if line.lower().find(self._vendor_name) != -1:
+                            line = line.split('[')[1]
+                            line = line.split(']')[0]
+                            self._mount_point = '%s:\\' % line
+                            return self._mount_point
                 else:
                     syspath = '/sys/class/scsi_disk'
                     
@@ -141,7 +146,7 @@ class connection(object):
                                     return self._mount_point
                             f.close()
                 sleep(1)
-                index -= 1
+                timeout -= 1
             self.error('Mount not found.')
         except Exception, e:
             self.rerror(e)

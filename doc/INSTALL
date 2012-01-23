@@ -24,7 +24,8 @@
 		2.6
 
 	Programs:
-		LeapFrog LFConnect
+		LeapFrog USB LAN driver (search Windows update when asked)
+        bonjour http://support.apple.com/kb/DL999
 			Windows only
 
 		sg3_utils

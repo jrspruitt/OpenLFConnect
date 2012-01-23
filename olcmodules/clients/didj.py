@@ -52,7 +52,7 @@ class client(object):
         
         self._cdb_cmds = {'lock':'C1', 'unlock':'C2', 'get_setting':'C3', 'disconnect':'C6'}
         self._settings = {'battery':'02', 'serial':'03', 'needs_repair':'06', 'None':'00'}
-        self._battery_level = {'0':'Unknown' ,'1':'Critical' ,'2':'Low' ,'3':'Medium', '4':'High'}
+        self._battery_level = {'0':'Unknown.' ,'1':'Critical' ,'2':'Low' ,'3':'Medium', '4':'High'}
 
         if sys.platform == 'win32':
             self._sg_raw = 'bin/sg_raw'
@@ -93,17 +93,18 @@ class client(object):
 
 
 
-    def call_sg_raw(self, cmd, arg='None'):
+    def call_sg_raw(self, cmd, arg='None', buf_len=0):
         try:
-            buf_len = ''
             
             if len(self._settings[arg]) == 0:
                 self.error('Bad settings value')                    
             elif len(self._cdb_cmds[cmd]) == 0:
                 self.error('Bad command')
                 
-            if arg != 'None':
-                buf_len = '-r32 -b'
+            if buf_len:
+                buf_len = '-r%s -b' % buf_len
+            else:
+                buf_len = ''
                 
             cmdl = '%s %s %s %s %s 00 00 00 00 00 00 00 00' % (self._sg_raw, buf_len, self._mount_config.device_id, self._cdb_cmds[cmd], self._settings[arg])
             cmd = shlex_split(cmdl)
@@ -167,9 +168,9 @@ class client(object):
 
     def get_battery_value(self):
         try:
-            ret = self.call_sg_raw('get_setting', 'battery')
+            ret = ord(self.call_sg_raw('get_setting', 'battery', 1))
             if ret:
-                return ord(ret)
+                return ret
             else:
                 return 0
         except Exception, e:
@@ -192,8 +193,14 @@ class client(object):
     def get_serial_number(self):
         try:
             ret = self.call_sg_raw('get_setting', 'serial')
+                
             if ret:
-                return ret
+                buf = ''
+ 
+                for value in ret:
+                    buf += value
+
+                return buf
             else:
                 return 'Unknown.'
         except Exception, e:
@@ -204,15 +211,12 @@ class client(object):
 
     def get_needs_repair(self):
         try:
-            ret = self.call_sg_raw('get_setting', 'needs_repair')
-            
+            ret = ord(self.call_sg_raw('get_setting', 'needs_repair', 1))
             if ret:
-                if ord(ret):                
-                    return True
-                else:
-                    return False
+                return True
             else:
-                return 'Unknown.'
+                return False
+
         except Exception, e:
             self.rerror(e)
     needs_repair = property(get_needs_repair)

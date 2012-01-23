@@ -35,7 +35,6 @@ import re
 import socket
 import struct
 import select
-import netifaces as ni
 from time import sleep
 from shlex import split as shlex_split
 from subprocess import Popen, PIPE
@@ -54,6 +53,11 @@ class connection(object):
 
         self._m_ip = '224.0.0.251'
         self._m_port = 5002
+        
+        if sys.platform == 'win32':
+            self._ifconfig = ['ipconfig', '/all']
+        else:
+            self._ifconfig = ['/sbin/ifconfig']
 
 #######################
 # Internal functions
@@ -84,8 +88,8 @@ class connection(object):
     def set_windows_route(self):
         try:
             if sys.platform == 'win32' and self.get_device_id_i() and self.get_host_id_i():
-                child = Popen(['route.exe','ADD', self.get_device_id_i(), self.get_host_id_i()], stdout=PIPE, stderr=PIPE)
-                err = child.stderr.read()
+                p = Popen(['route.exe','ADD', self.get_device_id_i(), self.get_host_id_i()], stdout=PIPE, stderr=PIPE)
+                err = p.stderr.read()
                 
                 if err:
                     self.error('Route could not be established.')
@@ -93,17 +97,34 @@ class connection(object):
             self.error(e)
 
 
-    def get_net_interface(self, search_ip):
-        ifs = ni.interfaces()
-                    
-        for intf in ifs:
-            try:
-                ip = ni.ifaddresses(intf)[2][0]['addr']
-                if ip.startswith(search_ip):
-                    return ip
-            except:
-                pass
-        return False      
+    def parse_ifconfig(self, search_ip):
+        try:
+            ip_arr = search_ip.split('.')
+            dots = 3
+            ip = ''
+            for i in range(0, 3):
+                if i < len(ip_arr)-1:
+                    ip += '%s\\.' % ip_arr[i]
+                else:
+                    ip += '\\d+\\.'
+
+            if len(ip_arr) == 4:
+                ip += '%s' % ip_arr[3]
+            else:
+                ip += '\\d+'
+            print ip
+            p = Popen(self._ifconfig, stdout=PIPE, stderr=PIPE)
+            err = p.stderr.read()
+            
+            if err:
+                self.error('Could not get network info.')
+            stdout = p.stdout.read()
+            regx_ip = re.compile(r'(?P<ip>%s)' % ip)
+            m = regx_ip.search(stdout)
+            if m:
+                return m.group('ip')
+        except Exception, e:
+            self.error(e)   
 
 
 
@@ -113,7 +134,7 @@ class connection(object):
             timeout = self._host_ip_timeout
             while timeout:
                 
-                ip = self.get_net_interface(self._subnet)
+                ip = self.parse_ifconfig(self._subnet)
                 if ip:
                     self._host_ip = ip
                     if sys.platform == 'win32':
@@ -134,11 +155,11 @@ class connection(object):
             sock = self.multicast_listen_socket(self._m_ip, self._m_port)
             rd, wd, xd = select.select([sock],[],[], self._device_ip_timeout)
     
-            regx_IP = re.compile(r'(?P<ip>\d+\.\d+\.\d+\.\d+)')
+            regx_ip = re.compile(r'(?P<ip>\d+\.\d+\.\d+\.\d+)')
     
             if len(rd) != 0:
                 socket_read = sock.recv(1024)
-                m = regx_IP.search(socket_read)
+                m = regx_ip.search(socket_read)
                 sock.close()
                 
                 if m:
@@ -186,7 +207,7 @@ class connection(object):
 
     def is_connected_i(self):
         try:
-            return self.get_net_interface(self._host_ip)
+            return self.parse_ifconfig(self._host_ip)
         except Exception, e:
             self.error(e)
 

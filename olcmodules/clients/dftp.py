@@ -158,6 +158,8 @@ class client(object):
 
     def get_battery_value(self):
         try:
+            # value represents volts x 100 5.5v = 5500
+            # about <4500 and low battery warning comes up
             ret = self.sendrtn('GETS BATTERYLEVEL', True)
             for value in ret:
                 if value.startswith('BATTERYLEVEL'):
@@ -206,7 +208,7 @@ class client(object):
             if ret:
                 ################################################
                 # need to figure out values
-                return ret
+                return str(float(ret)/1000)
             else:
                 return 'Unknown.'
         except Exception, e:

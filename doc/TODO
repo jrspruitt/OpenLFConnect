@@ -1,0 +1,7 @@
+Test in linux
+    Test didj info returns, serial, battery, needs repair
+    this work on windows, if change is needed, add sys.platform check
+
+    Add in /dev/id and ip.ad.re.ss. checks in didj.py dftp.py respectively
+
+    double check parse_ifconfig in networking.py to make sure works in linux
