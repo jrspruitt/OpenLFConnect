@@ -109,7 +109,7 @@ class client(object):
                 p = Popen(cmd, stderr=PIPE)
                 err = p.stderr.read()
                 
-                if err.find('Good') == -1:
+                if 'Good' in err:
                     self.error('SCSI error.')
                 
                 total = last_total + self._cbf_packet - 1

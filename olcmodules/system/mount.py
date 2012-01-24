@@ -112,7 +112,7 @@ class connection(object):
             if not err:
                 ret = p.stdout.read()
                 
-                if ret.lower().find(self._vendor_name) != -1:
+                if self._vendor_name in ret.lower():
                     return ret
                 else:
                     return False
@@ -132,7 +132,7 @@ class connection(object):
                     lines = self.sg_scan()
                     if lines:
                         for line in lines.split('\n'):
-                            if line.lower().find(self._vendor_name) != -1:
+                            if self._vendor_name in line.lower():
                                 if sys.platform == 'win32':
                                     self._device_id = '%s' % line.split(' ')[0]
                                 else:
@@ -163,7 +163,7 @@ class connection(object):
                     lines = self.sg_scan()
                     if lines:
                         for line in lines.split('\n'):
-                            if line.lower().find(self._vendor_name) != -1:
+                            if self._vendor_name in line.lower():
                                 line = line.split('[')[1]
                                 line = line.split(']')[0]
                                 self._mount_point = '%s:\\' % line

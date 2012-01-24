@@ -102,7 +102,7 @@ class client(object):
             
             for item in retarr:
 
-                if item.find('200 OK') != -1:
+                if '200 OK' in item:
                     del retarr[retarr.index(item)]
                     ok = True
 
@@ -148,7 +148,7 @@ class client(object):
             ret = self.sendrtn('INFO', True)
             
             for line in ret:
-                if line.find('VERSION') != -1:
+                if 'VERSION' in line:
                     version = line.split('=')[1]
                     return '%s' % version.strip()
         except Exception, e:
@@ -469,9 +469,9 @@ class client(object):
         
                         if buf is False:
                             continue                        
-                        elif buf.find('101 EOF') != -1:
+                        elif '101 EOF' in buf:
                             break
-                        elif buf.lower().find('500 unknown command') != -1:
+                        elif '500 unknown command' in buf.lower():
                             error = True
                             break
                         else:
@@ -534,7 +534,7 @@ class client(object):
                     while ret:
                         ret = self.receive()
                             
-                        if ret and ret.find('500 Unknown command') != -1:
+                        if ret and '500 Unknown command' in ret:
                             self.error('Problem occured while uploading.')
             
                     print 'Uploaded %s : %s Bytes.' % (os.path.basename(lpath), bytes_sent)                
@@ -580,7 +580,7 @@ class client(object):
         
                     if buf is False:
                         continue                        
-                    elif buf.find('101 EOF') != -1:
+                    elif '101 EOF' in buf:
                         break
                     else:
                         self.send('100 ACK: %s\x00' % len(buf))

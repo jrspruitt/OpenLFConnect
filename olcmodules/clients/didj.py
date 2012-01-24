@@ -111,7 +111,7 @@ class client(object):
             p = Popen(cmd, stdout=PIPE, stderr=PIPE)
             err = p.stderr.read()
             
-            if err.find('Good') == -1:
+            if not 'Good' in err:
                 if arg != 'None':
                     return False
                 else:
@@ -193,7 +193,8 @@ class client(object):
     def get_serial_number(self):
         try:
             ret = self.call_sg_raw('get_setting', 'serial', 16)
-            if ret:
+            ret_arr = [ord(i) for i in ret]
+            if not 0 in ret_arr:
                 return ret
             else:
                 return 'Unknown'
@@ -205,7 +206,6 @@ class client(object):
 
     def get_needs_repair(self):
         try:
-#            ret = ord(self.call_sg_raw('get_setting', 'needs_repair', 1))
             ret = self.call_sg_raw('get_setting', 'needs_repair', 1)
             if ret:
                 return True
