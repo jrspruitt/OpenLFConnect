@@ -52,7 +52,7 @@ class client(object):
         
         self._cdb_cmds = {'lock':'C1', 'unlock':'C2', 'get_setting':'C3', 'disconnect':'C6'}
         self._settings = {'battery':'02', 'serial':'03', 'needs_repair':'06', 'None':'00'}
-        self._battery_level = {'0':'Unknown.' ,'1':'Critical' ,'2':'Low' ,'3':'Medium', '4':'High'}
+        self._battery_level = {'0':'Unknown' ,'1':'Critical' ,'2':'Low' ,'3':'Medium', '4':'High'}
 
         if sys.platform == 'win32':
             self._sg_raw = 'bin/sg_raw'
@@ -110,7 +110,7 @@ class client(object):
             cmd = shlex_split(cmdl)
             p = Popen(cmd, stdout=PIPE, stderr=PIPE)
             err = p.stderr.read()
-
+            
             if err.find('Good') == -1:
                 if arg != 'None':
                     return False
@@ -168,9 +168,9 @@ class client(object):
 
     def get_battery_value(self):
         try:
-            ret = ord(self.call_sg_raw('get_setting', 'battery', 1))
+            ret = self.call_sg_raw('get_setting', 'battery', 1)
             if ret:
-                return ret
+                return ord(ret)
             else:
                 return 0
         except Exception, e:
@@ -192,17 +192,11 @@ class client(object):
 
     def get_serial_number(self):
         try:
-            ret = self.call_sg_raw('get_setting', 'serial')
-                
+            ret = self.call_sg_raw('get_setting', 'serial', 16)
             if ret:
-                buf = ''
- 
-                for value in ret:
-                    buf += value
-
-                return buf
+                return ret
             else:
-                return 'Unknown.'
+                return 'Unknown'
         except Exception, e:
             self.rerror(e)
     serial_number = property(get_serial_number)
@@ -211,7 +205,8 @@ class client(object):
 
     def get_needs_repair(self):
         try:
-            ret = ord(self.call_sg_raw('get_setting', 'needs_repair', 1))
+#            ret = ord(self.call_sg_raw('get_setting', 'needs_repair', 1))
+            ret = self.call_sg_raw('get_setting', 'needs_repair', 1)
             if ret:
                 return True
             else:

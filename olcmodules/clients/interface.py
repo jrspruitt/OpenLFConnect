@@ -41,7 +41,7 @@ class filesystem(object):
 
     def dir_list(self, path):
         try:
-            if self._client.rdir_check(path):
+            if self._client.rdir_check_i(path):
                 return self._client.dir_list_i(path)
         except Exception, e:
             self._client.rerror(e)
@@ -62,7 +62,7 @@ class filesystem(object):
 
     def rmdir(self, path):
         try:
-            if self._client.rdir_check(path):
+            if self._client.rdir_check_i(path):
                 self._client.rmdir_i(path)
                 
         except Exception, e:
@@ -72,7 +72,7 @@ class filesystem(object):
 
     def rm(self, path):
         try:
-            if self._client.rfile_check(path):
+            if self._client.rfile_check_i(path):
                 self._client.rm_i(path)
                 
         except Exception, e:
@@ -82,7 +82,7 @@ class filesystem(object):
 
     def download_file(self, lpath, rpath):
         try:
-            if self._client.rfile_check(rpath):
+            if self._client.rfile_check_i(rpath):
                 self._client.download_file_i(lpath, rpath)                
 
         except Exception, e:
@@ -92,7 +92,7 @@ class filesystem(object):
 
     def download_dir(self, lpath, rpath):
         try:
-            if self._client.rdir_check(rpath):
+            if self._client.rdir_check_i(rpath):
                 self._client.download_dir_i(lpath, rpath)
                 
         except Exception, e:
@@ -102,7 +102,7 @@ class filesystem(object):
 
     def upload_file(self, lpath, rpath):
         try:
-            if self._client.lfile_check(lpath):
+            if self._client.lfile_check_i(lpath):
                 self._client.upload_file_i(lpath, rpath)
                 
         except Exception, e:
@@ -112,7 +112,7 @@ class filesystem(object):
 
     def upload_dir(self, lpath, rpath):
         try:
-            if self._client.ldir_check(lpath):
+            if self._client.ldir_check_i(lpath):
                 self._client.upload_dir_i(lpath, rpath)
                 
         except Exception, e:
@@ -122,7 +122,7 @@ class filesystem(object):
 
     def cat(self, path):
         try:
-            if self._client.rfile_check(path):
+            if self._client.rfile_check_i(path):
                 return self._client.cat_i(path)
                 
         except Exception, e:

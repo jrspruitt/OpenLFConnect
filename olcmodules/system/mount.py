@@ -31,6 +31,7 @@
 ##############################################################################
 
 import os
+import re
 import sys
 from time import sleep
 from subprocess import Popen, PIPE
@@ -38,19 +39,38 @@ from subprocess import Popen, PIPE
 class connection(object):
     def __init__(self, device_id='', mount_point='', debug=False):
         self.debug = debug
-        self._type = 'mount'
+
         self._linux_dev = '/dev/leapfrog'
-        self._vendor_name = 'leapfrog'
+        self._linux_mount_dir = '/media'
         
-        self._device_id = device_id
-        self._mount_point = mount_point
+        self._vendor_name = 'leapfrog'
         
         self._time_out = 30
 
         if sys.platform == 'win32':
             self._sg_scan = ['bin/sg_scan']
+            self._dev_regex = '^PD[\d]+{1}'
+            self._mount_regex = '^[a-zA-Z]{1}:\\$'
         else:
             self._sg_scan = ['sg_scan', '-i']
+            self._dev_regex = '^/dev/[\w/]+$'
+            self._mount_regex = '^%s/[\w/]+$' % self._linux_mount_dir
+
+        if device_id != '':
+            if self.check_device_id(device_id):
+                self._device_id = device_id
+            else:
+                self.rerror('Malformed device id.')
+        else:
+            self._device_id = device_id
+            
+        if mount_point != '':
+            if self.check_mount_point(mount_point):
+                self._mount_point = mount_point
+            else:
+                self.rerror('Malformed mount point name')
+        else:
+            self._mount_point = mount_point
     
 
 #######################
@@ -62,6 +82,26 @@ class connection(object):
 
     def rerror(self, e):
         assert False, 'Mount Error: %s' % e
+
+
+
+    def check_device_id(self, did):
+        regex_did = re.compile(r'%s' % self._dev_regex)
+        if regex_did.search(did):
+            return True
+        else:
+            return False
+
+
+
+    def check_mount_point(self, mount):
+        print '%s' % self._mount_regex
+        regex_mount = re.compile(r'%s' % self._mount_regex)
+        if regex_mount.search(mount):
+            return True
+        else:
+            return False
+
 
 
     def sg_scan(self):
@@ -76,7 +116,8 @@ class connection(object):
                     return ret
                 else:
                     return False
-
+            else:
+                return False
         except Exception, e:
             self.error(e)
 
@@ -86,26 +127,26 @@ class connection(object):
         try:
             print 'Finding device ID'
             time_out = self._time_out
-            if not os.path.exists(self._linux_dev):
-                while time_out:
+            while time_out:
+                if not os.path.exists(self._linux_dev):
                     lines = self.sg_scan()
-                    
-                    for line in lines.split('\n'):
-                        if line.lower().find(self._vendor_name) != -1:
-                            if sys.platform == 'win32':
-                                self._device_id = '%s' % line.split(' ')[0]
-                            else:
-                                self._device_id = '%s' % lines[lines.index(line) -1].split(' ')[0].replace(':', '')
-            
-                            return self._device_id
-                    
-                    time_out -= 1
-                    sleep(1)
+                    if lines:
+                        for line in lines.split('\n'):
+                            if line.lower().find(self._vendor_name) != -1:
+                                if sys.platform == 'win32':
+                                    self._device_id = '%s' % line.split(' ')[0]
+                                else:
+                                    self._device_id = '%s' % lines[lines.index(line) -1].split(' ')[0].replace(':', '')
+                
+                                return self._device_id
 
-            else:
-                self._device_id = self._linux_dev
-                return self._device_id
-                                
+
+                else:
+                    self._device_id = self._linux_dev
+                    return self._device_id
+                                                        
+                time_out -= 1
+                sleep(1)
             self.error('Device not found.')
         except Exception, e:
             self.rerror(e)
@@ -120,12 +161,13 @@ class connection(object):
             while timeout:
                 if sys.platform == 'win32':
                     lines = self.sg_scan()
-                    for line in lines.split('\n'):
-                        if line.lower().find(self._vendor_name) != -1:
-                            line = line.split('[')[1]
-                            line = line.split(']')[0]
-                            self._mount_point = '%s:\\' % line
-                            return self._mount_point
+                    if lines:
+                        for line in lines.split('\n'):
+                            if line.lower().find(self._vendor_name) != -1:
+                                line = line.split('[')[1]
+                                line = line.split(']')[0]
+                                self._mount_point = '%s:\\' % line
+                                return self._mount_point
                 else:
                     syspath = '/sys/class/scsi_disk'
                     
@@ -157,18 +199,10 @@ class connection(object):
 # Connection Interface functions
 #######################
 
-    def get_conn_type_i(self):
-        return self._conn_type
-
-
-
     def get_root_dir_i(self):
         return self.get_host_id_i()
 
     
-
-    def set_device_id_i(self, device_id):
-        self._device_id = device_id
 
     def get_device_id_i(self):
         try:
@@ -177,9 +211,6 @@ class connection(object):
             self.error(e)
 
 
-
-    def set_host_id_i(self, mount_point):
-        self._mount_point = mount_point
 
     def get_host_id_i(self):
         try:

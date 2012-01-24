@@ -37,8 +37,39 @@ from shutil import copytree, copyfile
 class client(object):
     def __init__(self, debug):
         self.debug = debug
-    
 
+#######################
+# Filesystem Internal Functions
+#######################
+
+    def file_check(self, path):
+        try:
+            if os.path.exists(path):
+                if not os.path.isdir(path):
+                    return True
+                else:
+                    self.error('Path is not a file.')
+            else:
+                    self.error('Path does not exist.')
+                
+        except Exception, e:
+            self.error(e)
+
+
+
+    def dir_check(self, path):
+        try:
+            if os.path.exists(path):
+                if os.path.isdir(path):
+                    return True
+                else:
+                    self.error('Path is not a directory.')
+            else:
+                    self.error('Path does not exist.')
+                
+        except Exception, e:
+            self.error(e)
+            
 #######################
 # Filesystem Interface Functions
 #######################
@@ -73,17 +104,20 @@ class client(object):
     def dir_list_i(self, path):
         try:
             dir_list = []
-            for item in os.listdir(path):
-                if os.path.isdir(os.path.join(path, item)):
-                    dir_list.append('%s/' % item)
+            dir_arr = os.listdir(path)
+            if dir_arr:
+                for item in dir_arr:
+                    if os.path.isdir(os.path.join(path, item)):
+                        dir_list.append('%s/' % item)
+                    else:
+                        dir_list.append(item)
+                        
+                if len(dir_list) > 0:
+                    return dir_list
                 else:
-                    dir_list.append(item)
-                    
-            if len(dir_list) > 0:
-                return dir_list
+                    return False
             else:
-                return False
-            
+                self.error('Problem arose listing directory contents.')
         except Exception, e:
             self.error(e)
 
@@ -200,50 +234,22 @@ class client(object):
         except Exception, e:
             self.error(e)
 
+#######################
+# Filesystem Interface Functions
+# Input Checks
+#######################
 
-
-    def file_check(self, path):
-        try:
-            if os.path.exists(path):
-                if not os.path.isdir(path):
-                    return True
-                else:
-                    self.error('Path is not a file.')
-            else:
-                    self.error('Path does not exist.')
-                
-        except Exception, e:
-            self.rerror(e)
-
-
-
-    def dir_check(self, path):
-        try:
-            if os.path.exists(path):
-                if os.path.isdir(path):
-                    return True
-                else:
-                    self.error('Path is not a directory.')
-            else:
-                    self.error('Path does not exist.')
-                
-        except Exception, e:
-            self.rerror(e)
-
-
-
-    def rfile_check(self, path):
+    def rfile_check_i(self, path):
         return self.file_check(path)
 
-    def rdir_check(self, path):
+    def rdir_check_i(self, path):
         return self.dir_check(path)
 
-    def lfile_check(self, path):
+    def lfile_check_i(self, path):
         return self.file_check(path)
 
-    def ldir_check(self, path):
+    def ldir_check_i(self, path):
         return self.dir_check(path)
-
             
 if __name__ == '__main__':
     print 'No examples yet.'

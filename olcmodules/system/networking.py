@@ -36,17 +36,14 @@ import socket
 import struct
 import select
 from time import sleep
-from shlex import split as shlex_split
 from subprocess import Popen, PIPE
 
 class connection(object):
     def __init__(self, host_ip='', device_ip='', debug=False):
         self.debug = debug
-        self._conn_type = 'networking'
-        self._root_dir = '/'
         
-        self._host_ip = host_ip
-        self._device_ip = device_ip
+        self._root_dir = '/'
+
         self._subnet = '169.254.'
         self._host_ip_timeout = 120
         self._device_ip_timeout = 30
@@ -58,6 +55,22 @@ class connection(object):
             self._ifconfig = ['ipconfig', '/all']
         else:
             self._ifconfig = ['/sbin/ifconfig']
+        
+        if host_ip !='':
+            if self.ip_check(host_ip):
+                self._host_ip = host_ip
+            else:
+                self.rerror('Malformed host IP address.')
+        else:
+            self._host_ip = host_ip
+            
+        if device_ip != '':
+            if self.ip_check(device_ip):
+                self._device_ip = device_ip
+            else:
+                self.rerror('Malformed device IP address.')
+        else:
+            self._device_ip = device_ip
 
 #######################
 # Internal functions
@@ -68,6 +81,28 @@ class connection(object):
 
     def rerror(self, e):
         assert False, 'Networking Error: %s' % e
+
+
+
+    def ip_check(self, ip):
+        try:
+            if ip.endswith('.'):
+                ip = ip[0:-1]
+                
+            ip_arr = [int(ip_class) for ip_class in ip.split('.')]
+
+            for ip_class in ip_arr:
+                if not ip_class < 256 or not ip_class > -1:
+                    return False
+                
+            if len(ip_arr) == 4:
+                regex_ip = re.compile(r'\d+\.\d+\.\d+\.\d+')
+                if regex_ip.search(ip):
+                    return True
+            else:
+                return False
+        except Exception, e:
+            return False
 
 
 
@@ -97,10 +132,10 @@ class connection(object):
             self.error(e)
 
 
+
     def parse_ifconfig(self, search_ip):
         try:
             ip_arr = search_ip.split('.')
-            dots = 3
             ip = ''
             for i in range(0, 3):
                 if i < len(ip_arr)-1:
@@ -112,7 +147,7 @@ class connection(object):
                 ip += '%s' % ip_arr[3]
             else:
                 ip += '\\d+'
-            print ip
+
             p = Popen(self._ifconfig, stdout=PIPE, stderr=PIPE)
             err = p.stderr.read()
             
@@ -172,14 +207,10 @@ class connection(object):
                 self.error('Timed out waiting for device IP.')
         except Exception, e:
             self.error(e)
-        
+     
 #######################
 # Connection Interface Functions
 #######################
-
-    def get_conn_type_i(self):
-        return self._conn_type
-
 
     def get_root_dir_i(self):
         return self._root_dir
@@ -188,20 +219,11 @@ class connection(object):
 
     def get_device_id_i(self):
         return self._device_ip or self.find_device_ip()
-    
-    def set_device_id_i(self, ip):
-        self._device_ip = ip
-        self.set_windows_route()
-
 
 
 
     def get_host_id_i(self):
         return self._host_ip or self.find_host_ip()
-
-    def set_host_id_i(self, ip):
-        self._host_ip = ip
-        self.set_windows_route()
 
 
 
@@ -210,21 +232,6 @@ class connection(object):
             return self.parse_ifconfig(self._host_ip)
         except Exception, e:
             self.error(e)
-
-
-
-    def ip_check(self, ip):
-        pass
-        #check conforms to ip
-        #throw exceptions
-
-
-
-    def device_check(self, ip):
-        self.ip_check(ip)
-        
-    def host_check(self, ip):
-        self.ip_check(ip)
 
 if __name__ == '__main__':
     print 'No example yet'

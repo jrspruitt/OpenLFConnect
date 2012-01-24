@@ -1,7 +1,7 @@
 *.py[co]
 
 
-files/LX/Firmware-Base
+files/LX/Firmware-Base/*
 files/LX/surgeon.lx.cbf
 files/LX/surgeon.cbf
 
@@ -9,11 +9,15 @@ files/Lpad/firmware/*
 files/Lpad/surgeon.lpad.cbf
 files/Lpad/surgeon.cbf
 
-files/Didj/bootloader-LF_LF1000
-files/DIdj/firmware-LF_LF1000
+files/Didj/bootloader-LF_LF1000/*
+files/Didj/firmware-LF_LF1000/*
+files/Didj/*
 files/Downloads/*
-!files/Downloads/doom
 
+!files/Downloads/doom
+!files/LX/firmware.urls
+!files/Lpad/firmware.urls
+!files/Didj/firmware.urls
 
 .project
 .pydevproject

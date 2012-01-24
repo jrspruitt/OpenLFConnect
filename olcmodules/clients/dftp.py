@@ -158,8 +158,9 @@ class client(object):
 
     def get_battery_value(self):
         try:
-            # value represents volts x 100 5.5v = 5500
+            # value represents volts x 1000 5.5v = 5500
             # about <4500 and low battery warning comes up
+            # 3.8v it shuts down
             ret = self.sendrtn('GETS BATTERYLEVEL', True)
             for value in ret:
                 if value.startswith('BATTERYLEVEL'):
@@ -193,10 +194,9 @@ class client(object):
                 if value.startswith('SERIAL'):
                     return value.split('=')[1].replace('"','')
                 
-            return 'Unknown.'
+            return 'Unknown'
         except Exception, e:
             self.rerror(e)
-        # parse serial number and return
         
     serial_number = property(get_serial_number)
 
@@ -204,16 +204,15 @@ class client(object):
 
     def get_battery_level(self):
         try:
-            ret = self.get_battery_value()
-            if ret:
-                ################################################
-                # need to figure out values
-                return str(float(ret)/1000)
+            ret = float(self.get_battery_value())
+            if ret > 0:
+                return str(ret/1000)
+            elif ret <= 0:
+                return 'A/C Power'
             else:
-                return 'Unknown.'
+                return 'Unknown'
         except Exception, e:
             self.rerror(e)
-        # parse battery level
     
     battery_level = property(get_battery_level)
 
@@ -235,7 +234,7 @@ class client(object):
         try:
             if not self._firmware_version:
                 path = '/etc/version'
-                if self.rfile_check(path):
+                if self.rfile_check_i(path):
                     self._firmware_version = self.cat_i(path).strip()
                     
             return self._firmware_version
@@ -591,9 +590,12 @@ class client(object):
         except Exception, e:
             self.error(e) 
 
+#######################
+# Filesystem Interface Functions
+# Input Checks
+#######################
 
-
-    def rfile_check(self, path):
+    def rfile_check_i(self, path):
         try:
             if self.exists_i(path):
                 if not self.is_dir_i(path):
@@ -604,11 +606,11 @@ class client(object):
                 self.error('Path does not exist.')
                 
         except Exception, e:
-            self.rerror(e)
+            self.error(e)
 
 
 
-    def rdir_check(self, path):
+    def rdir_check_i(self, path):
         try:
             if self.exists_i(path):
                 if self.is_dir_i(path):
@@ -619,11 +621,11 @@ class client(object):
                 self.error('Path does not exist.')
                 
         except Exception, e:
-            self.rerror(e)
+            self.error(e)
 
 
 
-    def lfile_check(self, path):
+    def lfile_check_i(self, path):
         try:
             if os.path.exists(path):
                 if not os.path.isdir(path):
@@ -634,11 +636,11 @@ class client(object):
                     self.error('Path does not exist.')
                 
         except Exception, e:
-            self.rerror(e)
+            self.error(e)
 
 
 
-    def ldir_check(self, path):
+    def ldir_check_i(self, path):
         try:
             if os.path.exists(path):
                 if os.path.isdir(path):
@@ -649,7 +651,7 @@ class client(object):
                     self.error('Path does not exist.')
                 
         except Exception, e:
-            self.rerror(e)
+            self.error(e)
 
 if __name__ == '__main__':
     print 'No demo program available yet.'
