@@ -479,8 +479,8 @@ class client(object):
                 print 'Remote: %s' % rpath
                 print '\n'                    
             else:
-                if self.sendrtn('RETR %s' % rpath):
-                    f = open(lpath, 'wb')
+                if self.sendrtn('RETR %s' % rpath.replace('\\', '/')):
+                    f = open(os.path.normpath(lpath), 'wb')
                     buf = ''
                     self.send('100 ACK: %s\x00' % 0)
                         
@@ -514,8 +514,8 @@ class client(object):
                     
             for item in self.dir_list_i(rpath):
                 if item != './' and item != '../':
-                    item_lpath = os.path.join(lpath, item)
-                    item_rpath = os.path.join(rpath, item).replace('\x00','')
+                    item_lpath = os.path.normpath(os.path.join(lpath, item))
+                    item_rpath = os.path.join(rpath, item).replace('\\', '/') #.replace('\x00','')
                     
                     if self.is_dir_i(item_rpath) and not os.path.exists(item_lpath):
                         self.lmkdir_i(item_lpath)
@@ -544,7 +544,7 @@ class client(object):
                 print 'Remote: %s' % rpath
                 print '\n'                    
             else:
-                if self.sendrtn('STOR %s' % rpath):
+                if self.sendrtn('STOR %s' % rpath.replace('\\', '/')):
                     f = open(lpath, 'rb')
                     buf = f.read()
                     f.close()                
@@ -557,7 +557,7 @@ class client(object):
                         if ret and '500 Unknown command' in ret:
                             self.error('Problem occured while uploading.')
             
-                    print 'Uploaded %s : %s Bytes.' % (os.path.basename(lpath), bytes_sent)                
+                    print 'Uploaded %s: %s Bytes.' % (os.path.basename(lpath), bytes_sent)                
                     self.sendrtn('101 EOF')
                 else:
                     self.error('Failed to upload file.')
@@ -573,7 +573,7 @@ class client(object):
           
             for item in os.listdir(lpath):
                 item_lpath = os.path.join(lpath, item)
-                item_rpath = os.path.join(rpath, item)
+                item_rpath = os.path.join(rpath, item).replace('\\', '/')
                 
                 if os.path.isdir(item_lpath):
                     self.mkdir_i(item_rpath)

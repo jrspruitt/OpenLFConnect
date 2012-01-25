@@ -32,7 +32,7 @@
 
 #@
 import os
-from shutil import copytree, copyfile
+from shutil import copytree, copyfile, rmtree
 
 
 class client(object):
@@ -113,12 +113,9 @@ class client(object):
                     else:
                         dir_list.append(item)
                         
-                if len(dir_list) > 0:
-                    return dir_list
-                else:
-                    return False
+                return dir_list
             else:
-                self.error('Problem arose listing directory contents.')
+                return ''
         except Exception, e:
             self.error(e)
 
@@ -145,7 +142,7 @@ class client(object):
                 print 'removed: %s' % path
                 print '\n'
             else:
-                os.rmdir(path)
+                rmtree(path)
                 
         except Exception, e:
             self.error(e)
@@ -190,7 +187,7 @@ class client(object):
                 print '\n'
             else:
                 copytree(rpath, lpath)
-                print 'Downloaded %s' % lpath
+                print 'Downloaded %s' % os.path.basename(lpath)
         except Exception, e:
             self.error(e)
 
@@ -205,7 +202,7 @@ class client(object):
                 print '\n'
             else:
                 copyfile(lpath, rpath)
-                print 'Uploaded %s bytes' % os.path.getsize(rpath)
+                print 'Uploaded %s: %s Bytes' % (os.path.basename(lpath), os.path.getsize(lpath))
         except Exception, e:
             self.error(e)
 
@@ -220,7 +217,7 @@ class client(object):
                 print '\n'
             else:
                 copytree(lpath, rpath)
-                print 'Uploaded %s' % rpath
+                print 'Uploaded %s' % os.path.basename(lpath)
         except Exception, e:
             self.error(e)
 

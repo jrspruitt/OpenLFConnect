@@ -57,7 +57,7 @@ class OpenLFConnect(cmd.Cmd, object):
         
         self._helpers = helpers
         
-        self._init_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'files')).replace('\\', '/')
+        self._init_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'files'))
         self._lm = loc_manager(self._init_path, cmd.Cmd)
         
         self._dftp_client = None
@@ -919,12 +919,9 @@ Upload the specified local file to the current remote directory, Will overwrite 
             self._lm.is_empty(s)
             self._lm.set_local()                
             abspath = self._lm.get_abspath(s)
+            self._lm.last_location()
             self._lm.set_remote()
-            remote_path = os.path.join(self._lm.path, os.path.basename(abspath))
-
-            if sys.platform == 'win32':
-                remote_path = remote_path.replace('\\', '/')
-            
+            remote_path = os.path.join(self._lm.path, os.path.basename(abspath))                
             self._lm.fs.upload_file(abspath, remote_path)
             self._lm.last_location()                    
         except Exception, e:
@@ -945,12 +942,9 @@ Upload the specified local directory into the current remote directory, Will ove
             self._lm.is_empty(s)
             self._lm.set_local()                
             abspath = self._lm.get_abspath(s)
+            self._lm.last_location()
             self._lm.set_remote()
-            remote_path = os.path.join(self._lm.pathath.basename(abspath))
-
-            if sys.platform == 'win32':
-                remote_path = remote_path.replace('\\', '/')
-            
+            remote_path = os.path.join(self._lm.path, os.path.basename(abspath))
             self._lm.fs.upload_dir(abspath, remote_path)
             self._lm.last_location()
         except Exception, e:
