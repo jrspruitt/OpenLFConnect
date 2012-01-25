@@ -52,7 +52,7 @@ import olcmodules.helpers as helpers
 class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
-        print 'OpenLFConnect Version 0.3'
+        print 'OpenLFConnect Version 0.5'
         self.debug = False
         
         self._helpers = helpers
