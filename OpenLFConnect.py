@@ -677,7 +677,7 @@ To reset to auto determine leave input blank.
 # OpenLFConnect
 #######################
 
-    def get_device_ip(self, s):
+    def do_get_device_ip(self, s):
         """
 Usage:
     get_device_ip
@@ -1033,7 +1033,7 @@ Doesn't care what kind or how big of a file.
 Usage:
     rename_lx_firmware [path]
 
-Renames a the current or specified directory of files, with first, kernel, and or erootfs in the file names.
+Renames the current or specified directory of files, with first, kernel, and or erootfs in the file names.
 Prepends the proper number prefix to each file.
 Will rename all files in the directory that match.
         """
