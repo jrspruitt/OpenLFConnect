@@ -435,7 +435,7 @@ Caution: Has not been tested on LeapPad, theoretically it should work though, pl
             self._lm.is_remote(self._dftp_client)
             self._lm.set_local()
             
-            path = self.get_abspath(s)
+            path = self._lm.get_abspath(s)
             
             if self._lm.fs.is_dir(path):
                 self._dftp_client.update_firmware(path)
