@@ -1,9 +1,5 @@
-Test didj info returns, serial, battery, needs repair
-this work on windows, if change is needed, add sys.platform check
-
-
 Upload/Download
 check if windows /\ swap can be removed
 
-
-ls <bad dir> returns bool not interable, should be exception
+documentation
+Didj needs_repair fix (bootflags.jffs2)?

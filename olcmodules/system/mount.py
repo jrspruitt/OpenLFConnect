@@ -23,13 +23,14 @@
 
 ##############################################################################
 # Title:   OpenLFConnect
-# Version: Version 0.4
+# Version: Version 0.5
 # Author:  Jason Pruitt
 # Email:   jrspruitt@gmail.com
 # IRC:     #didj irc.freenode.org
-# Wiki:    http://elinux.org/LeapFrog_Pollux_Platform
+# Wiki:    http://elinux.org/LeapFrog_Pollux_Platform:_OpenLFConnect
 ##############################################################################
 
+#@
 import os
 import re
 import sys
@@ -115,9 +116,9 @@ class connection(object):
                 if self._vendor_name in ret.lower():
                     return ret
                 else:
-                    return False
+                    return ''
             else:
-                return False
+                return ''
         except Exception, e:
             self.error(e)
 
@@ -129,13 +130,14 @@ class connection(object):
             time_out = self._time_out
             while time_out:
                 if not os.path.exists(self._linux_dev):
-                    lines = self.sg_scan()
+                    lines = self.sg_scan().split('\n')
                     if lines:
-                        for line in lines.split('\n'):
+                        for line in lines:
                             if self._vendor_name in line.lower():
                                 if sys.platform == 'win32':
                                     self._device_id = '%s' % line.split(' ')[0]
                                 else:
+                                    print lines[lines.index(line) -1] #.split(' ')[0].replace(':', '')
                                     self._device_id = '%s' % lines[lines.index(line) -1].split(' ')[0].replace(':', '')
                 
                                 return self._device_id
@@ -149,7 +151,7 @@ class connection(object):
                 sleep(1)
             self.error('Device not found.')
         except Exception, e:
-            self.rerror(e)
+            self.error(e)
 
 
 
@@ -191,7 +193,7 @@ class connection(object):
                 timeout -= 1
             self.error('Mount not found.')
         except Exception, e:
-            self.rerror(e)
+            self.error(e)
 
 
 

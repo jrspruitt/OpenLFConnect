@@ -1,5 +1,36 @@
-#!/bin/usr/env python
+#!/usr/bin/env python
+##############################################################################
+#    OpenLFConnect
+#
+#    Copyright (c) 2012 Jason Pruitt <jrspruitt@gmail.com>
+#
+#    This file is part of OpenLFConnect.
+#    OpenLFConnect is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    OpenLFConnect is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with OpenLFConnect.  If not, see <http://www.gnu.org/licenses/>.
+##############################################################################
 
+
+
+##############################################################################
+# Title:   OpenLFConnect
+# Version: Version 0.5
+# Author:  Jason Pruitt
+# Email:   jrspruitt@gmail.com
+# IRC:     #didj irc.freenode.org
+# Wiki:    http://elinux.org/LeapFrog_Pollux_Platform:_OpenLFConnect
+##############################################################################
+
+#@
 class config(object):
     def __init__(self, connection):
         self._connection = connection

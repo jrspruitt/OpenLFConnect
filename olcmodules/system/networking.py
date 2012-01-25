@@ -23,13 +23,14 @@
 
 ##############################################################################
 # Title:   OpenLFConnect
-# Version: Version 0.4
+# Version: Version 0.5
 # Author:  Jason Pruitt
 # Email:   jrspruitt@gmail.com
 # IRC:     #didj irc.freenode.org
-# Wiki:    http://elinux.org/LeapFrog_Pollux_Platform
+# Wiki:    http://elinux.org/LeapFrog_Pollux_Platform:_OpenLFConnect
 ##############################################################################
 
+#@
 import sys
 import re
 import socket

@@ -23,13 +23,14 @@
 
 ##############################################################################
 # Title:   OpenLFConnect
-# Version: Version 0.4
+# Version: Version 0.5
 # Author:  Jason Pruitt
 # Email:   jrspruitt@gmail.com
 # IRC:     #didj irc.freenode.org
-# Wiki:    http://elinux.org/LeapFrog_Pollux_Platform
+# Wiki:    http://elinux.org/LeapFrog_Pollux_Platform:_OpenLFConnect
 ##############################################################################
 
+#@
 import os
 import socket
 import time
@@ -41,12 +42,17 @@ class client(object):
         self._sock0 = None
         self._sock1 = None
         
+        self._name_lpad = 'LeapPad'
+        self._name_lx = 'Explorer'
         self._lx_fw_dir = 'Firmware-Base'
         self._lpad_fw_dir = 'firmware'
         
         self._lx_fw_files = ['1048576,8,FIRST.32.rle', '2097152,64,kernel.cbf', '10485760,688,erootfs.ubi']
         self._lpad_fw_files = ['sd/ext4/3/rfs', 'sd/raw/1/FIRST_Lpad.cbf', 'sd/raw/2/kernel.cbf', 'sd/partition/mbr2G.image']
 
+        self._ssh_rcS_files = {self._name_lx:'LX/enable_sshd/rcS', self._name_lpad:'Lpad/enable_sshd/rcS'}
+        self._ssh_sshd_files = {self._name_lx:'LX/enable_sshd/sshd_config', self._name_lpad:'Lpad/enable_sshd/sshd_config'}
+ 
         self._lx_remote_fw_root = '/LF/Bulk/Downloads/'
         self._lx_remote_fw_dir = os.path.join(self._lx_remote_fw_root, self._lx_fw_dir)
         self._lpad_remote_fw_root = '/LF/fuse/'
@@ -169,17 +175,18 @@ class client(object):
             return False
         except Exception, e:
             self.error(e)
-            
+   
+
 #######################
 # Client User Information Functions
 #######################
 
     def get_device_name(self):
         bid = self.get_board_id()
-        if bid > 2:
-            return 'LeapPad'
-        elif bid == 2:
-            return 'Explorer'
+        if bid > 10:
+            return self._name_lpad
+        elif bid <= 10:
+            return self._name_lx
         else:
             return 'Could not determine device'
 
@@ -305,9 +312,8 @@ class client(object):
             
             else:
                 self.error('Could not determine update application to use.')
-                
+
             if os.path.basename(lpath) != fw_dir:
-                
                 if os.path.exists(os.path.join(lpath, fw_dir)) and os.path.isdir(os.path.join(lpath, fw_dir)):
                     lpath = os.path.join(lpath, fw_dir)
                 else:
@@ -341,14 +347,28 @@ class client(object):
 
 
 
-    def update_reboot(self):
+    def reboot(self):
         try:
-            self.sendrtn('RSET')
-            self.sendrtn('NOOP')
-            self.sendrtn('DCON')
+            self.send('RSET')
+            self.send('NOOP')
+            self.send('DCON')
         except Exception, e:
             self.rerror(e) 
+
+
  
+    def enable_sshd(self, app_path):
+        try:
+            rcs = os.path.join(app_path, self._ssh_rcS_files[self.device_name])
+            sshd = os.path.join(app_path, self._ssh_sshd_files[self.device_name])
+            if os.path.exists(rcs) and os.path.exists(sshd):
+                self.upload_file_i(rcs, '/etc/init.d/rcS')
+                self.upload_file_i(sshd, '/etc/ssh/sshd_config')
+            else:
+                self.error('Could not determine device or files not available.')
+        except Exception, e:
+            self.rerror(e)
+
 #######################
 # Filesystem Interface Functions
 #######################

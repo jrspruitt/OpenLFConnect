@@ -23,13 +23,14 @@
 
 ##############################################################################
 # Title:   OpenLFConnect
-# Version: Version 0.4
+# Version: Version 0.5
 # Author:  Jason Pruitt
 # Email:   jrspruitt@gmail.com
 # IRC:     #didj irc.freenode.org
-# Wiki:    http://elinux.org/LeapFrog_Pollux_Platform
+# Wiki:    http://elinux.org/LeapFrog_Pollux_Platform:_OpenLFConnect
 ##############################################################################
 
+#@
 import os
 import cmd
 import sys
@@ -46,19 +47,15 @@ from olcmodules.clients.didj import client as didj_client
 from olcmodules.clients.local import client as local_client
 from olcmodules.clients.interface import filesystem as fs_iface
 
-#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-# TODO
-# documentation
-# download/extract firmwares?
-# LX add addres/size to bare named files
-# Didj needs_repair fix (bootflags.jffs2)?
-#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+import olcmodules.helpers as helpers
 
 class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
-        print 'OpenLFConnect Version 0.3'
+        print 'OpenLFConnect Version 0.5'
         self.debug = False
+        
+        self._helpers = helpers
         
         self._init_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'files')).replace('\\', '/')
         self._lm = loc_manager(self._init_path, cmd.Cmd)
@@ -71,7 +68,7 @@ class OpenLFConnect(cmd.Cmd, object):
         self._device_id = ''
         
         self._lm.set_local(self._lm.local_path)
-
+        
 ##############################################################################
 # OpenLFConnect.py
 # Internal Functions
@@ -83,6 +80,8 @@ class OpenLFConnect(cmd.Cmd, object):
     def perror(self, e):
         print '%s' % e
 
+    def emptyline(self):
+        pass
 #######################
 # Internal User Connection/Client Config Functions
 # OpenLFConnect
@@ -310,7 +309,6 @@ Remove Didj firmware and bootloader from device.
         return self._lm.complete_local(text, line, begidx, endidx)
 
 
-
     def dftp_device_info(self):
         try:
             device_name = self._dftp_client.device_name
@@ -327,19 +325,11 @@ Remove Didj firmware and bootloader from device.
         except Exception, e:
             self.error(e)
 
-
-
-    def send(self, cmd):
-        try:
-            print self._dftp_client.sendrtn(cmd)
-        except Exception, e:
-            self.error(e)
-
 #######################
 # DFTP User Functions
 # clients.dftp
 #######################
-
+        
     def do_dftp_connect(self, s):
         """
 Usage:
@@ -462,22 +452,24 @@ Caution: Has not been tested on LeapPad, theoretically it should work though, pl
     def do_dftp_reboot(self, s):
         """
 Usage:
-    update_reboot
+    dftp_reboot
 
 After running update, run this to trigger a reboot
         """
         try:
             self._lm.is_remote(self._dftp_client)
-            self._dftp_client.update_reboot()
+            self._dftp_client.reboot()
             self._dftp_client.disconnect()
             self._dftp_client = None
             self._lm.remote_destroy()
         except Exception, e:
+            self._dftp_client = None
+            self._lm.remote_destroy()
             self.perror(e)
 
 
 
-    def do_send(self, s):
+    def do_dftp_send(self, s):
         """
 Usage:
     send <raw command>
@@ -486,7 +478,28 @@ Advanced use only, don't know, probably shouldn't.
         """
         try:
             self._lm.is_remote(self._dftp_client)
-            self.send(s)
+            print self._dftp_client.sendrtn(s)
+        except Exception, e:
+            self.perror(e)
+
+
+
+    def do_dftp_enable_sshd(self, s):
+        """
+Usage:
+    enable_sshd
+    
+Uploads two custom files, to enable the ssh server on boot, files found in <app path>/files/[LX|Lpad]/sshd_enable/.
+After uploaded and first reboot of the device, give it a minute to generate the keys before trying to connect.
+File paths are hard coded, will work from anywhere.
+Username:root
+Password:<blank>
+
+Caution: Has not been tested on LeapPad, theoretically it should work though, please confirm to author yes or no if you get the chance.
+        """
+        try:
+            self._lm.is_remote(self._dftp_client)
+            self._dftp_client.enable_sshd(self._init_path)
         except Exception, e:
             self.perror(e)
 
@@ -1001,38 +1014,53 @@ Doesn't care what kind or how big of a file.
             self.perror(e)
 
 ##############################################################################
-# UI Convenience Functions
+# UI Helper Functions
 # OpenLFConnect
 # No Rules Below, Whatever goes goes.
 #######################
 
-    def do_enable_sshd(self, s):
+
+    def complete_rename_lx_firmware(self, text, line, begidx, endidx):
+        return self._lm.complete_local(text, line, begidx, endidx)
+
+    def complete_extract_package(self, text, line, begidx, endidx):
+        return self._lm.complete_local(text, line, begidx, endidx)
+
+
+
+    def do_rename_lx_firmware(self, s):
         """
 Usage:
-    enable_sshd
-    
-Uploads two custom files, to enable the ssh server on boot, files found in <app path>/files/[LX|Lpad]/sshd_enable/.
-After uploaded, after first reboot of the device, give it a minute to generate the keys before trying to connect.
-Username:root
-Password:<blank>
+    rename_lx_firmware [path]
 
-Caution: Has not been tested on LeapPad, theoretically it should work though, please confirm to author yes or no if you get the chance.
+Renames a the current or specified directory of files, with first, kernel, and or erootfs in the file names.
+Prepends the proper number prefix to each file.
+Will rename all files in the directory that match.
         """
         try:
-            self._lm.is_remote()
-            self._lm.set_remote()
-                
-            vn = self._dftp_client.board_id()
-            
-            if vn.split('.')[0] == '1':
-                self._lm.fs.upload_file('files/LX/enable_sshd/rcS', '/etc/init.d/rcS')
-                self._lm.fs.upload_file('files/LX/enable_sshd/sshd_config', '/etc/ssh/sshd_config')
-            elif vn.split('.')[0] == '2':
-                self._lm.fs.upload_file('files/Lpad/enable_sshd/rcS', '/etc/init.d/rcS')
-                self._lm.fs.upload_file('files/Lpad/enable_sshd/sshd_config', '/etc/ssh/sshd_config')
-            else:
-                self.error('Could not determine device: Firmware version: %s' % vn)
-                
+            self._lm.set_local()
+            abspath = self._lm.get_abspath(s)
+            if self._lm.fs.is_dir(abspath):
+                self._helpers.rename_lx_firmware(abspath)
+            self._lm.last_location()
+        except Exception, e:
+            self._lm.last_location()
+            self.perror(e)
+
+
+
+    def do_extract_package(self, s):
+        """
+Usage:
+    extract_package [path]
+
+Extracts LF Package files (lfp ,lfp2)
+Takes a file path, or will extract all packages in a directory.
+        """
+        try:
+            self._lm.set_local()
+            abspath = self._lm.get_abspath(s)
+            self._helpers.extract_packages(abspath)
             self._lm.last_location()
         except Exception, e:
             self._lm.last_location()

@@ -2,11 +2,11 @@
 
 ##############################################################################
 # Title:   OpenLFConnect
-# Version: Version 0.4
+# Version: Version 0.5
 # Author:  Jason Pruitt
 # Email:   jrspruitt@gmail.com
 # IRC:     #didj irc.freenode.org
-# Wiki:    http://elinux.org/LeapFrog_Pollux_Platform
+# Wiki:    http://elinux.org/LeapFrog_Pollux_Platform:_OpenLFConnect
 ##############################################################################
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -15,10 +15,21 @@ OpenLFConnect is a Python and sg3_utils based replacement application for the Le
 
 WARNING: This program attempts to flash new firmware, has the ability to make and delete, upload and download, files could be destroyed, firmware flashing could go wrong. There is no prompts for second chances.
 
-Check OpenLFConnect/INSTALL for installation and configuration.
+Check OpenLFConnect/doc/INSTALL for installation and configuration.
 
 
 Build Log:
+Version 0.5
+	General code organization, testing, fixes.
+	Found issues with install dependencies, Windows requires Bonjour to be installed.
+	Removed anything not in standard python 2.6 install on Linux or Windows, afaik.
+	Changed is_connected to check eth or mount, ping was too slow.
+	Disconnected in session issues fairly well taken care of now.
+	Moved all the local/remote/path to locations.py.
+	Added package extractor.
+	Added LX firmware rename.
+	Added device info outputs.
+	
 Version 0.4
 	Changed is_connected() to actually ping the device
 	Added windows search for host IP, no need for default or static (1.25min wait though)
