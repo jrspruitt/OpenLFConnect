@@ -23,7 +23,7 @@
 
 ##############################################################################
 # Title:   OpenLFConnect
-# Version: Version 0.5
+# Version: Version 0.6
 # Author:  Jason Pruitt
 # Email:   jrspruitt@gmail.com
 # IRC:     #didj irc.freenode.org
@@ -31,6 +31,7 @@
 ##############################################################################
 
 #@
+# client/interface.py Version 0.5
 class filesystem(object):
     
     def __init__(self, client):

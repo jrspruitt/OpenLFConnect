@@ -23,7 +23,7 @@
 
 ##############################################################################
 # Title:   OpenLFConnect
-# Version: Version 0.5
+# Version: Version 0.6
 # Author:  Jason Pruitt
 # Email:   jrspruitt@gmail.com
 # IRC:     #didj irc.freenode.org
@@ -31,6 +31,7 @@
 ##############################################################################
 
 #@
+# OpenLFConnect.py Version 0.6
 import os
 import cmd
 import sys
@@ -47,16 +48,15 @@ from olcmodules.clients.didj import client as didj_client
 from olcmodules.clients.local import client as local_client
 from olcmodules.clients.interface import filesystem as fs_iface
 
-import olcmodules.helpers as helpers
+from olcmodules.firmware import cbf, lx, packages
+
 
 class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
-        print 'OpenLFConnect Version 0.5'
+        print 'OpenLFConnect Version 0.6'
         self.debug = False
-        
-        self._helpers = helpers
-        
+                
         self._init_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'files')).replace('\\', '/')
         self._lm = loc_manager(self._init_path, cmd.Cmd)
         
@@ -530,7 +530,7 @@ File can be any name, but must conform to CBF standards.
 
             if not self._lm.fs.is_dir(abspath):
                 self._pager_client = pager_client(conn_iface(mount_connection()))
-                self._pager_client.upload_firmware(abspath)
+                self._pager_client.upload(abspath)
                 print 'Booting surgeon.'
                 self._pager_client = None
             else:
@@ -1014,9 +1014,8 @@ Doesn't care what kind or how big of a file.
             self.perror(e)
 
 ##############################################################################
-# UI Helper Functions
-# OpenLFConnect
-# No Rules Below, Whatever goes goes.
+# UI Firmware Functions
+# firmware.*
 #######################
 
 
@@ -1026,12 +1025,27 @@ Doesn't care what kind or how big of a file.
     def complete_extract_package(self, text, line, begidx, endidx):
         return self._lm.complete_local(text, line, begidx, endidx)
 
+    def complete_cbf_unwrap(self, text, line, begidx, endidx):
+        return self._lm.complete_local(text, line, begidx, endidx)
 
+    def complete_cbf_wrap_surgeon(self, text, line, begidx, endidx):
+        return self._lm.complete_local(text, line, begidx, endidx)
 
-    def do_rename_lx_firmware(self, s):
+    def complete_cbf_wrap_kernel(self, text, line, begidx, endidx):
+        return self._lm.complete_local(text, line, begidx, endidx)
+
+    def complete_cbf_summary(self, text, line, begidx, endidx):
+        return self._lm.complete_local(text, line, begidx, endidx)
+
+#######################
+# UI Explorer (LX) Firmware Functions
+# firmware.lx
+#######################
+
+    def do_lx_rename_firmware(self, s):
         """
 Usage:
-    rename_lx_firmware [path]
+    lx_rename_firmware [path]
 
 Renames the current or specified directory of files, with first, kernel, and or erootfs in the file names.
 Prepends the proper number prefix to each file.
@@ -1040,19 +1054,26 @@ Will rename all files in the directory that match.
         try:
             self._lm.set_local()
             abspath = self._lm.get_abspath(s)
+            
             if self._lm.fs.is_dir(abspath):
-                self._helpers.rename_lx_firmware(abspath)
+                lx.rename(abspath)
+            else:
+                self.error('Path is not a directory.')
+                
             self._lm.last_location()
         except Exception, e:
             self._lm.last_location()
             self.perror(e)
 
+#######################
+# UI Package Functions
+# firmware.packages
+#######################
 
-
-    def do_extract_package(self, s):
+    def do_package_extract(self, s):
         """
 Usage:
-    extract_package [path]
+    package_extract [path]
 
 Extracts LF Package files (lfp ,lfp2)
 Takes a file path, or will extract all packages in a directory.
@@ -1060,12 +1081,99 @@ Takes a file path, or will extract all packages in a directory.
         try:
             self._lm.set_local()
             abspath = self._lm.get_abspath(s)
-            self._helpers.extract_packages(abspath)
+            packages.extract(abspath)
             self._lm.last_location()
         except Exception, e:
             self._lm.last_location()
             self.perror(e)
 
+#######################
+# UI CBF File Functions
+# firmware.cbf
+#######################
+
+    def do_cbf_unwrap(self, s):
+        """
+Usage:
+    cbf_unwrap <file path>
+
+Removes the CBF wrapper and prints a summary.
+CBF is used on kernels and surgeon, to wrap a zImage or Image file.
+Saves the image file to the same directory the cbf file was in.
+If image file already exists will fail.
+        """
+        try:
+            self._lm.set_local()
+            abspath = self._lm.get_abspath(s)
+            cbf.extract(abspath)
+            self._lm.last_location()
+        except Exception, e:
+            self._lm.last_location()
+            self.perror(e)
+
+
+
+    def do_cbf_wrap_surgeon(self, s):
+        """
+Usage:
+    cbf_wrap_surgeon <file path>
+
+Creates the CBF wrapper named surgeon.cbf and prints a summary.
+CBF is used on kernels and surgeon, to wrap a zImage or Image file.
+Saves the image file to the same directory the kernel file was in.
+Kernel should be a zImage or Image file.
+If cbf file already exists will fail.
+        """
+        try:
+            self._lm.set_local()
+            abspath = self._lm.get_abspath(s)
+            cbf.create(abspath, 'surgeon')
+            self._lm.last_location()
+        except Exception, e:
+            self._lm.last_location()
+            self.perror(e)
+
+
+
+    def do_cbf_wrap_kernel(self, s):
+        """
+Usage:
+    cbf_wrap_kernel <file path>
+
+Creates the CBF wrapper named kernel.cbf and prints a summary.
+CBF is used on kernels and surgeon, to wrap a zImage or Image file.
+Saves the image file to the same directory the kernel file was in.
+Kernel should be a zImage or Image file.
+If cbf file already exists will fail.
+        """
+        try:
+            self._lm.set_local()
+            abspath = self._lm.get_abspath(s)
+            cbf.create(abspath, 'kernel')
+            self._lm.last_location()
+        except Exception, e:
+            self._lm.last_location()
+            self.perror(e)
+
+
+
+    def do_cbf_summary(self, s):
+        """
+Usage:
+    cbf_summary <file path>
+
+Display the CBF wrapper summary.
+CBF is used on kernels and surgeon, to wrap a zImage or Image file.
+        """
+        try:
+            self._lm.set_local()
+            abspath = self._lm.get_abspath(s)
+            cbf.summary(abspath)
+            self._lm.last_location()
+        except Exception, e:
+            self._lm.last_location()
+            self.perror(e)
+         
 if __name__ == '__main__':
     OpenLFConnect().cmdloop()
         

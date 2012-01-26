@@ -23,7 +23,7 @@
 
 ##############################################################################
 # Title:   OpenLFConnect
-# Version: Version 0.5
+# Version: Version 0.6
 # Author:  Jason Pruitt
 # Email:   jrspruitt@gmail.com
 # IRC:     #didj irc.freenode.org
@@ -31,25 +31,13 @@
 ##############################################################################
 
 #@
+# packages.py Version 0.6
 import os
 import tarfile
 import zipfile
 
-def rename_lx_firmware(path):
-    lx_fw_files_prefixs = {'first':'1048576,8,', 'kernel':'2097152,64,', 'erootfs':'10485760,688,'}
-    dir_list = os.listdir(path)    
+def extract(path):
 
-    for name, prefix in lx_fw_files_prefixs.iteritems():
-        file_name_arr = [f for f in dir_list if name in f.lower() and not f.startswith(prefix)]
-        for file_name in file_name_arr:
-            file_path = os.path.join(path, file_name)
-            new_path = os.path.join(path, '%s%s' % (prefix, file_name))
-            if not os.path.exists(new_path) and os.path.exists(file_path):
-                os.rename(file_path, new_path)
-                print 'Renamed %s to %s' % (file_name, os.path.basename(new_path))
-
-
-def extract_packages(path):
     exts = ('lfp','lf2')
     files = []
     if os.path.isdir(path):
@@ -57,13 +45,13 @@ def extract_packages(path):
         files = [f for f in dir_list if f.endswith(exts)]
     else:
         if path.endswith(exts):
-            path = os.path.dirname(path)
             files = [os.path.basename(path)]
+            path = os.path.dirname(path)
     
     if len(files) > 0:
         for file_name in files:
             file_path = os.path.join(path, file_name)
-            
+
             if file_name.endswith('lfp'):
                 print 'Extracting lfp: %s' % file_name
                 opener, mode = zipfile.ZipFile, 'r'
@@ -78,6 +66,3 @@ def extract_packages(path):
             f.close() 
     else:
         assert False, 'No packages found.'
-
-
-

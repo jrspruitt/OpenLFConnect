@@ -31,44 +31,39 @@
 ##############################################################################
 
 #@
-# services/interface.py Version 0.5
-class config(object):
-    def __init__(self, connection):
-        self._connection = connection
+# lx.py Version 0.6
+import os
 
+def error(e):
+    assert False, e
 
+def check(path):
+    # checks if directory has files ready to upload
+    # false if needs formating
+    pass
 
-    def get_root_dir(self):
-        return self._connection.get_root_dir_i()
+def rename(path):
+    try:
+        if not os.path.isdir(path):
+            error('Path is not a directory.')
+
+        lx_fw_files_prefixs = {'first':'1048576,8,', 'kernel':'2097152,64,', 'erootfs':'10485760,688,'}
+        dir_list = os.listdir(path)    
     
-    root_dir = property(get_root_dir)
+        for name, prefix in lx_fw_files_prefixs.iteritems():
+            file_name_arr = [f for f in dir_list if name in f.lower() and not f.startswith(prefix)]
+
+            for file_name in file_name_arr:
+                file_path = os.path.join(path, file_name)
+                new_path = os.path.join(path, '%s%s' % (prefix, file_name))
+
+                if not os.path.exists(new_path) and os.path.exists(file_path):
+                    os.rename(file_path, new_path)
+                    print 'Renamed %s to %s' % (file_name, os.path.basename(new_path))
+    except Exception, e:
+        error(e)
 
 
 
-    def get_device_id(self):
-        try:
-            return self._connection.get_device_id_i()
-        except Exception, e:
-            self._connection.rerror(e)
-
-    device_id = property(get_device_id)
 
 
-
-    def get_host_id(self):
-        try:
-            return self._connection.get_host_id_i()
-        except Exception, e:
-            self._connection.rerror(e)
-            
-    host_id = property(get_host_id)
-
-
-    def is_connected(self):
-        try:
-            return self._connection.is_connected_i()
-        except Exception, e:
-            self._connection.rerror(e)
-
-if __name__ == '__main__':
-    print 'No examples yet.'
