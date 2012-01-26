@@ -2,7 +2,6 @@
 
 ##############################################################################
 # Title:   OpenLFConnect
-# Version: Version 0.6
 # Author:  Jason Pruitt
 # Email:   jrspruitt@gmail.com
 # IRC:     #didj irc.freenode.org
@@ -19,6 +18,17 @@ Check OpenLFConnect/doc/INSTALL for installation and configuration.
 
 
 Build Log:
+Version 0.6.1
+	Changed dftp downloads/cat/uploads to have functions that up/downloads to/from a buffer
+	Changed from enable sshd to ftp and telnet, was an easier, more universal patch, requires no ssh program on Windows
+	Used d/upload buffer to change how enabling is done, d/l to buffer, change string, upload from buffer.
+	Renamed dftp_send to send, and made it a direct raw call and receive.
+
+Version 0.6
+	Added functions for wrapping and unwrapping CBF files
+	made a firmware module for CBF Packages, LX firmware functions
+	light code clean up, and bug fixes.
+
 Version 0.5
 	General code organization, testing, fixes.
 	Found issues with install dependencies, Windows requires Bonjour to be installed.

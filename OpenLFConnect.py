@@ -23,7 +23,6 @@
 
 ##############################################################################
 # Title:   OpenLFConnect
-# Version: Version 0.6
 # Author:  Jason Pruitt
 # Email:   jrspruitt@gmail.com
 # IRC:     #didj irc.freenode.org
@@ -31,7 +30,7 @@
 ##############################################################################
 
 #@
-# OpenLFConnect.py Version 0.6
+# OpenLFConnect.py Version 0.6.1
 import os
 import cmd
 import sys
@@ -54,7 +53,7 @@ from olcmodules.firmware import cbf, lx, packages
 class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
-        print 'OpenLFConnect Version 0.6'
+        print 'OpenLFConnect Version 0.6.1'
         self.debug = False
                 
         self._init_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'files')).replace('\\', '/')
@@ -435,7 +434,7 @@ Caution: Has not been tested on LeapPad, theoretically it should work though, pl
             self._lm.is_remote(self._dftp_client)
             self._lm.set_local()
             
-            path = self.get_abspath(s)
+            path = self._lm.get_abspath(s)
             
             if self._lm.fs.is_dir(path):
                 self._dftp_client.update_firmware(path)
@@ -469,7 +468,7 @@ After running update, run this to trigger a reboot
 
 
 
-    def do_dftp_send(self, s):
+    def do_send(self, s):
         """
 Usage:
     send <raw command>
@@ -478,29 +477,36 @@ Advanced use only, don't know, probably shouldn't.
         """
         try:
             self._lm.is_remote(self._dftp_client)
-            print self._dftp_client.sendrtn(s)
+            self._dftp_client._sock1.settimeout(3)
+            self._dftp_client.send('%s\x00' % s)
+            ret = self._dftp_client.receive(512)
+            self._dftp_client._sock1.settimeout(1)
+            if ret:
+                print ret
         except Exception, e:
             self.perror(e)
 
 
 
-    def do_dftp_enable_sshd(self, s):
+    def do_dftp_enable_ftp_telnet(self, s):
         """
 Usage:
-    enable_sshd
+    dftp_enable_ftp_telnet
     
-Uploads two custom files, to enable the ssh server on boot, files found in <app path>/files/[LX|Lpad]/sshd_enable/.
-After uploaded and first reboot of the device, give it a minute to generate the keys before trying to connect.
-File paths are hard coded, will work from anywhere.
+This patches the /etc/init.d/rcS file, to run Telnet and FTP on start up.
 Username:root
 Password:<blank>
 
-Caution: Has not been tested on LeapPad, theoretically it should work though, please confirm to author yes or no if you get the chance.
+Caution:
+This will double check everything went okay, if it fails, it will save the original copy to files/rcS.
+You will then have the ability to upload it, if this file is corrupt or missing, your device will
+have to be recovered with Surgeon and a firmware update.
         """
         try:
             self._lm.is_remote(self._dftp_client)
-            self._dftp_client.enable_sshd(self._init_path)
+            self._dftp_client.enable_ftp_telnet()
         except Exception, e:
+            self._lm.last_location()
             self.perror(e)
 
 ##############################################################################

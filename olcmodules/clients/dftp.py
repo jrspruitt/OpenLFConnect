@@ -23,7 +23,6 @@
 
 ##############################################################################
 # Title:   OpenLFConnect
-# Version: Version 0.6
 # Author:  Jason Pruitt
 # Email:   jrspruitt@gmail.com
 # IRC:     #didj irc.freenode.org
@@ -31,7 +30,7 @@
 ##############################################################################
 
 #@
-# dftp.py Version 0.5
+# dftp.py Version 0.6.1
 import os
 import socket
 import time
@@ -147,6 +146,35 @@ class client(object):
             self.error('Could not create socket to: %s' % (device_ip))
         else:
             return sock
+
+
+    def download_buffer(self, path):
+        try:
+            if self.sendrtn('RETR %s' % path.replace('\\', '/')):
+                ret_buf = ''
+                buf = ''
+                error = False
+                self.send('100 ACK: %s\x00' % 0)
+                    
+                while True:                    
+                    buf = self.receive(8192)
+    
+                    if buf is False:
+                        continue                        
+                    elif '101 EOF' in buf:
+                        break
+                    elif '500 unknown command' in buf.lower():
+                        error = True
+                        break
+                    else:
+                        self.send('100 ACK: %s\x00' % len(buf))
+                        ret_buf += buf
+                if error:
+                    return False
+                else:
+                    return ret_buf
+        except Exception, e:
+            self.error(e)
 
 
 
@@ -358,15 +386,44 @@ class client(object):
 
 
  
-    def enable_sshd(self, app_path):
+    def enable_ftp_telnet(self):
         try:
-            rcs = os.path.join(app_path, self._ssh_rcS_files[self.device_name])
-            sshd = os.path.join(app_path, self._ssh_sshd_files[self.device_name])
-            if os.path.exists(rcs) and os.path.exists(sshd):
-                self.upload_file_i(rcs, '/etc/init.d/rcS')
-                self.upload_file_i(sshd, '/etc/ssh/sshd_config')
+            look_for = '[ -e /flags/developer ]'
+            replace_with = '[ 1 ]'
+            rcs_path = '/etc/init.d/rcS'
+            buf = self.download_buffer(rcs_path)
+            buf_len = len(buf)
+            buf_len_check = buf_len - (len(look_for) - len(replace_with))
+             
+            if replace_with in buf:
+                self.error('FTP and Telnet already enabled.')
+                
+            ret_buf = buf.replace(look_for, replace_with)
+            ret_buf_len = len(ret_buf)
+            if ret_buf == buf:
+                self.error('Could not find line to replace.')
+            elif ret_buf_len != buf_len_check:
+                self.error('Problem occoured, no file written.')
             else:
-                self.error('Could not determine device or files not available.')
+                self.upload_buffer(ret_buf, rcs_path)
+                
+                check_buf = self.download_buffer(rcs_path)
+                if check_buf != ret_buf:
+                    print 'rcS has been patched for FTP and Telnet on start up.'
+                else:
+                    self.upload_buffer(ret_buf, rcs_path)
+                    check_buf = self.download_buffer(rcs_path)
+                    if check_buf != ret_buf:
+                        f = open('files/rcS', 'wb')
+                        f.write(buf)
+                        f.close()
+                        print """ 
+A problem occured while patching rcS, that could not be fixed.
+A copy has been saved to files/rcS, please try to upload it manually.
+If this fails or you turn off your device before fixing the issue, you will have to update you're firmware with Surgeon.
+                            """
+                    else:
+                        print 'rcS has been patched for FTP and Telnet on start up.'
         except Exception, e:
             self.rerror(e)
 
@@ -472,37 +529,22 @@ class client(object):
 
     def download_file_i(self, lpath, rpath):
         try:
-            error = False
             if self.debug:
                 print '\n-------------------'
                 print 'Download'
                 print 'Local: %s' % lpath
                 print 'Remote: %s' % rpath
                 print '\n'                    
-            else:
-                if self.sendrtn('RETR %s' % rpath.replace('\\', '/')):
+            else:               
+                ret_buf = self.download_buffer(rpath)
+                
+                if ret_buf:
                     f = open(os.path.normpath(lpath), 'wb')
-                    buf = ''
-                    self.send('100 ACK: %s\x00' % 0)
-                        
-                    while True:                    
-                        buf = self.receive(8192)
-        
-                        if buf is False:
-                            continue                        
-                        elif '101 EOF' in buf:
-                            break
-                        elif '500 unknown command' in buf.lower():
-                            error = True
-                            break
-                        else:
-                            self.send('100 ACK: %s\x00' % len(buf))
-                            f.write(buf)
-                    if not error:
-                        print 'Downloaded %s: %s Bytes' % (os.path.basename(rpath), len(buf))
-                    else:
-                        print 'Error downloading %s' % os.path.basename(rpath)
+                    f.write(ret_buf)
+                    print 'Downloaded %s: %s Bytes' % (os.path.basename(rpath), len(ret_buf))
                     f.close()
+                else:
+                    print 'Error downloading %s' % os.path.basename(rpath)
         except Exception, e:
             self.error(e)
 
@@ -516,7 +558,7 @@ class client(object):
             for item in self.dir_list_i(rpath):
                 if item != './' and item != '../':
                     item_lpath = os.path.normpath(os.path.join(lpath, item))
-                    item_rpath = os.path.join(rpath, item).replace('\\', '/') #.replace('\x00','')
+                    item_rpath = os.path.join(rpath, item).replace('\\', '/')
                     
                     if self.is_dir_i(item_rpath) and not os.path.exists(item_lpath):
                         self.lmkdir_i(item_lpath)
@@ -537,6 +579,27 @@ class client(object):
 
 
 
+    def upload_buffer(self, buf, rpath):
+        try:
+            if self.sendrtn('STOR %s' % rpath.replace('\\', '/')):             
+                bytes_sent = self.send(buf)
+                ret = True
+                    
+                while ret:
+                    ret = self.receive()
+                        
+                    if ret and '500 Unknown command' in ret:
+                        self.error('Problem occured while uploading.')
+                        
+                self.sendrtn('101 EOF')
+                return bytes_sent
+            else:
+                self.error('Failed to upload file.')
+        except Exception, e:
+            self.error(e)
+
+
+
     def upload_file_i(self, lpath, rpath):
         try:
             if self.debug:
@@ -545,23 +608,12 @@ class client(object):
                 print 'Remote: %s' % rpath
                 print '\n'                    
             else:
-                if self.sendrtn('STOR %s' % rpath.replace('\\', '/')):
-                    f = open(lpath, 'rb')
-                    buf = f.read()
-                    f.close()                
-                    bytes_sent = self.send(buf)
-                    ret = True
-                        
-                    while ret:
-                        ret = self.receive()
-                            
-                        if ret and '500 Unknown command' in ret:
-                            self.error('Problem occured while uploading.')
-            
-                    print 'Uploaded %s: %s Bytes.' % (os.path.basename(lpath), bytes_sent)                
-                    self.sendrtn('101 EOF')
-                else:
-                    self.error('Failed to upload file.')
+                f = open(lpath, 'rb')
+                buf = f.read()
+                bytes_sent = self.upload_buffer(buf, rpath)
+                f.close()                
+                
+                print 'Uploaded %s: %s Bytes.' % (os.path.basename(lpath), bytes_sent)
         except Exception, e:
             self.error(e)
 
@@ -591,23 +643,14 @@ class client(object):
 
     def cat_i(self, path):
         try:
-            if self.sendrtn('RETR %s' % path):
-                buf = ''
-                retbuf = ''
-                self.send('100 ACK: %s\x00' % 0)
-                
-                while True:                    
-                    buf = self.receive(8192)
-        
-                    if buf is False:
-                        continue                        
-                    elif '101 EOF' in buf:
-                        break
-                    else:
-                        self.send('100 ACK: %s\x00' % len(buf))
-                        retbuf += buf
-                        
-                return retbuf
+            if self.is_dir_i(path):
+                self.error('Path is not a file')
+            
+            ret_buf = self.download_buffer(path)
+            if ret_buf:            
+                return ret_buf
+            else:
+                self.error('No data received.')
         except Exception, e:
             self.error(e) 
 

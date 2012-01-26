@@ -1,7 +1,4 @@
 Documentation
-Make cat_i and download_file_i share a common function
-	will use for modifying files on device, with out storing them locally
-	firmware revisions could break sshd, and would deal with enabling multiple services
 
 Make firmware folder easier to deal with
 	search for files instead of folder
