@@ -506,7 +506,6 @@ have to be recovered with Surgeon and a firmware update.
             self._lm.is_remote(self._dftp_client)
             self._dftp_client.enable_ftp_telnet()
         except Exception, e:
-            self._lm.last_location()
             self.perror(e)
 
 ##############################################################################
@@ -925,6 +924,7 @@ Upload the specified local file to the current remote directory, Will overwrite 
             self._lm.is_empty(s)
             self._lm.set_local()                
             abspath = self._lm.get_abspath(s)
+            self._lm.last_location()
             self._lm.set_remote()
             remote_path = os.path.join(self._lm.path, os.path.basename(abspath))
 
@@ -951,8 +951,9 @@ Upload the specified local directory into the current remote directory, Will ove
             self._lm.is_empty(s)
             self._lm.set_local()                
             abspath = self._lm.get_abspath(s)
+            self._lm.last_location()
             self._lm.set_remote()
-            remote_path = os.path.join(self._lm.pathath.basename(abspath))
+            remote_path = os.path.join(self._lm.path, os.path.basename(abspath))
 
             if sys.platform == 'win32':
                 remote_path = remote_path.replace('\\', '/')
