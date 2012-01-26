@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# dftp.py Version 0.6.1
+# dftp.py Version 0.7
 import os
 import socket
 import time
@@ -49,9 +49,6 @@ class client(object):
         
         self._lx_fw_files = ['1048576,8,FIRST.32.rle', '2097152,64,kernel.cbf', '10485760,688,erootfs.ubi']
         self._lpad_fw_files = ['sd/ext4/3/rfs', 'sd/raw/1/FIRST_Lpad.cbf', 'sd/raw/2/kernel.cbf', 'sd/partition/mbr2G.image']
-
-        self._ssh_rcS_files = {self._name_lx:'LX/enable_sshd/rcS', self._name_lpad:'Lpad/enable_sshd/rcS'}
-        self._ssh_sshd_files = {self._name_lx:'LX/enable_sshd/sshd_config', self._name_lpad:'Lpad/enable_sshd/sshd_config'}
  
         self._lx_remote_fw_root = '/LF/Bulk/Downloads/'
         self._lx_remote_fw_dir = os.path.join(self._lx_remote_fw_root, self._lx_fw_dir)
@@ -176,6 +173,62 @@ class client(object):
         except Exception, e:
             self.error(e)
 
+
+
+    def upload_buffer(self, buf, rpath):
+        try:
+            if self.sendrtn('STOR %s' % rpath.replace('\\', '/')):             
+                bytes_sent = self.send(buf)
+                ret = True
+                    
+                while ret:
+                    ret = self.receive()
+                        
+                    if ret and '500 Unknown command' in ret:
+                        self.error('Problem occured while uploading.')
+                        
+                self.sendrtn('101 EOF')
+                return bytes_sent
+            else:
+                self.error('Failed to upload file.')
+        except Exception, e:
+            self.error(e)
+
+
+
+    def run_buffer(self, buf):
+        try:
+            if not buf.startswith('#!/bin/sh'):
+                self.error('File does not appear to be valid shell script, missing shebag line.')
+            
+            if self.debug:
+                print '--------------'
+                print 'Ran script.'
+                print '\n'
+            elif self.sendrtn('RUN'):             
+                self.send(buf.replace('\r', ''))
+                ret = True
+                
+                while ret:
+                    ret = self.receive()
+                    
+                    if ret and '500 Unknown command' in ret:
+                        self.error('Problem occured while uploading.') 
+                
+                self.sendrtn('101 EOF')
+                running = True
+                
+                while running:
+                    ret = self.sendrtn('GETS SCRIPT_RUNNING')
+                    if ret != 'SCRIPT_RUNNING=1':
+                        running = False
+
+                print 'Ran script.'
+                return True
+            else:
+                self.error('Failed to run script.')
+        except Exception, e:
+            self.error(e)
 
 
     def find_dftp_version(self):
@@ -315,6 +368,8 @@ class client(object):
 
 
     def disconnect(self):
+        self.send('NOOP\x00')
+        self.send('DCON\x00')
         self._sock0.close()
         self._sock0 = None
         self._sock1.close()
@@ -378,52 +433,59 @@ class client(object):
 
     def reboot(self):
         try:
-            self.send('RSET')
-            self.send('NOOP')
-            self.send('DCON')
+            self.send('RSET\x00')
+            self.send('NOOP\x00')
+            self.send('DCON\x00')
+            self._sock0.close()
+            self._sock0 = None
+            self._sock1.close()
+            self._sock1 = None
         except Exception, e:
-            self.rerror(e) 
+            self.rerror(e)
+
+
+
+    def reboot_usbmode(self):
+        try:
+            self.send('UPD8\x00')
+            self.send('NOOP\x00')
+            self.send('DCON\x00')
+            self._sock0.close()
+            self._sock0 = None
+            self._sock1.close()
+            self._sock1 = None
+        except Exception, e:
+            self.rerror(e)
+
+
+
+    def run_script(self, path):
+        try:
+            if not os.path.exists(path):
+                self.error('Path does not exist.')
+            elif os.path.isdir(path):
+                self.error('Path is not a file.')
+
+            f = open(path, 'rb')
+            buf = f.read()
+            f.close()
+            self.run_buffer(buf)
+        except Exception, e:
+            self.rerror(e)
 
 
  
-    def enable_ftp_telnet(self):
+    def mount_patient(self, num):
         try:
-            look_for = '[ -e /flags/developer ]'
-            replace_with = '[ 1 ]'
-            rcs_path = '/etc/init.d/rcS'
-            buf = self.download_buffer(rcs_path)
-            buf_len = len(buf)
-            buf_len_check = buf_len - (len(look_for) - len(replace_with))
-             
-            if replace_with in buf:
-                self.error('FTP and Telnet already enabled.')
-                
-            ret_buf = buf.replace(look_for, replace_with)
-            ret_buf_len = len(ret_buf)
-            if ret_buf == buf:
-                self.error('Could not find line to replace.')
-            elif ret_buf_len != buf_len_check:
-                self.error('Problem occoured, no file written.')
-            else:
-                self.upload_buffer(ret_buf, rcs_path)
-                
-                check_buf = self.download_buffer(rcs_path)
-                if check_buf != ret_buf:
-                    print 'rcS has been patched for FTP and Telnet on start up.'
+            if num in ('0', '1', '2'):
+                if self.dftp_version == self._surgeon_dftp_version:
+                    self._sock1.settimeout(3)
+                    self.sendrtn('SETS MOUNTPATIENT=%s\x00' % num)
+                    self._sock1.settimeout(self._recieve_timeout)
                 else:
-                    self.upload_buffer(ret_buf, rcs_path)
-                    check_buf = self.download_buffer(rcs_path)
-                    if check_buf != ret_buf:
-                        f = open('files/rcS', 'wb')
-                        f.write(buf)
-                        f.close()
-                        print """ 
-A problem occured while patching rcS, that could not be fixed.
-A copy has been saved to files/rcS, please try to upload it manually.
-If this fails or you turn off your device before fixing the issue, you will have to update you're firmware with Surgeon.
-                            """
-                    else:
-                        print 'rcS has been patched for FTP and Telnet on start up.'
+                    self.error('Wrong version of DFTP is running.')
+            else:
+                self.error('Options are 0, 1, and 2')
         except Exception, e:
             self.rerror(e)
 
@@ -574,27 +636,6 @@ If this fails or you turn off your device before fixing the issue, you will have
                         else:
                             print 'Skipped file: %s' % item_rpath
                             
-        except Exception, e:
-            self.error(e)
-
-
-
-    def upload_buffer(self, buf, rpath):
-        try:
-            if self.sendrtn('STOR %s' % rpath.replace('\\', '/')):             
-                bytes_sent = self.send(buf)
-                ret = True
-                    
-                while ret:
-                    ret = self.receive()
-                        
-                    if ret and '500 Unknown command' in ret:
-                        self.error('Problem occured while uploading.')
-                        
-                self.sendrtn('101 EOF')
-                return bytes_sent
-            else:
-                self.error('Failed to upload file.')
         except Exception, e:
             self.error(e)
 

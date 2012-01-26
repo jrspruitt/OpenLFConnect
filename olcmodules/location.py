@@ -178,7 +178,7 @@ class manager(object):
         self._remote_fs = None
         self._remote_set = False
         self.remote_path = self._remote_path_init
-        self.set_local(self._local_path_init)
+        self.set_local() #self._local_path_init)
 
 #######################
 # Internal Remote Local Path Formatting Functions

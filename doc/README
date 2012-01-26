@@ -18,6 +18,14 @@ Check OpenLFConnect/doc/INSTALL for installation and configuration.
 
 
 Build Log:
+Version 0.6.2
+    Found the RUN command, which runs a shell script. Works much like upload RUN > data > 101 EOF
+    Removed enable ftp/sshd/telnet, rcS file is too important, should be done during Surgeon boot, with patient rfs mounted.
+    Added Mount Patient 2 mounts rfs, 1 mounts bulk/rfs, 0 unmounts any.
+    Wrote some basic shell scripts for RUN, start|stop ftp/telnet/sshd/patch_sshd_config
+    Removed local path getting reset on remote_destroy()
+    Fixed reboot was missing \x00 from raw send and added reboot_usbmode.
+    
 Version 0.6.1
 	Changed dftp downloads/cat/uploads to have functions that up/downloads to/from a buffer
 	Changed from enable sshd to ftp and telnet, was an easier, more universal patch, requires no ssh program on Windows

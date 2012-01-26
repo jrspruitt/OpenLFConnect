@@ -53,7 +53,7 @@ from olcmodules.firmware import cbf, lx, packages
 class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
-        print 'OpenLFConnect Version 0.6.1'
+        print 'OpenLFConnect Version 0.6.2'
         self.debug = False
                 
         self._init_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'files')).replace('\\', '/')
@@ -451,19 +451,156 @@ Caution: Has not been tested on LeapPad, theoretically it should work though, pl
     def do_dftp_reboot(self, s):
         """
 Usage:
-    dftp_reboot
+    dftp_reboot_reset
 
-After running update, run this to trigger a reboot
+This will trigger a reboot.
         """
         try:
             self._lm.is_remote(self._dftp_client)
             self._dftp_client.reboot()
-            self._dftp_client.disconnect()
             self._dftp_client = None
             self._lm.remote_destroy()
         except Exception, e:
             self._dftp_client = None
             self._lm.remote_destroy()
+            self.perror(e)
+
+
+
+    def do_dftp_reboot_usbmode(self, s):
+        """
+Usage:
+    dftp_reboot_usbmode
+
+This will reboot the device into USB mode, for sending a surgeon.cbf to boot.
+        """
+        try:
+            self._lm.is_remote(self._dftp_client)
+            self._dftp_client.reboot_usbmode()
+            self._dftp_client = None
+            self._lm.remote_destroy()
+        except Exception, e:
+            self._dftp_client = None
+            self._lm.remote_destroy()
+            self.perror(e)
+
+
+    def do_dftp_mount_patient(self, s):
+        """
+Usage:
+    dftp_mount_patient <0|2>
+
+Surgeon booted device only. These give you access to the devices filesystem.
+0 Unmounts /patient-rfs and /patient-bulk/
+1 Mounts /patient-rfs and /patient-bulk/
+2 Mounts only /patient-rfs
+        """
+        try:
+            self._lm.is_remote(self._dftp_client)
+            self._dftp_client.mount_patient(s)
+        except Exception, e:
+            self.perror(e)
+
+
+    def do_dftp_telnet(self, s):
+        """
+Usage:
+    dftp_telnet <start|stop>
+
+Starts or stops the Telnet daemon on the device.
+Username:root
+Password:<blank>
+        """
+        try:
+            if s in ('start', 'stop'):
+                self._lm.is_remote(self._dftp_client)            
+                self._dftp_client.run_script('files/Scripts/telnet_%s.sh' % s)
+                print 'Telnet %s' % s
+            else:
+                self.error('Command not recongized.')
+        except Exception, e:
+            self.perror(e)
+
+
+
+    def do_dftp_ftp(self, s):
+        """
+Usage:
+    dftp_ftp <start|stop>
+
+Starts or stops the FTP server on the device.
+Username:root
+Password:<blank>
+        """
+        try:
+            if s in ('start', 'stop'):
+                self._lm.is_remote(self._dftp_client)            
+                self._dftp_client.run_script('files/Scripts/ftp_%s.sh' % s)
+                print 'FTP %s' % s
+            else:
+                self.error('Command not recongized.')
+        except Exception, e:
+            self.perror(e)
+
+
+
+    def do_dftp_sshd(self, s):
+        """
+Usage:
+    dftp_sshd <start|stop>
+
+Starts or stops the SSHD daemon on the device. Does not work on surgeon.
+Username:root
+Password:<blank>
+        """
+        try:
+            if s in ('start', 'stop'):
+                self._lm.is_remote(self._dftp_client)            
+                self._dftp_client.run_script('files/Scripts/sshd_%s.sh' % s)
+                print 'SSHD %s' % s
+            else:
+                self.error('Command not recongized.')
+        except Exception, e:
+            self.perror(e)
+
+
+
+    def do_dftp_sshd_no_password(self, s):
+        """
+Usage:
+    dftp_sshd_no_password
+
+Patches the sshd_config file to permit login with a blank password.
+Should be run before starting sshd, only needs to be done once.
+        """
+        try:
+            self._lm.is_remote(self._dftp_client)
+            self._dftp_client.run_script('files/Scripts/sshd_enable_empty_pwd.sh')
+            print 'sshd_config patched for empty passwords.'
+        except Exception, e:
+            self.perror(e)
+
+
+
+    def do_dftp_run_script(self, s):
+        """
+Usage:
+    dftp_run_script <path>
+
+This takes a shell script as an argument, and proceeds to run it on the device.
+Username:root
+Password:<blank>
+        """
+        try:
+            self._lm.is_remote(self._dftp_client)
+            self._lm.set_local()            
+            path = self._lm.get_abspath(s)
+            
+            self._dftp_client.run_script(path)
+                
+            self._lm.last_location()
+        except Exception, e:
+            self._lm.last_location()
             self.perror(e)
 
 
@@ -479,32 +616,10 @@ Advanced use only, don't know, probably shouldn't.
             self._lm.is_remote(self._dftp_client)
             self._dftp_client._sock1.settimeout(3)
             self._dftp_client.send('%s\x00' % s)
-            ret = self._dftp_client.receive(512)
+            ret = self._dftp_client.receive()
             self._dftp_client._sock1.settimeout(1)
             if ret:
                 print ret
-        except Exception, e:
-            self.perror(e)
-
-
-
-    def do_dftp_enable_ftp_telnet(self, s):
-        """
-Usage:
-    dftp_enable_ftp_telnet
-    
-This patches the /etc/init.d/rcS file, to run Telnet and FTP on start up.
-Username:root
-Password:<blank>
-
-Caution:
-This will double check everything went okay, if it fails, it will save the original copy to files/rcS.
-You will then have the ability to upload it, if this file is corrupt or missing, your device will
-have to be recovered with Surgeon and a firmware update.
-        """
-        try:
-            self._lm.is_remote(self._dftp_client)
-            self._dftp_client.enable_ftp_telnet()
         except Exception, e:
             self.perror(e)
 
