@@ -415,7 +415,7 @@ Note: Device name is guessed from board id.
     def do_dftp_update(self, s):
         """
 Usage:
-    update <local path>
+    dftp_update <local path>
 
 CAUTION:
 !!Attempts to flash firmware, could potentially be harmful.!!
@@ -451,7 +451,7 @@ Caution: Has not been tested on LeapPad, theoretically it should work though, pl
     def do_dftp_reboot(self, s):
         """
 Usage:
-    dftp_reboot_reset
+    dftp_reboot
 
 This will trigger a reboot.
         """
@@ -473,6 +473,7 @@ Usage:
     dftp_reboot_usbmode
 
 This will reboot the device into USB mode, for sending a surgeon.cbf to boot.
+If surgeon is booted, will do a standared reboot.
         """
         try:
             self._lm.is_remote(self._dftp_client)
@@ -488,7 +489,7 @@ This will reboot the device into USB mode, for sending a surgeon.cbf to boot.
     def do_dftp_mount_patient(self, s):
         """
 Usage:
-    dftp_mount_patient <0|2>
+    dftp_mount_patient 0|1|2
 
 Surgeon booted device only. These give you access to the devices filesystem.
 0 Unmounts /patient-rfs and /patient-bulk/
@@ -1144,7 +1145,7 @@ Doesn't care what kind or how big of a file.
     def complete_rename_lx_firmware(self, text, line, begidx, endidx):
         return self._lm.complete_local(text, line, begidx, endidx)
 
-    def complete_extract_package(self, text, line, begidx, endidx):
+    def complete_package_extract(self, text, line, begidx, endidx):
         return self._lm.complete_local(text, line, begidx, endidx)
 
     def complete_cbf_unwrap(self, text, line, begidx, endidx):

@@ -35,6 +35,11 @@ import os
 import tarfile
 import zipfile
 
+def error(e):
+    assert False, '%s' % e
+
+
+
 def extract(path):
 
     exts = ('lfp','lf2')
@@ -64,4 +69,6 @@ def extract(path):
             f.extractall(path)
             f.close() 
     else:
-        assert False, 'No packages found.'
+        error('No packages found.')
+
+
