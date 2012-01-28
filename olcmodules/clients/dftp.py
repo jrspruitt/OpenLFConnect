@@ -625,18 +625,26 @@ class client(object):
 
     def upload_dir_i(self, lpath, rpath):
         try:
-            if not self.exists_i(rpath):
+            if not self.exists_i(rpath) and not self.debug:
                 self.mkdir_i(rpath)
+            elif self.debug:
+                print '\n-------------------'
+                print 'Made: %s' % rpath
+                print '\n'
           
             for item in os.listdir(lpath):
                 item_lpath = os.path.join(lpath, item)
                 item_rpath = os.path.join(rpath, item).replace('\\', '/')
                 
                 if os.path.isdir(item_lpath):
-                    self.mkdir_i(item_rpath)
-                    
-                    if not self.debug:                        
-                        self.upload_dir_i(item_lpath, item_rpath)
+                    if not self.debug:
+                        self.mkdir_i(item_rpath)                    
+                    else:
+                        print '\n-------------------'
+                        print 'Made: %s' % rpath
+                        print '\n' 
+
+                    self.upload_dir_i(item_lpath, item_rpath)
                 else:
                     self.upload_file_i(item_lpath, item_rpath)
                     

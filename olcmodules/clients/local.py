@@ -201,7 +201,13 @@ class client(object):
                 print 'remote: %s' % rpath
                 print '\n'
             else:
-                copyfile(lpath, rpath)
+                lf = open(lpath, 'rb')
+                buf = lf.read()
+                lf.close()
+                rf = open(rpath, 'wb')
+                rf.write(buf)
+                os.fsync(rf.fileno())
+                rf.close()
                 print 'Uploaded %s: %s Bytes' % (os.path.basename(lpath), os.path.getsize(lpath))
         except Exception, e:
             self.error(e)
@@ -216,8 +222,30 @@ class client(object):
                 print 'remote %s' % rpath
                 print '\n'
             else:
-                copytree(lpath, rpath)
-                print 'Uploaded %s' % os.path.basename(lpath)
+                if not os.path.exists(rpath) and not self.debug:
+                    os.mkdir(rpath)
+                elif self.debug:
+                    print '\n-------------------'
+                    print 'Made: %s' % rpath
+                    print '\n'
+                
+                for item in os.listdir(lpath):
+                    item_lpath = os.path.join(lpath, item)
+                    item_rpath = os.path.join(rpath, item)
+                    
+                    if os.path.isdir(item_lpath):
+                        if not self.debug:
+                            os.mkdir(item_rpath)                     
+                        else:
+                            print '\n-------------------'
+                            print 'Made: %s' % rpath
+                            print '\n'
+                               
+                        self.upload_dir_i(item_lpath, item_rpath)
+                    else:
+                        self.upload_file_i(item_lpath, item_rpath)
+
+                print 'Created Directory %s' % os.path.basename(lpath)
         except Exception, e:
             self.error(e)
 

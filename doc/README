@@ -21,7 +21,7 @@ Build Log:
 Versoin 0.6.3
 	Added modules for firmware handling
 	Added package download function
-	Added linux command sync when ejecting/unmounting didj *must do this if files transfered!
+	Changed local client to file sync on upload, prevents didj ejecting before cache is flushed. 
 	
 Version 0.6.2
     Found the RUN command, which runs a shell script. Works much like upload RUN > data > 101 EOF

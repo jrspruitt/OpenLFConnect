@@ -45,6 +45,8 @@ update_dirs = {'bootloader': bootloader_dir, 'firmware': firmware_dir}
 update_files = {'bootloader': bootloader_files, 'firmware': firmware_files}
 didj_base = 'Base'
 
+
+
 def error(e):
     assert False, '%s' % e
 
@@ -53,7 +55,6 @@ def error(e):
 def didj_md5_files(path, utype):
     try:
         for item in update_files[utype]:
-            print item
             fpath = os.path.join(path, item)
             if os.path.exists(fpath):
                 md5sum = get_md5(fpath)
@@ -92,7 +93,7 @@ def prepare_update(lpath, mount_point, utype):
         lpath, rpath = find_paths(lpath, mount_point, utype)
 
         if os.path.exists(rpath):
-            error('Found $%s update on device already.' % utype)
+            error('Found %s update on device already.' % utype)
             
         didj_md5_files(lpath, utype)
         return [lpath, rpath]

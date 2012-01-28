@@ -168,7 +168,8 @@ Unlock Didj to allow it to mount on host system.
 Usage:
     didj_umount
 
-Lock Didj which will un mount on host system. Only seems to work in Windows.
+Lock Didj which will un mount on host system.
+Could take some time to unmount if you have written files to the device.
         """
         try:
             self._lm.is_remote(self._didj_client)
@@ -185,8 +186,8 @@ Usage:
     didj_eject
 
 Eject the Didj which will unmount on host system, if the firmware updates are 
-on the Didj, an update will be triggered. If they are not, it will ask you to unplug it. For
-Linux hosts, you'll also have to eject it from the system.
+on the Didj, an update will be triggered. If they are not, it will ask you to unplug it.
+Could take some time to unmount and eject if you have written files to the device.
         """
         try:
             self._lm.is_remote(self._didj_client)

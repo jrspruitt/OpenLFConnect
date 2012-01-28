@@ -40,6 +40,7 @@ def error(e):
     assert False, '%s' % e
 
 
+
 def get_md5(path):
     try:
         f = open(path, 'rb')
@@ -49,6 +50,8 @@ def get_md5(path):
         return md5h.hexdigest()
     except Exception, e:
         error(e)
+
+
 
 def get_sha1(path):
     try:
@@ -97,3 +100,4 @@ def wheres_firmware_dir(lpath, utype):
             return False
             
     return lpath
+

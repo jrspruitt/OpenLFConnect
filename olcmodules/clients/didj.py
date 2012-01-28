@@ -30,13 +30,14 @@
 ##############################################################################
 
 #@
-# client.didj.py Version 0.6
+# client.didj.py Version 0.7
 import os
 import sys
 from shlex import split as shlex_split
 from subprocess import Popen, PIPE
 from shutil import copytree, rmtree
 from time import sleep
+from olcmodules.clients.local import client as local
 
 import olcmodules.firmware.didj as fw
 
@@ -44,7 +45,7 @@ class client(object):
     def __init__(self, mount_config, debug=False):
         self.debug = debug
         self._mount_config = mount_config
-        
+        self._local_fs = local(self.debug) 
         self._cdb_cmds = {'lock':'C1', 'unlock':'C2', 'get_setting':'C3', 'disconnect':'C6'}
         self._settings = {'battery':'02', 'serial':'03', 'needs_repair':'06', 'None':'00'}
         self._battery_level = {'0':'Unknown' ,'1':'Critical' ,'2':'Low' ,'3':'Medium', '4':'High'}
@@ -105,8 +106,8 @@ class client(object):
                     print 'local: %s' % lpath
                     print 'remote: %s' % rpath
                     print '\n'
-                else:                
-                    copytree(lpath, rpath)
+                else: 
+                    self._local_fs.upload_dir_i(lpath, rpath)
             else:
                 self.error('One of the paths does not exist')
         except Exception, e:
@@ -123,14 +124,6 @@ class client(object):
                 return 0
         except Exception, e:
             self.error(e)
-
-
-
-    def sync(self):
-        if sys.platform != 'win32':
-            p = Popen(['sync'], stderr=PIPE)
-            if p.stderr.read():
-                self.error('Problem syncing filesystem. Please run the sync command.')
 
 #######################
 # Client User Didj Information Functions
@@ -162,7 +155,7 @@ class client(object):
 
     def get_needs_repair(self):
         try:
-            ret = self.call_sg_raw('get_setting', 'needs_repair', 1)
+            ret = ord(self.call_sg_raw('get_setting', 'needs_repair', 1))
             if ret:
                 return True
             else:
@@ -176,15 +169,6 @@ class client(object):
 # Client User Command Functions
 #######################
 
-    def umount(self):
-        try:
-            self.sync()
-            self.call_sg_raw('lock')
-        except Exception, e:
-            self.rerror(e)
-
-
-
     def mount(self):
         try:
             self.call_sg_raw('unlock')
@@ -193,9 +177,18 @@ class client(object):
 
 
 
+    def umount(self):
+        try:
+            sleep(5)
+            self.call_sg_raw('lock')
+        except Exception, e:
+            self.rerror(e)
+   
+
+
     def eject(self):
         try:
-            self.sync()
+            sleep(5)
             self.call_sg_raw('disconnect')
             if not sys.platform == 'win32':
                 print 'Please eject the device from your system.'
@@ -219,6 +212,7 @@ class client(object):
             self.move_update(lpath, rpath)
         except Exception, e:
             self.rerror(e)
+
 
 
     def cleanup(self):
