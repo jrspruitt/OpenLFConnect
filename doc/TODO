@@ -1,8 +1,11 @@
 Documentation
+Test currently updates, then push to github
 
 Make firmware folder easier to deal with
 	search for files instead of folder
 	extract if needed
 	Lpad in folders or not
 
-add in grab firmware/surgeon
+create 3 device folders and downloads on start up if needed
+
+config file?

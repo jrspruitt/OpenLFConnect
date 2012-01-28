@@ -34,6 +34,8 @@
 import os
 import socket
 import time
+import olcmodules.firmware.dftp as fwdftp
+import olcmodules.firmware.fuse as fwfuse
 
 class client(object):
     def __init__(self, net_config, debug=False):
@@ -44,17 +46,7 @@ class client(object):
         
         self._name_lpad = 'LeapPad'
         self._name_lx = 'Explorer'
-        self._lx_fw_dir = 'Firmware-Base'
-        self._lpad_fw_dir = 'firmware'
-        
-        self._lx_fw_files = ['1048576,8,FIRST.32.rle', '2097152,64,kernel.cbf', '10485760,688,erootfs.ubi']
-        self._lpad_fw_files = ['sd/ext4/3/rfs', 'sd/raw/1/FIRST_Lpad.cbf', 'sd/raw/2/kernel.cbf', 'sd/partition/mbr2G.image']
- 
-        self._lx_remote_fw_root = '/LF/Bulk/Downloads/'
-        self._lx_remote_fw_dir = os.path.join(self._lx_remote_fw_root, self._lx_fw_dir)
-        self._lpad_remote_fw_root = '/LF/fuse/'
-        self._lpad_remote_fw_dir = os.path.join(self._lpad_remote_fw_root, self._lpad_fw_dir)
-        
+       
         self._surgeon_dftp_version = '1.12'
         
         self._firmware_version = 0
@@ -382,50 +374,21 @@ class client(object):
             if self._surgeon_dftp_version != self.dftp_version:
                 self.error('Device is not in USB boot mode.')
             
-            if self.exists_i(self._lpad_remote_fw_root):
+            if self.exists_i(fwfuse.remote_fw_root):
                 print 'Fuse update.'
-                fw_dir = self._lpad_fw_dir
-                rpath = self._lpad_remote_fw_dir
-                fw_files = self._lpad_fw_files
+                paths = fwfuse.prepare_update(self, lpath)
             
-            elif self.exists_i(self._lx_remote_fw_root):
+            elif self.exists_i(fwdftp.remote_fw_root):
                 print 'DFTP update'
-                fw_dir = self._lx_fw_dir
-                rpath = self._lx_remote_fw_dir
-                fw_files = self._lx_fw_files
-            
+                paths = fwdftp.prepare_update(self, lpath)            
             else:
                 self.error('Could not determine update application to use.')
 
-            if os.path.basename(lpath) != fw_dir:
-                if os.path.exists(os.path.join(lpath, fw_dir)) and os.path.isdir(os.path.join(lpath, fw_dir)):
-                    lpath = os.path.join(lpath, fw_dir)
-                else:
-                    self.error('Firmware directory not found.')  
-                        
-            elif not os.path.exists(lpath) or not os.path.isdir(lpath):
-                self.error('Firmware directory not found.')
-
-            if not self.exists_i(rpath):
-                self.mkdir_i(rpath)
- 
             print 'Updating %s Firmware' % self.get_device_name()
                
-            for item in fw_files:
-                local_path = os.path.join(lpath, item)
-                remote_path = '%s/%s' % (rpath, item)
-                    
-                if os.path.exists(local_path):
-
-                    try:
-                        self.upload_file_i(local_path, remote_path)
-                            
-                    except Exception, e:
-                        self.error(e)
-                else:
-                    print '%s not found, skipped.' % item
+            for lfpath, rfpath in paths:
+                self.upload_file_i(lfpath, rfpath)
                                         
-            return True
         except Exception, e:
             self.rerror(e)
 

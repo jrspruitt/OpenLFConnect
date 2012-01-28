@@ -30,39 +30,52 @@
 ##############################################################################
 
 #@
-# lx.py Version 0.6
+# firmware.fuse.py Version 0.1
 import os
+from olcmodules.firmware.helpers import wheres_firmware_dir
+
+fw_dir = 'firmware'
+fw_files = [['sd/ext4/3/', 'rfs'], ['sd/raw/1/', 'FIRST_Lpad.cbf'], ['sd/raw/2/', 'kernel.cbf'], ['sd/partition/', 'mbr2G.image']]
+
+remote_fw_root = '/LF/fuse/'
+remote_fw_dir = os.path.join(remote_fw_root, fw_dir)
+
+
 
 def error(e):
     assert False, e
+
+
 
 def check(path):
     # checks if directory has files ready to upload
     # false if needs formating
     pass
 
-def rename(path):
+
+
+def prepare_update(dftp, lpath):
     try:
-        if not os.path.isdir(path):
-            error('Path is not a directory.')
-
-        lx_fw_files_prefixs = {'first':'1048576,8,', 'kernel':'2097152,64,', 'erootfs':'10485760,688,'}
-        dir_list = os.listdir(path)    
+        lpath = wheres_firmware_dir(lpath, fw_dir)
+        if not lpath:
+            pass
+            # assume for now we'll always find it
+            # later change to look for files here
+        rpath = remote_fw_dir
+        
+        if not dftp.exists_i(rpath):
+            dftp.mkdir_i(rpath)
     
-        for name, prefix in lx_fw_files_prefixs.iteritems():
-            file_name_arr = [f for f in dir_list if name in f.lower() and not f.startswith(prefix)]
-
-            for file_name in file_name_arr:
-                file_path = os.path.join(path, file_name)
-                new_path = os.path.join(path, '%s%s' % (prefix, file_name))
-
-                if not os.path.exists(new_path) and os.path.exists(file_path):
-                    os.rename(file_path, new_path)
-                    print 'Renamed %s to %s' % (file_name, os.path.basename(new_path))
+        paths = []
+    
+        for fpath, fitem in fw_files:
+            lfile_path = os.path.join(lpath, fpath, fitem)
+            rfile_path = os.path.join(rpath, fpath, fitem)
+            if os.path.exists(lfile_path):
+                paths.append([lfile_path, rfile_path])
+            else:
+                print 'Skipping %s' % fitem
+        return paths
     except Exception, e:
         error(e)
-
-
-
-
 

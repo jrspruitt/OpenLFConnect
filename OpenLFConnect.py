@@ -30,10 +30,11 @@
 ##############################################################################
 
 #@
-# OpenLFConnect.py Version 0.6.1
+# OpenLFConnect.py Version 0.6.3
 import os
 import cmd
 import sys
+import shlex
 
 from olcmodules.location import manager as loc_manager
 
@@ -47,13 +48,13 @@ from olcmodules.clients.didj import client as didj_client
 from olcmodules.clients.local import client as local_client
 from olcmodules.clients.interface import filesystem as fs_iface
 
-from olcmodules.firmware import cbf, lx, packages
+from olcmodules.firmware import cbf, dftp, packages
 
 
 class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
-        print 'OpenLFConnect Version 0.6.2'
+        print 'OpenLFConnect Version 0.6.3'
         self.debug = False
                 
         self._init_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'files')).replace('\\', '/')
@@ -225,13 +226,16 @@ Searches from the current local directory for the top level directory of the fir
         """
         try:
             self._lm.is_remote(self._didj_client)
+            self._lm.set_local()
             abspath = self._lm.get_abspath(s)
             self._didj_client.upload_firmware(abspath)
             self._didj_client.upload_bootloader(abspath)
             if not self.debug:      
                 self._didj_client.eject()
+                self._lm.last_location()
                 self._lm.remote_destroy()
         except Exception, e:
+            self._lm.last_location()
             self.perror(e)
 
 
@@ -251,12 +255,15 @@ MD5 files will be created automatically.
         """
         try:
             self._lm.is_remote(self._didj_client)
+            self._lm.set_local()
             abspath = self._lm.get_abspath(s)
             self._didj_client.upload_firmware(abspath)
             if not self.debug:                
                 self._didj_client.eject()
+                self._lm.last_location()
                 self._lm.remote_destroy()
         except Exception, e:
+            self._lm.last_location()
             self.perror(e)
 
 
@@ -276,12 +283,15 @@ MD5 files will be created automatically.
         """        
         try:
             self._lm.is_remote(self._didj_client)
+            self._lm.set_local()
             abspath = self._lm.get_abspath(s)
             self._didj_client.upload_bootloader(abspath)
             if not self.debug:                
                 self._didj_client.eject()
+                self._lm.last_location()
                 self._lm.remote_destroy()
         except Exception, e:
+            self._lm.last_location()
             self.perror(e)
 
 
@@ -514,11 +524,14 @@ Password:<blank>
         """
         try:
             if s in ('start', 'stop'):
-                self._lm.is_remote(self._dftp_client)            
-                self._dftp_client.run_script('files/Scripts/telnet_%s.sh' % s)
-                print 'Telnet %s' % s
+                if os.path.exists('files/Scripts/telnet_%s.sh' % s):
+                    self._lm.is_remote(self._dftp_client)            
+                    self._dftp_client.run_script('files/Scripts/telnet_%s.sh' % s)
+                    print 'Telnet %s' % s
+                else:
+                    self.error('The script file seems to be missing.')
             else:
-                self.error('Command not recongized.')
+                self.error('Command not recognized.')
         except Exception, e:
             self.perror(e)
 
@@ -535,11 +548,14 @@ Password:<blank>
         """
         try:
             if s in ('start', 'stop'):
-                self._lm.is_remote(self._dftp_client)            
-                self._dftp_client.run_script('files/Scripts/ftp_%s.sh' % s)
-                print 'FTP %s' % s
+                if os.path.exists('files/Scripts/ftp_%s.sh' % s):
+                    self._lm.is_remote(self._dftp_client)            
+                    self._dftp_client.run_script('files/Scripts/ftp_%s.sh' % s)
+                    print 'FTP %s' % s
+                else:
+                    self.error('The script file seems to be missing.')
             else:
-                self.error('Command not recongized.')
+                self.error('Command not recognized.')
         except Exception, e:
             self.perror(e)
 
@@ -556,11 +572,14 @@ Password:<blank>
         """
         try:
             if s in ('start', 'stop'):
-                self._lm.is_remote(self._dftp_client)            
-                self._dftp_client.run_script('files/Scripts/sshd_%s.sh' % s)
-                print 'SSHD %s' % s
+                if os.path.exists('files/Scripts/telnet_%s.sh' % s):
+                    self._lm.is_remote(self._dftp_client)            
+                    self._dftp_client.run_script('files/Scripts/sshd_%s.sh' % s)
+                    print 'SSHD %s' % s
+                else:
+                    self.error('The script file seems to be missing.')
             else:
-                self.error('Command not recongized.')
+                self.error('Command not recognized.')
         except Exception, e:
             self.perror(e)
 
@@ -575,9 +594,12 @@ Patches the sshd_config file to permit login with a blank password.
 Should be run before starting sshd, only needs to be done once.
         """
         try:
-            self._lm.is_remote(self._dftp_client)
-            self._dftp_client.run_script('files/Scripts/sshd_enable_empty_pwd.sh')
-            print 'sshd_config patched for empty passwords.'
+            if os.path.exists('files/Scripts/sshd_no_password.sh'):
+                self._lm.is_remote(self._dftp_client)
+                self._dftp_client.run_script('files/Scripts/sshd_enable_empty_pwd.sh')
+                print 'sshd_config patched for empty passwords.'
+            else:
+                    self.error('The script file seems to be missing.')
         except Exception, e:
             self.perror(e)
 
@@ -1164,7 +1186,7 @@ Doesn't care what kind or how big of a file.
 # UI Explorer (LX) Firmware Functions
 # firmware.lx
 #######################
-
+## eventually remove, as this will be automagic
     def do_lx_rename_firmware(self, s):
         """
 Usage:
@@ -1179,7 +1201,7 @@ Will rename all files in the directory that match.
             abspath = self._lm.get_abspath(s)
             
             if self._lm.fs.is_dir(abspath):
-                lx.rename(abspath)
+                dftp.rename(abspath)
             else:
                 self.error('Path is not a directory.')
                 
@@ -1200,6 +1222,7 @@ Usage:
 
 Extracts LF Package files (lfp ,lfp2)
 Takes a file path, or will extract all packages in a directory.
+Will overwrite without warning.
         """
         try:
             self._lm.set_local()
@@ -1208,6 +1231,24 @@ Takes a file path, or will extract all packages in a directory.
             self._lm.last_location()
         except Exception, e:
             self._lm.last_location()
+            self.perror(e)
+
+
+
+    def do_package_download(self, s):
+        """
+Usage:
+    get_firmware <Didj|Explorer\LeapPad> <firmware|surgeon|bootloader>
+
+Downloads the LF firmware package for device specified to files/<device>
+Bootloader is for Didj only. Didj also has no surgeon.
+Short names work also.
+        """
+        try:
+            dtype, ftype = shlex.split(s)            
+            lfp = packages.lf_packages()
+            lfp.get_package(dtype, ftype)
+        except Exception, e:
             self.perror(e)
 
 #######################

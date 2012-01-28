@@ -18,6 +18,11 @@ Check OpenLFConnect/doc/INSTALL for installation and configuration.
 
 
 Build Log:
+Versoin 0.6.3
+	Added modules for firmware handling
+	Added package download function
+	Added linux command sync when ejecting/unmounting didj *must do this if files transfered!
+	
 Version 0.6.2
     Found the RUN command, which runs a shell script. Works much like upload RUN > data > 101 EOF
     Removed enable ftp/sshd/telnet, rcS file is too important, should be done during Surgeon boot, with patient rfs mounted.
