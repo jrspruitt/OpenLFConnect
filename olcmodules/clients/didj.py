@@ -35,7 +35,7 @@ import os
 import sys
 from shlex import split as shlex_split
 from subprocess import Popen, PIPE
-from shutil import copytree, rmtree
+from shutil import rmtree
 from time import sleep
 from olcmodules.clients.local import client as local
 
