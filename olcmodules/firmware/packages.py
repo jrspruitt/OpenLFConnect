@@ -146,13 +146,15 @@ class lf_packages(object):
         for comp in comps:
             cguid = self._xml_get_text(comp.getElementsByTagName('Guid')[0].childNodes)
 
-            if cguid == guid:
+            if cguid in guid:
+                del guid[guid.index(cguid)]
                 name = self._xml_get_text(comp.getElementsByTagName('Name')[0].childNodes)
                 ver = self._xml_get_text(comp.getElementsByTagName('Version')[0].childNodes)
                 url = self._xml_get_text(comp.getElementsByTagName('Url')[0].childNodes)
                 checksum = self._xml_get_text(comp.getElementsByTagName('Checksum')[0].childNodes)
                 url_list.append((name, ver, url, checksum))
-
+                if len(guid) < 1:
+                    break
         return url_list
 
 
@@ -162,8 +164,8 @@ class lf_packages(object):
         ptype = self._pname_normalizer(ptype)
         
         dom = self._get_vdict_dom(self._vdict_name[dname])        
-        urls = self._get_package_info(dom.getElementsByTagName('Component'), self._guid_list[dname][ptype][0])
-        
+        urls = self._get_package_info(dom.getElementsByTagName('Component'), self._guid_list[dname][ptype])
+
         for pname, pver, purl, pchecksum in urls:             
             package_name = os.path.basename(purl)
             ext = os.path.splitext(package_name)[1]
@@ -174,7 +176,7 @@ class lf_packages(object):
                 elif 'Partition' in pname:
                     ptype = '%s_%s' % (ptype, 'partition')
 
-            file_name = '%s_%s_%s%s' % (dtype, ptype, pver, ext)
+            file_name = '%s_%s_%s%s' % (dname, ptype, pver, ext)
             file_path = os.path.join(fwdir, file_name)
             
             if not os.path.exists(file_path):

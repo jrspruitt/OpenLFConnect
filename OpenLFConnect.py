@@ -597,10 +597,10 @@ Should be run before starting sshd, only needs to be done once.
         try:
             if os.path.exists('files/Scripts/sshd_no_password.sh'):
                 self._lm.is_remote(self._dftp_client)
-                self._dftp_client.run_script('files/Scripts/sshd_enable_empty_pwd.sh')
+                self._dftp_client.run_script('files/Scripts/sshd_no_password.sh')
                 print 'sshd_config patched for empty passwords.'
             else:
-                    self.error('The script file seems to be missing.')
+                self.error('The script file seems to be missing.')
         except Exception, e:
             self.perror(e)
 

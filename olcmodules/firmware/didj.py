@@ -71,8 +71,9 @@ def find_paths(lpath, mount_point, utype):
     try:
         if lpath != '':
             lpath = wheres_firmware_dir(lpath, update_dirs[utype])
+        
             if not lpath:
-                pass
+                error('Firmware path not found.')
                 # check for files in this dir, make folder and move them 
 
         rpath = os.path.join(mount_point, didj_base)

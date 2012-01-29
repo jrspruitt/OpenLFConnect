@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# location.py Version 0.5
+# location.py Version 0.5.1
 import os
 import sys
 

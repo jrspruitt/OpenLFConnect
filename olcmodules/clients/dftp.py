@@ -320,7 +320,7 @@ class client(object):
                     
             return self._firmware_version
         except Exception, e:
-            self.error(e)
+            self.rerror(e)
 
     firmware_version = property(get_firmware_version)
 

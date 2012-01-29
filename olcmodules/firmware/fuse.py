@@ -57,8 +57,9 @@ def check(path):
 def prepare_update(dftp, lpath):
     try:
         lpath = wheres_firmware_dir(lpath, fw_dir)
+        
         if not lpath:
-            pass
+            error('Firmware path not found.')
             # assume for now we'll always find it
             # later change to look for files here
         rpath = remote_fw_dir
