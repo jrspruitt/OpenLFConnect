@@ -54,7 +54,7 @@ from olcmodules.firmware import cbf, dftp, packages
 class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
-        print 'OpenLFConnect Version 0.6.3'
+        print 'OpenLFConnect Version 0.6.4'
         self.debug = False
                 
         self._init_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'files')).replace('\\', '/')
@@ -163,23 +163,6 @@ Unlock Didj to allow it to mount on host system.
 
 
 
-    def do_didj_umount(self, s):
-        """
-Usage:
-    didj_umount
-
-Lock Didj which will un mount on host system.
-Could take some time to unmount if you have written files to the device.
-        """
-        try:
-            self._lm.is_remote(self._didj_client)
-            self._didj_client.umount()
-            self._lm.remote_destroy()
-        except Exception, e:
-            self.perror(e)
-
-
-
     def do_didj_eject(self, s):
         """
 Usage:
@@ -195,6 +178,7 @@ Could take some time to unmount and eject if you have written files to the devic
             self._lm.remote_destroy()
         except Exception, e:
             self.perror(e)
+
 
 
     def do_didj_device_info(self, s):
@@ -1070,35 +1054,8 @@ Upload the specified local file to the current remote directory, Will overwrite 
             if sys.platform == 'win32':
                 remote_path = remote_path.replace('\\', '/')
             
-            self._lm.fs.upload_file(abspath, remote_path)
+            self._lm.fs.upload(abspath, remote_path)
             self._lm.last_location()                    
-        except Exception, e:
-            self._lm.last_location()
-            self.perror(e)
-
-
-
-    def do_upload_dir(self, s):
-        """
-Usage:
-    upload_dir <local directory>
-
-Upload the specified local directory into the current remote directory, Will overwrite with out prompt.
-        """
-        try:
-            self._lm.is_remote()
-            self._lm.is_empty(s)
-            self._lm.set_local()                
-            abspath = self._lm.get_abspath(s)
-            self._lm.last_location()
-            self._lm.set_remote()
-            remote_path = os.path.join(self._lm.path, os.path.basename(abspath))
-
-            if sys.platform == 'win32':
-                remote_path = remote_path.replace('\\', '/')
-            
-            self._lm.fs.upload_dir(abspath, remote_path)
-            self._lm.last_location()
         except Exception, e:
             self._lm.last_location()
             self.perror(e)
@@ -1117,27 +1074,7 @@ Download the specified remote file to the current local directory, will over wri
             self._lm.is_empty(s) 
             self._lm.set_remote()                
             abspath = self._lm.get_abspath(s)            
-            self._lm.fs.download_file(os.path.join(self._lm.local_path, os.path.basename(abspath)), abspath)
-            self._lm.last_location()
-        except Exception, e:
-            self._lm.last_location()
-            self.perror(e)
-
-
-
-    def do_download_dir(self, s):
-        """
-Usage:
-    download_dir <remote directory>
-
-Download the specified remote directory into the current local directory, will over write with out prompt.
-        """
-        try:
-            self._lm.is_remote() 
-            self._lm.is_empty(s)   
-            self._lm.set_remote()                
-            abspath = self._lm.get_abspath(s)
-            self._lm.fs.download_dir(os.path.join(self._lm.local_path, os.path.basename(abspath)), abspath)
+            self._lm.fs.download(os.path.join(self._lm.local_path, os.path.basename(abspath)), abspath)
             self._lm.last_location()
         except Exception, e:
             self._lm.last_location()

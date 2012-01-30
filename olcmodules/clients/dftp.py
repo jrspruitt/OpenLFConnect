@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# dftp.py Version 0.7
+# dftp.py Version 0.7.1
 import os
 import socket
 import time
@@ -315,9 +315,8 @@ class client(object):
         try:
             if not self._firmware_version:
                 path = '/etc/version'
-                if self.rfile_check_i(path):
-                    self._firmware_version = self.cat_i(path).strip()
-                    
+                self._firmware_version = self.cat_i(path).strip()
+
             return self._firmware_version
         except Exception, e:
             self.rerror(e)
@@ -627,6 +626,7 @@ class client(object):
         try:
             if not self.exists_i(rpath) and not self.debug:
                 self.mkdir_i(rpath)
+                print 'Created Directory %s' % os.path.basename(rpath)
             elif self.debug:
                 print '\n-------------------'
                 print 'Made: %s' % rpath
@@ -638,7 +638,8 @@ class client(object):
                 
                 if os.path.isdir(item_lpath):
                     if not self.debug:
-                        self.mkdir_i(item_rpath)                    
+                        self.mkdir_i(item_rpath)
+                        print 'Created Directory %s' % os.path.basename(item_rpath)                    
                     else:
                         print '\n-------------------'
                         print 'Made: %s' % rpath
@@ -665,69 +666,6 @@ class client(object):
                 self.error('No data received.')
         except Exception, e:
             self.error(e) 
-
-#######################
-# Filesystem Interface Functions
-# Input Checks
-#######################
-
-    def rfile_check_i(self, path):
-        try:
-            if self.exists_i(path):
-                if not self.is_dir_i(path):
-                    return True
-                else:
-                    self.error('Path is not a file.')
-            else:
-                self.error('Path does not exist.')
-                
-        except Exception, e:
-            self.error(e)
-
-
-
-    def rdir_check_i(self, path):
-        try:
-            if self.exists_i(path):
-                if self.is_dir_i(path):
-                    return True
-                else:
-                    self.error('Path is not a directory.')
-            else:
-                self.error('Path does not exist.')
-                
-        except Exception, e:
-            self.error(e)
-
-
-
-    def lfile_check_i(self, path):
-        try:
-            if os.path.exists(path):
-                if not os.path.isdir(path):
-                    return True
-                else:
-                    self.error('Path is not a file.')
-            else:
-                    self.error('Path does not exist.')
-                
-        except Exception, e:
-            self.error(e)
-
-
-
-    def ldir_check_i(self, path):
-        try:
-            if os.path.exists(path):
-                if os.path.isdir(path):
-                    return True
-                else:
-                    self.error('Path is not a directory.')
-            else:
-                    self.error('Path does not exist.')
-                
-        except Exception, e:
-            self.error(e)
 
 if __name__ == '__main__':
     print 'No demo program available yet.'

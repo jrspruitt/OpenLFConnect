@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# client.didj.py Version 0.7
+# client.didj.py Version 0.7.1
 import os
 import sys
 from shlex import split as shlex_split
@@ -125,6 +125,14 @@ class client(object):
         except Exception, e:
             self.error(e)
 
+
+
+    def sync(self):
+        if sys.platform != 'win32':
+            p = Popen(['sync'], stderr=PIPE)
+            if p.stderr.read():
+                self.error('Problem syncing filesystem. Please run the sync command.')
+
 #######################
 # Client User Didj Information Functions
 #######################
@@ -174,24 +182,13 @@ class client(object):
             self.call_sg_raw('unlock')
         except Exception, e:
             self.rerror(e)
-
-
-
-    def umount(self):
-        try:
-            sleep(5)
-            self.call_sg_raw('lock')
-        except Exception, e:
-            self.rerror(e)
    
 
 
     def eject(self):
         try:
-            sleep(5)
+            self.sync()
             self.call_sg_raw('disconnect')
-            if not sys.platform == 'win32':
-                print 'Please eject the device from your system.'
         except Exception, e:
             self.rerror(e)
 

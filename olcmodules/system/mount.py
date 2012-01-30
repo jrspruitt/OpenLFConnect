@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# mount.py Version 0.5
+# mount.py Version 0.5.1
 import os
 import re
 import sys

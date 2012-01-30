@@ -18,7 +18,15 @@ Check OpenLFConnect/doc/INSTALL for installation and configuration.
 
 
 Build Log:
-Versoin 0.6.3
+Version 0.6.4
+	Finally got the sync/corruption issue figured on on Didj
+		Removed unmount, as corruption seemed almost a given using it.
+		Along with it having limited usage.
+	Changed upload/download to work with files or directories
+	Fixed regex bug in mount.py
+	Added regex to find_mount as no drive letter was causing issues.
+
+Version 0.6.3
 	Added modules for firmware handling
 	Added package download function
 	Changed local client to file sync on upload, prevents didj ejecting before cache is flushed. 

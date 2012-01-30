@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# local.py Version 0.5
+# local.py Version 0.6
 import os
 from shutil import copytree, copyfile, rmtree
 
@@ -38,38 +38,6 @@ from shutil import copytree, copyfile, rmtree
 class client(object):
     def __init__(self, debug):
         self.debug = debug
-
-#######################
-# Filesystem Internal Functions
-#######################
-
-    def file_check(self, path):
-        try:
-            if os.path.exists(path):
-                if not os.path.isdir(path):
-                    return True
-                else:
-                    self.error('Path is not a file.')
-            else:
-                    self.error('Path does not exist.')
-                
-        except Exception, e:
-            self.error(e)
-
-
-
-    def dir_check(self, path):
-        try:
-            if os.path.exists(path):
-                if os.path.isdir(path):
-                    return True
-                else:
-                    self.error('Path is not a directory.')
-            else:
-                    self.error('Path does not exist.')
-                
-        except Exception, e:
-            self.error(e)
             
 #######################
 # Filesystem Interface Functions
@@ -201,13 +169,7 @@ class client(object):
                 print 'remote: %s' % rpath
                 print '\n'
             else:
-                lf = open(lpath, 'rb')
-                buf = lf.read()
-                lf.close()
-                rf = open(rpath, 'wb')
-                rf.write(buf)
-                os.fsync(rf.fileno())
-                rf.close()
+                copyfile(lpath, rpath)
                 print 'Uploaded %s: %s Bytes' % (os.path.basename(lpath), os.path.getsize(lpath))
         except Exception, e:
             self.error(e)
@@ -224,6 +186,7 @@ class client(object):
             else:
                 if not os.path.exists(rpath) and not self.debug:
                     os.mkdir(rpath)
+                    print 'Created Directory %s' % os.path.basename(rpath)
                 elif self.debug:
                     print '\n-------------------'
                     print 'Made: %s' % rpath
@@ -235,7 +198,8 @@ class client(object):
                     
                     if os.path.isdir(item_lpath):
                         if not self.debug:
-                            os.mkdir(item_rpath)                     
+                            os.mkdir(item_rpath)   
+                            print 'Created Directory %s' % os.path.basename(item_rpath)                  
                         else:
                             print '\n-------------------'
                             print 'Made: %s' % rpath
@@ -245,7 +209,6 @@ class client(object):
                     else:
                         self.upload_file_i(item_lpath, item_rpath)
 
-                print 'Created Directory %s' % os.path.basename(lpath)
         except Exception, e:
             self.error(e)
 
@@ -259,23 +222,6 @@ class client(object):
             return buf
         except Exception, e:
             self.error(e)
-
-#######################
-# Filesystem Interface Functions
-# Input Checks
-#######################
-
-    def rfile_check_i(self, path):
-        return self.file_check(path)
-
-    def rdir_check_i(self, path):
-        return self.dir_check(path)
-
-    def lfile_check_i(self, path):
-        return self.file_check(path)
-
-    def ldir_check_i(self, path):
-        return self.dir_check(path)
             
 if __name__ == '__main__':
     print 'No examples yet.'
