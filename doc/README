@@ -18,6 +18,15 @@ Check OpenLFConnect/doc/INSTALL for installation and configuration.
 
 
 Build Log:
+Version 0.6.5
+	Centralized debug prints
+	changed debug_on debug_off to debug on|off was nearly exact same code for both
+	Minor clean up from sync issue
+	Cleaned up/download code, removed file_check,dir_check
+		each function_i deals with it again.
+		cleared out redundant checks
+	Added some nicer formating to ls, up/download
+
 Version 0.6.4
 	Finally got the sync/corruption issue figured on on Didj
 		Removed unmount, as corruption seemed almost a given using it.

@@ -73,10 +73,13 @@ class filesystem(object):
 
     def dir_list(self, path):
         try:
-            if self.is_dir(path):
-                return self._client.dir_list_i(path)
+            if self._client.exists_i(path):
+                if self.is_dir(path):
+                    return self._client.dir_list_i(path)
+                else:
+                    self._client.error('Path is not a directory.')
             else:
-                self._client.error('Path is not a directory.')
+                self._client.error('Path does not exist.')
         except Exception, e:
             self._client.rerror(e)
 

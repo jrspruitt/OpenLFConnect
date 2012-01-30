@@ -47,9 +47,14 @@ def error(e):
 
 
 
-def check(path):
-    # checks if directory has files ready to upload
-    # false if needs formating
+def get_paths(path):
+    # check if firmware/ is in this directory, or if we're in it
+    # firmware/ must start with firmware, but could be firmware-backup/ or what ever
+    # check if sd/x/x/file exists for at least 1 file
+    # if not, check if firmwares exist in this directory
+    # cbf_check kernel
+    # format rpaths, and return
+    # or fail
     pass
 
 

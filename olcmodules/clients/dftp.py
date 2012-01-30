@@ -30,16 +30,19 @@
 ##############################################################################
 
 #@
-# dftp.py Version 0.7.1
+# dftp.py Version 0.8
 import os
 import socket
 import time
 import olcmodules.firmware.dftp as fwdftp
 import olcmodules.firmware.fuse as fwfuse
+from olcmodules.config import debug as dbg
 
 class client(object):
     def __init__(self, net_config, debug=False):
         self.debug = debug
+        self._dbg = dbg(self)
+        
         self._net_config = net_config
         self._sock0 = None
         self._sock1 = None
@@ -193,11 +196,7 @@ class client(object):
             if not buf.startswith('#!/bin/sh'):
                 self.error('File does not appear to be valid shell script, missing shebag line.')
             
-            if self.debug:
-                print '--------------'
-                print 'Ran script.'
-                print '\n'
-            elif self.sendrtn('RUN'):             
+            if self.sendrtn('RUN'):             
                 self.send(buf.replace('\r', ''))
                 ret = True
                 
@@ -215,12 +214,12 @@ class client(object):
                     if ret != 'SCRIPT_RUNNING=1':
                         running = False
 
-                print 'Ran script.'
                 return True
             else:
                 self.error('Failed to run script.')
         except Exception, e:
             self.error(e)
+
 
 
     def find_dftp_version(self):
@@ -370,7 +369,11 @@ class client(object):
 
     def update_firmware(self, lpath):
         try:
-            if self._surgeon_dftp_version != self.dftp_version:
+            if not os.path.exists(lpath):
+                self.error('Path does not exist.')
+            elif not os.path.isdir(lpath):
+                self.error('Path is not a directory.')
+            elif self._surgeon_dftp_version != self.dftp_version:
                 self.error('Device is not in USB boot mode.')
             
             if self.exists_i(fwfuse.remote_fw_root):
@@ -428,10 +431,11 @@ class client(object):
             elif os.path.isdir(path):
                 self.error('Path is not a file.')
 
-            f = open(path, 'rb')
-            buf = f.read()
-            f.close()
-            self.run_buffer(buf)
+            if not self._dbg.run_script(path):
+                f = open(path, 'rb')
+                buf = f.read()
+                f.close()
+                self.run_buffer(buf)
         except Exception, e:
             self.rerror(e)
 
@@ -501,11 +505,7 @@ class client(object):
 
     def rm_i(self, path):
         try:
-            if self.debug:
-                print '\n-------------------'
-                print 'Remove: %s' % path
-                print '\n'
-            else:
+            if not self._dbg.remove(path):
                 self.sendrtn('RM %s' % path)
         except Exception, e:
             self.error(e)
@@ -514,11 +514,7 @@ class client(object):
 
     def rmdir_i(self, path):
         try:
-            if self.debug:
-                print '\n-------------------'
-                print 'Remove: %s' % path
-                print '\n'
-            else:
+            if not self._dbg.remove(path):
                 self.sendrtn('RMD %s' % path)
         except Exception, e:
             self.error(e)
@@ -527,128 +523,98 @@ class client(object):
 
     def mkdir_i(self, path):
         try:
-            if self.debug:
-                print '\n-------------------'
-                print 'Made: %s' % path
-                print '\n'
-            else:
+            if not self._dbg.make(path):
                 self.sendrtn('MKD %s' % path)
         except Exception, e:
             self.error(e)
 
 
 
-    def lmkdir_i(self, path):
+    def download_file_i(self, lpath, rpath, tab=' '):
         try:
-            if self.debug:
-                print '\n-------------------'
-                print 'Made: %s' % path
-                print '\n'
-            else:
-                os.mkdir(path)
-        except Exception, e:
-            self.error(e)
-
-
-
-    def download_file_i(self, lpath, rpath):
-        try:
-            if self.debug:
-                print '\n-------------------'
-                print 'Download'
-                print 'Local: %s' % lpath
-                print 'Remote: %s' % rpath
-                print '\n'                    
-            else:               
+            if not self._dbg.download(lpath, rpath):
                 ret_buf = self.download_buffer(rpath)
                 
                 if ret_buf:
                     f = open(os.path.normpath(lpath), 'wb')
                     f.write(ret_buf)
-                    print 'Downloaded %s: %s Bytes' % (os.path.basename(rpath), len(ret_buf))
+                    print '%s%s: %s Bytes' % (tab, os.path.basename(rpath), len(ret_buf))
                     f.close()
                 else:
-                    print 'Error downloading %s' % os.path.basename(rpath)
+                    print '%sError: %s' % (tab, os.path.basename(rpath))
         except Exception, e:
             self.error(e)
 
 
 
-    def download_dir_i(self, lpath, rpath):
+    def download_dir_i(self, lpath, rpath, tab=' '):
         try:
-            if not os.path.exists(lpath):
-                self.lmkdir_i(lpath)
+            if not os.path.exists(lpath) and not self._dbg.make(lpath):
+                os.mkdir(lpath)
+                print '%s%s/' % (tab, os.path.basename(lpath))
+                tab+=' '
                     
             for item in self.dir_list_i(rpath):
                 if item != './' and item != '../':
                     item_lpath = os.path.normpath(os.path.join(lpath, item))
                     item_rpath = os.path.join(rpath, item).replace('\\', '/')
+                    rexists = self.exists_i(item_rpath)
                     
-                    if self.is_dir_i(item_rpath) and not os.path.exists(item_lpath):
-                        self.lmkdir_i(item_lpath)
+                    if rexists and self.is_dir_i(item_rpath):
+                        if not os.path.exists(lpath) and not self._dbg.make(item_lpath):
+                            os.mkdir(item_lpath)
+                            print '%s%s/' % (tab, os.path.basename(item_lpath))
                             
-                        if self.exists_i(item_rpath):
-                            self.download_dir_i(item_lpath, item_rpath)
-                        else:
-                            print 'Skipped dir: %s' % item_rpath
+                        self.download_dir_i(item_lpath, item_rpath, tab)
 
+                    elif rexists and not self.is_dir_i(item_rpath):
+                        self.download_file_i(item_lpath, item_rpath, tab)
+                        
                     else:
-                        if self.exists_i(item_rpath):
-                            self.download_file_i(item_lpath, item_rpath)
-                        else:
-                            print 'Skipped file: %s' % item_rpath
-                            
+                        print '%sSkipped: %s' % (tab, item_rpath)                            
         except Exception, e:
             self.error(e)
 
 
 
-    def upload_file_i(self, lpath, rpath):
+    def upload_file_i(self, lpath, rpath, tab=' '):
         try:
-            if self.debug:
-                print '\n-------------------'
-                print 'Local: %s' % lpath
-                print 'Remote: %s' % rpath
-                print '\n'                    
-            else:
+            if not self._dbg.upload(lpath, rpath):
                 f = open(lpath, 'rb')
                 buf = f.read()
                 bytes_sent = self.upload_buffer(buf, rpath)
                 f.close()                
                 
-                print 'Uploaded %s: %s Bytes.' % (os.path.basename(lpath), bytes_sent)
+                print '%s%s: %s Bytes.' % (tab, os.path.basename(lpath), bytes_sent)
         except Exception, e:
             self.error(e)
 
 
 
-    def upload_dir_i(self, lpath, rpath):
+    def upload_dir_i(self, lpath, rpath, tab=' '):
         try:
-            if not self.exists_i(rpath) and not self.debug:
+            if not self.exists_i(rpath) and not self._dbg.make(rpath):
                 self.mkdir_i(rpath)
-                print 'Created Directory %s' % os.path.basename(rpath)
-            elif self.debug:
-                print '\n-------------------'
-                print 'Made: %s' % rpath
-                print '\n'
+                print '%s%s/' % (tab, os.path.basename(rpath))
+                tab+=' '
           
             for item in os.listdir(lpath):
                 item_lpath = os.path.join(lpath, item)
                 item_rpath = os.path.join(rpath, item).replace('\\', '/')
+                lexists = os.path.exists(item_lpath)
                 
-                if os.path.isdir(item_lpath):
-                    if not self.debug:
+                if lexists and os.path.isdir(item_lpath):
+                    if self.exists_i(item_rpath) and not self._dbg.make(item_rpath):
                         self.mkdir_i(item_rpath)
-                        print 'Created Directory %s' % os.path.basename(item_rpath)                    
-                    else:
-                        print '\n-------------------'
-                        print 'Made: %s' % rpath
-                        print '\n' 
+                        print '%s%s/' % (tab, os.path.basename(item_rpath))
 
-                    self.upload_dir_i(item_lpath, item_rpath)
+                    self.upload_dir_i(item_lpath, item_rpath, tab)
+
+                elif lexists and not os.path.isdir(item_lpath):
+                    self.upload_file_i(item_lpath, item_rpath, tab)
+
                 else:
-                    self.upload_file_i(item_lpath, item_rpath)
-                    
+                    print '%sSkipped: %s' % (tab, item_lpath)                    
         except Exception, e:
             self.error(e)
 

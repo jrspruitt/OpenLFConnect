@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# OpenLFConnect.py Version 0.6.3
+# OpenLFConnect.py Version 0.6.5
 import os
 import cmd
 import sys
@@ -54,7 +54,7 @@ from olcmodules.firmware import cbf, dftp, packages
 class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
-        print 'OpenLFConnect Version 0.6.4'
+        print 'OpenLFConnect Version 0.6.5'
         self.debug = False
                 
         self._init_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'files')).replace('\\', '/')
@@ -219,6 +219,8 @@ Searches from the current local directory for the top level directory of the fir
                 self._didj_client.eject()
                 self._lm.last_location()
                 self._lm.remote_destroy()
+            else:
+                self._lm.last_location()
         except Exception, e:
             self._lm.last_location()
             self.perror(e)
@@ -247,6 +249,8 @@ MD5 files will be created automatically.
                 self._didj_client.eject()
                 self._lm.last_location()
                 self._lm.remote_destroy()
+            else:
+                self._lm.last_location()
         except Exception, e:
             self._lm.last_location()
             self.perror(e)
@@ -275,6 +279,8 @@ MD5 files will be created automatically.
                 self._didj_client.eject()
                 self._lm.last_location()
                 self._lm.remote_destroy()
+            else:
+                self._lm.last_location()
         except Exception, e:
             self._lm.last_location()
             self.perror(e)
@@ -428,14 +434,8 @@ Caution: Has not been tested on LeapPad, theoretically it should work though, pl
         try:
             self._lm.is_remote(self._dftp_client)
             self._lm.set_local()
-            
-            path = self._lm.get_abspath(s)
-            
-            if self._lm.fs.is_dir(path):
-                self._dftp_client.update_firmware(path)
-            else:
-                self.error('Path is not a directory.')
-                
+            abspath = self._lm.get_abspath(s)
+            self._dftp_client.update_firmware(abspath)
             self._lm.last_location()
         except Exception, e:
             self._lm.last_location()
@@ -714,36 +714,30 @@ File can be any name, but must conform to CBF standards.
 # OpenLFConnect
 #######################
 
-    def do_debug_on(self, s):
+    def do_debug(self, s):
         """
 Usage:
     debug_on
 
 Setting this prevents updates from actually happening, instead printing the files that would have been uploaded.
         """
-        self.debug = True
+        if s.lower() in ('on', 'true', 'enable'):
+            self.debug = True
+        elif s.lower() in ('off', 'false', 'disable'):
+            self.debug = False
+        else:
+            self.perror('Could not determine action from option given.')
+
         if self._lm.remote_conn:
             self._lm.remote_conn.debug = self.debug
         if self._lm.local_client:
             self._lm.local_client.debug = self.debug
         if self._lm.remote_client:
             self._lm.remote_client.debug = self.debug
-
- 
-    def do_debug_off(self, s):
-        """
-Usage:
-    debug_off
-
-Turns off debugging mode. Updates will be attempted.
-        """
-        self.debug = False
-        if self._lm.remote_conn:
-            self._lm.remote_conn.debug = self.debug
-        if self._lm.local_client:
-            self._lm.local_client.debug = self.debug
-        if self._lm.remote_client:
-            self._lm.remote_client.debug = self.debug
+        if self._lm.local_fs:
+            self._lm.local_fs.debug = self.debug
+        if self._lm.remote_fs:
+            self._lm.remote_fs.debug = self.debug
                          
 #######################
 # UI User Connection/Client Config Functions
@@ -938,14 +932,14 @@ List directory contents. Where depends on which is set, remote or local
             for item in dlist:
                 
                 if item[-1:] == '/':
-                    print '%s' % item
+                    print '  %s' % item
                 else:
                     flist.append(item)
                     
             flist.sort(key=str.lower)
             
             for item in flist:
-                print '%s' % item
+                print '  %s' % item
         except Exception, e:
             self.perror(e)
 

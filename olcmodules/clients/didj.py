@@ -30,22 +30,23 @@
 ##############################################################################
 
 #@
-# client.didj.py Version 0.7.1
+# client.didj.py Version 0.8
 import os
 import sys
 from shlex import split as shlex_split
 from subprocess import Popen, PIPE
-from shutil import rmtree
+from shutil import rmtree, copytree
 from time import sleep
-from olcmodules.clients.local import client as local
+from olcmodules.config import debug as dbg
 
 import olcmodules.firmware.didj as fw
 
 class client(object):
     def __init__(self, mount_config, debug=False):
         self.debug = debug
+        self._dbg = dbg(self)
+        
         self._mount_config = mount_config
-        self._local_fs = local(self.debug) 
         self._cdb_cmds = {'lock':'C1', 'unlock':'C2', 'get_setting':'C3', 'disconnect':'C6'}
         self._settings = {'battery':'02', 'serial':'03', 'needs_repair':'06', 'None':'00'}
         self._battery_level = {'0':'Unknown' ,'1':'Critical' ,'2':'Low' ,'3':'Medium', '4':'High'}
@@ -101,13 +102,8 @@ class client(object):
     def move_update(self, lpath, rpath):
         try:
             if os.path.exists(lpath) and os.path.exists(os.path.dirname(rpath)):
-                if self.debug:
-                    print '\n-------------------'
-                    print 'local: %s' % lpath
-                    print 'remote: %s' % rpath
-                    print '\n'
-                else: 
-                    self._local_fs.upload_dir_i(lpath, rpath)
+                if not self._dbg.upload(lpath, rpath):
+                    copytree(lpath, rpath)
             else:
                 self.error('One of the paths does not exist')
         except Exception, e:
@@ -218,19 +214,12 @@ class client(object):
             blpath = fw.find_paths('', self._mount_config.host_id, 'bootloader')[1]
                 
             if os.path.exists(fwpath):            
-                if self.debug:
-                    print '\n-------------------'
-                    print 'firware path: %s' % fwpath
-                    print '\n'
-                else:
+                if not self._dbg.remove(fwpath):
                     rmtree(fwpath)
                 
-            if os.path.exists(blpath):          
-                if self.debug:
-                    print '\n-------------------'
-                    print 'bootloader path: %s' % blpath
-                    print '\n'
-                else:                
-                    rmtree(blpath)               
+            if os.path.exists(blpath):            
+                if not self._dbg.remove(fwpath):
+                    rmtree(blpath)
+
         except Exception, e:
             self.rerror(e)

@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# location.py Version 0.5.1
+# location.py Version 0.5.2
 import os
 import sys
 
@@ -51,9 +51,9 @@ class manager(object):
         self._remote_set = False
         self._last_location = self._remote_set
         
-        self._local_fs = fs_iface(self.local_client)
-        self._remote_fs = None        
-        self.fs = self._local_fs
+        self.local_fs = fs_iface(self.local_client)
+        self.remote_fs = None        
+        self.fs = self.local_fs
         
         self._local_path_init = init_path
         self.local_path = self._local_path_init
@@ -78,7 +78,7 @@ class manager(object):
     def set_remote(self, path=''):
         if path:
             self.remote_path = path
-        self.fs = self._remote_fs
+        self.fs = self.remote_fs
         self.path = self.remote_path
         self._last_location = self._remote_set
         self._remote_set = True
@@ -90,7 +90,7 @@ class manager(object):
     def set_local(self, path=''):
         if path:
             self.local_path = path
-        self.fs = self._local_fs
+        self.fs = self.local_fs
         self.path = self.local_path
         self._last_location = self._remote_set
         self._remote_set = False
@@ -159,7 +159,7 @@ class manager(object):
     def remote_connection_init(self, conn_iface, fs_iface, client):
         self.remote_client = client
         self.remote_conn = conn_iface
-        self._remote_fs = fs_iface
+        self.remote_fs = fs_iface
 
 
 
@@ -175,7 +175,7 @@ class manager(object):
     def remote_destroy(self):
         self.remote_client = None
         self.remote_conn = None
-        self._remote_fs = None
+        self.remote_fs = None
         self._remote_set = False
         self.remote_path = self._remote_path_init
         self.set_local() #self._local_path_init)
@@ -201,7 +201,7 @@ class manager(object):
                 self.error('Is not a directory')
         else:
             
-            if self._local_fs.is_dir(path):
+            if self.local_fs.is_dir(path):
                 self.set_local('%s' % path)
             else:
                 self.error('Is not a directory')
