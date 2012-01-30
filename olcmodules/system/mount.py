@@ -50,12 +50,12 @@ class connection(object):
 
         if sys.platform == 'win32':
             self._sg_scan = ['bin/sg_scan']
-            self._dev_regex = '^PD[\d]+{1}'
-            self._mount_regex = '^[a-zA-Z]{1}:\\$'
+            self._dev_regex = r'^PD[\d]{1,2}$'
+            self._mount_regex = r'^[a-zA-Z]{1}:\\$'
         else:
             self._sg_scan = ['sg_scan', '-i']
-            self._dev_regex = '^/dev/[\w/]+$'
-            self._mount_regex = '^%s/[\w/]+$' % self._linux_mount_dir
+            self._dev_regex = r'^/dev/[\w/]+$'
+            self._mount_regex = r'^%s/[\w/]+$' % self._linux_mount_dir
 
         if device_id != '':
             if self.check_device_id(device_id):
@@ -87,7 +87,7 @@ class connection(object):
 
 
     def check_device_id(self, did):
-        regex_did = re.compile(r'%s' % self._dev_regex)
+        regex_did = re.compile(self._dev_regex)
         if regex_did.search(did):
             return True
         else:
@@ -96,8 +96,7 @@ class connection(object):
 
 
     def check_mount_point(self, mount):
-        print '%s' % self._mount_regex
-        regex_mount = re.compile(r'%s' % self._mount_regex)
+        regex_mount = re.compile(self._mount_regex)
         if regex_mount.search(mount):
             return True
         else:
@@ -166,10 +165,12 @@ class connection(object):
                     if lines:
                         for line in lines.split('\n'):
                             if self._vendor_name in line.lower():
-                                line = line.split('[')[1]
-                                line = line.split(']')[0]
-                                self._mount_point = '%s:\\' % line
-                                return self._mount_point
+                                mount_regex = re.compile(r'\[(?P<mp>[a-zA-Z]{1})\]')
+                                drv = mount_regex.search(line)
+
+                                if drv:
+                                    self._mount_point = '%s:\\' % drv.group('mp')
+                                    return self._mount_point
                 else:
                     syspath = '/sys/class/scsi_disk'
                     

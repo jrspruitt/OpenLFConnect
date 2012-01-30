@@ -1,4 +1,11 @@
 Documentation
+Explain Sync for Didj
+    fsync doesn't seem to work on windows
+        but eject will wait till files are synced
+    fsync works on linux
+        but eject happens regardless if files are synced or not
+
+    recommened enabling it for both, just incase. especially linux.
 
 Make firmware folder easier to deal with
 	search for files instead of folder
