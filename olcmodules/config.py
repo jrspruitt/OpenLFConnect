@@ -67,6 +67,10 @@ def error(e):
 
 def olc_files_dirs_check():
     try:
+        if not os.path.exists(FILES_DIR):
+            os.mkdir(FILES_DIR)
+            print 'Created %s/' % FILES_DIR
+
         dirs = [LPAD_DIR, LX_DIR, DIDJ_DIR, DOWNLOAD_DIR, SCRIPTS_DIR]
         
         for item in dirs:

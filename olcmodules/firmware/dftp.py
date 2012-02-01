@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# firmware.dftp.py Version 0.1
+# firmware.dftp.py Version 0.2
 
 import os
 from olcmodules.firmware.cbf import check as cbf_check
@@ -129,12 +129,11 @@ class config(object):
                 base_file_name = os.path.splitext(file_name)[0]
 
                 for base_name in self._fw_files:
-                    if base_name.lower() in base_file_name:
+                    if base_name in base_file_name:
                         rpath = os.path.join(self._remote_fw_dir, self._remote_fw_files[base_name])
                         file_paths = [[lpath, rpath]]
                         break     
-#######
-            print file_paths
+
             if file_paths:
                 for item in file_paths:
                     if item[0].endswith('cbf'):
@@ -149,7 +148,7 @@ class config(object):
                 return file_paths
             
             else:
-                self.error('Problem with firmware.')
+                self.error('No firmware files found.')
         except Exception, e:
             self.error(e)
         

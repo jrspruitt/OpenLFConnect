@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# client.didj.py Version 0.8
+# client.didj.py Version 0.8.1
 import os
 import sys
 from shlex import split as shlex_split
@@ -105,6 +105,8 @@ class client(object):
                 if os.path.exists(lpath) and os.path.exists(os.path.dirname(rpath)):
                     if not self._dbg.upload(lpath, rpath):
                         copy(lpath, rpath)
+                elif self.debug:
+                    self._dbg.upload(lpath, rpath)
                 else:
                     self.error('One of the paths does not exist')
         except Exception, e:
@@ -193,7 +195,7 @@ class client(object):
 
     def upload_firmware(self, lpath):
         try:
-            fw = fwdidj.config(self._mount_config.host_id, 'firmware')
+            fw = fwdidj.config(self, self._mount_config.host_id, 'firmware')
             paths = fw.prepare_update(lpath) 
             self.move_update(paths)
         except Exception, e:
@@ -203,7 +205,7 @@ class client(object):
 
     def upload_bootloader(self, lpath):
         try:
-            fw = fwdidj.config(self._mount_config.host_id, 'bootloader')
+            fw = fwdidj.config(self, self._mount_config.host_id, 'bootloader')
             paths = fw.prepare_update(lpath)           
             self.move_update(paths)
         except Exception, e:

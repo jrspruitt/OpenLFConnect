@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# dftp.py Version 0.8
+# dftp.py Version 0.8.1
 import os
 import socket
 import time

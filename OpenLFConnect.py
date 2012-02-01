@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# OpenLFConnect.py Version 0.6.5
+# OpenLFConnect.py Version 0.7.0
 import os
 import cmd
 import sys
@@ -49,13 +49,13 @@ from olcmodules.clients.didj import client as didj_client
 from olcmodules.clients.local import client as local_client
 from olcmodules.clients.interface import filesystem as fs_iface
 
-from olcmodules.firmware import cbf, dftp, packages
+from olcmodules.firmware import cbf, packages
 
 
 class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
-        print 'OpenLFConnect Version 0.6.5'
+        print 'OpenLFConnect Version 0.7.0'
         self.debug = False        
         
         self._init_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'files')).replace('\\', '/')
@@ -324,7 +324,7 @@ Remove Didj firmware and bootloader from device.
             print '  Device IP:\t\t%s' % self._lm.remote_conn.device_id
             print '  Host IP:\t\t%s' % self._lm.remote_conn.host_id
             print '  Host Name:\t\t%s-%s' % (device_name, serial)
-            print '  DFTP Version:\t%s' % self._dftp_client.dftp_version
+            print '  DFTP Version:\t\t%s' % self._dftp_client.dftp_version
         except Exception, e:
             self.error(e)
 
@@ -559,9 +559,12 @@ Password:<blank>
             if s in ('start', 'stop'):
                 script = os.path.join(config.SCRIPTS_DIR, 'sshd_%s.sh' % s)
                 if script:
-                    self._lm.is_remote(self._dftp_client)            
-                    self._dftp_client.run_script(script)
-                    print 'SSHD %s' % s
+                    self._lm.is_remote(self._dftp_client) 
+                    if self._dftp_client.exists_i('/etc/ssh'):           
+                        self._dftp_client.run_script(script)
+                        print 'SSHD %s' % s
+                    else:
+                        self.error('SSHD not installed, must be running Surgeon?')
                 else:
                     self.error('The script file seems to be missing.')
             else:
@@ -583,8 +586,11 @@ Should be run before starting sshd, only needs to be done once.
             script = os.path.join(config.SCRIPTS_DIR, 'sshd_no_password.sh')
             if script:
                 self._lm.is_remote(self._dftp_client)
-                self._dftp_client.run_script(script)
-                print 'sshd_config patched for empty passwords.'
+                if self._dftp_client.exists_i('/etc/ssh'):           
+                    self._dftp_client.run_script(script)
+                    print 'sshd_config patched for empty passwords.'
+                else:
+                    self.error('SSHD not installed, must be running Surgeon?')
             else:
                 self.error('The script file seems to be missing.')
         except Exception, e:

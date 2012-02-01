@@ -30,10 +30,11 @@
 ##############################################################################
 
 #@
-# firmware.didj.py Version 0.1
+# firmware.didj.py Version 0.2
 
 import os
 from olcmodules.firmware.hash import get_md5
+from olcmodules.config import debug as dbg
 
 DIDJ_FW_DIR = 'firmware-LF_LF1000'
 DIDJ_REMOTE_FW_DIR = os.path.join('Base/', DIDJ_FW_DIR)
@@ -50,8 +51,9 @@ DIDJ_REMOTE_BL_FILES = {'lightning-boot':'lightning-boot.bin', 'bootflags':'boot
 
 
 class config(object):
-    def __init__(self, mount_point, utype=''):
+    def __init__(self,module, mount_point, utype=''):
         self._utype = utype
+        self._dbg = dbg(module)
         
         if self._utype == 'firmware':
             self._remote_fw_files = DIDJ_REMOTE_FW_FILES
@@ -74,14 +76,16 @@ class config(object):
 
 
 
-    def didj_md5_file(self, path):
+    def didj_md5_file(self, path, file_name):
         try:
             if os.path.exists(path):
                 md5sum = get_md5(path)
-                md5_path = '%s.md5' % os.path.splitext(path)[0]
-                f = open(md5_path, 'w')
-                f.write(md5sum)
-                f.close
+                md5_path = os.path.join(os.path.dirname(path), '%s.md5' % os.path.splitext(file_name)[0])
+                if not self._dbg.make(md5_path):
+                    f = open(md5_path, 'w')
+                    f.write(md5sum)
+                    f.close
+                return md5_path
         except Exception, e:
             self.error(e)
     
@@ -97,6 +101,8 @@ class config(object):
                 if os.path.exists(lfile_path) and not item.endswith('md5'):
                     rfile_path = os.path.join(self._remote_fw_dir, item)
                     dir_list.append([lfile_path, rfile_path])
+                    md5_lpath = self.didj_md5_file(lfile_path, item)
+                    dir_list.append([md5_lpath, '%s.md5' % os.path.splitext(rfile_path)[0]])
             
             # Non-standard formated then.
             # Match against base names.
@@ -107,6 +113,8 @@ class config(object):
                             lfile_path = os.path.join(lpath, item)
                             rfile_path = os.path.join(self._remote_fw_dir, self._remote_fw_files[base_name])
                             dir_list.append([lfile_path, rfile_path])
+                            md5_lpath = self.didj_md5_file(lfile_path, item)
+                            dir_list.append([md5_lpath, '%s.md5' %os.path.splitext(rfile_path)[0]])
 
             return dir_list
         except Exception, e:
@@ -134,24 +142,19 @@ class config(object):
                 base_file_name = os.path.splitext(file_name)[0]
 
                 for base_name in self._fw_files:
-                    if base_name.lower() in base_file_name:
+                    if base_name in base_file_name:
                         rpath = os.path.join(self._remote_fw_dir, self._remote_fw_files[base_name])
                         file_paths = [[lpath, rpath]]
                         break
                     
   
             if file_paths:
-                if not os.path.exists(self._remote_fw_dir):
-                    os.mkdir(self._remote_fw_dir)
+                if not os.path.exists(self._remote_fw_dir) and not self._dbg.make(self._remote_fw_dir):
+                    os.mkdir(self._remote_fw_dir)                    
 
-                for paths in file_paths:
-                    self.didj_md5_file(paths[0])
-                    
-
-                return file_paths
-            
+                return file_paths            
             else:
-                self.error('Problem with firmware.')
+                self.error('No firmware files found.')
         except Exception, e:
             self.error(e)
         

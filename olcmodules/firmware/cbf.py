@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# cbf.py Version 0.1
+# cbf.py Version 0.1.1
 
 import os
 import array
@@ -80,9 +80,6 @@ def check(path, ret_bool=False):
 				else:
 					error('File failed CBF Magic Number check.')
 			else:
-				if not ret_bool:
-					print 'Passes CBF check.'
-					
 				return True
 	except Exception, e:
 		error(e)
@@ -151,6 +148,7 @@ def summary(path):
 	print 'Compressed: \t %s' % p.is_compressed
 
 
+
 class parse(object):
 	def __init__(self, path):
 		if os.path.isdir(path):
@@ -166,6 +164,11 @@ class parse(object):
 
 
 
+	def error(self, e):
+		assert False, e
+
+
+
 	def create_summary(self):
 		self.get_image()
 
@@ -174,7 +177,7 @@ class parse(object):
 	def get_image(self):
 		try:
 			if not check(self._path, True):
-				error('Problem with file.')
+				self.error('Problem with file.')
 			
 			f = open(self._path, 'rb')
 	
@@ -197,7 +200,7 @@ class parse(object):
 			f.close()
 			return image
 		except Exception, e:
-			error(e)
+			self.error(e)
 
 
 
@@ -211,6 +214,12 @@ class packer(object):
 		self._buffer = ''
 		self._buffer_crc = ''
 		self._size = 0 
+
+
+
+	def error(self, e):
+		assert False, e
+
 
 
 	def crc(self, buf):
@@ -263,10 +272,10 @@ class packer(object):
 
 	def set_summary(self):
 		if not self._buffer_crc:
-			error('Pack buffer is empty.')
+			self.error('Pack buffer is empty.')
 			
 		if not self._size:
-			error('Pack problem reading buffer for summary.')
+			self.error('Pack problem reading buffer for summary.')
 			
 		self._summary = MAGIC_NUMBER
 
