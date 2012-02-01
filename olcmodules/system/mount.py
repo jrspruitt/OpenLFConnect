@@ -125,8 +125,8 @@ class connection(object):
 
     def find_device_id(self):
         try:
-            print 'Finding device ID'
             time_out = self._time_out
+
             while time_out:
                 if not os.path.exists(self._linux_dev):
                     lines = self.sg_scan().split('\n')
@@ -136,7 +136,7 @@ class connection(object):
                                 if sys.platform == 'win32':
                                     self._device_id = '%s' % line.split(' ')[0]
                                 else:
-                                    print lines[lines.index(line) -1] #.split(' ')[0].replace(':', '')
+                                    print lines[lines.index(line) -1]
                                     self._device_id = '%s' % lines[lines.index(line) -1].split(' ')[0].replace(':', '')
                 
                                 return self._device_id
@@ -156,7 +156,6 @@ class connection(object):
 
     def find_mount_point(self, win_label='didj'):
         try:
-            print 'Finding mount point'
             timeout = 10
             
             while timeout:

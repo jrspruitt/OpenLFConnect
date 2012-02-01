@@ -1,12 +1,3 @@
 Documentation
 
-Make firmware folder easier to deal with
-	search for files instead of folder
-	extract if needed
-	Lpad in folders or not
-
-
-config file
-should hold file/<name> info
-list of nicknames and internal name/folder name of device
 

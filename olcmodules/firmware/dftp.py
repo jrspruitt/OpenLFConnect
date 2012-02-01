@@ -30,82 +30,128 @@
 ##############################################################################
 
 #@
-# firmware.lx.py Version 0.1
+# firmware.dftp.py Version 0.1
 
 import os
-from olcmodules.firmware.helpers import wheres_firmware_dir
+from olcmodules.firmware.cbf import check as cbf_check
 
 
-fw_file_prefixs = {'first':'1048576,8,', 'kernel':'2097152,64,', 'erootfs':'10485760,688,'}
-fw_dir = 'Firmware-Base'
-remote_fw_root = '/LF/Bulk/Downloads/'
-remote_fw_dir = os.path.join(remote_fw_root, fw_dir)
-fw_files = ['1048576,8,FIRST.32.rle', '2097152,64,kernel.cbf', '10485760,688,erootfs.ubi']
+FUSE_FW_DIR = 'firmware'
+FUSE_REMOTE_FW_ROOT = '/LF/fuse/'
+FUSE_REMOTE_FW_DIR = os.path.join(FUSE_REMOTE_FW_ROOT, FUSE_FW_DIR)
+FUSE_FW_FILES = ('rfs', 'FIRST_Lpad', 'kernel', 'mbr2G')
+FUSE_REMOTE_FW_FILES = {'rfs':'sd/ext4/3/rfs',
+                         'FIRST_Lpad':'sd/raw/1/FIRST_Lpad.cbf',
+                         'kernel':'sd/raw/2/kernel.cbf',
+                         'mbr2G':'sd/partition/mbr2G.image'}
 
 
-def error(e):
-    assert False, e
+DFTP_FW_DIR = 'Firmware-Base'
+DFTP_REMOTE_FW_ROOT = '/LF/Bulk/Downloads/'
+DFTP_REMOTE_FW_DIR = os.path.join(DFTP_REMOTE_FW_ROOT, DFTP_FW_DIR)
+DFTP_FW_FILES = ('FIRST', 'kernel', 'erootfs')
+DFTP_REMOTE_FW_FILES = {'FIRST':'1048576,8,FIRST.32.rle',
+                         'kernel':'2097152,64,kernel.cbf',
+                         'erootfs':'10485760,688,erootfs.ubi'}
 
 
 
-def check(path):
-    # checks if directory has files ready to upload
-    # false if needs formating
-    pass
+class config(object):
+    def __init__(self, module, utype=''):
+        self._module = module
+        self._utype = utype
+
+        if self._utype == 'fuse':
+            self._remote_fw_files = FUSE_REMOTE_FW_FILES
+            self._fw_dir = FUSE_FW_DIR
+            self._remote_fw_dir = FUSE_REMOTE_FW_DIR
+            self._fw_files = FUSE_FW_FILES
+
+        elif self._utype == 'dftp':
+            self._remote_fw_files = DFTP_REMOTE_FW_FILES
+            self._fw_dir = DFTP_FW_DIR
+            self._remote_fw_dir = DFTP_REMOTE_FW_DIR
+            self._fw_files = DFTP_FW_FILES
+        else:
+            self.error('No update type selected.')
 
 
 
-def rename(path):
-    try:
-        if not os.path.isdir(path):
-            error('Path is not a directory.')
-        
-        dir_list = os.listdir(path)    
+    def error(self, e):
+        assert False, e
     
-        for name, prefix in fw_file_prefixs.iteritems():
-            file_name_arr = [f for f in dir_list if name in f.lower() and not f.startswith(prefix)]
-
-            for file_name in file_name_arr:
-                file_path = os.path.join(path, file_name)
-                new_path = os.path.join(path, '%s%s' % (prefix, file_name))
-
-                if not os.path.exists(new_path) and os.path.exists(file_path):
-                    os.rename(file_path, new_path)
-                    print 'Renamed %s to %s' % (file_name, os.path.basename(new_path))
-    except Exception, e:
-        error(e)
-
-
-
-
-def prepare_update(dftp, lpath):
-    try:
-        lpath = wheres_firmware_dir(lpath, fw_dir)
-        
-        if not lpath:
-            error('Firmware path not found.')
-            # assume for now we'll always find it
-            # later change to look for files here
-        rpath = remote_fw_dir
-        
-        if not dftp.exists_i(rpath):
-            dftp.mkdir_i(rpath)
     
-        paths = []
     
-        for item in fw_files:
-            lfile_path = os.path.join(lpath, item)
-            rfile_path = os.path.join(rpath, item)
-            if os.path.exists(lfile_path):
-                paths.append([lfile_path, rfile_path])
+    def get_file_paths(self, lpath):
+        try:
+            dir_list = []
+            
+            # Catch standard formated files
+            for item in self._remote_fw_files.iteritems():
+                lfile_path = os.path.join(lpath, item[1])
+                if os.path.exists(lfile_path):
+                    rfile_path = os.path.join(self._remote_fw_dir, item[1])
+                    dir_list.append([lfile_path, rfile_path])
+
+            # Non-standard formated then.
+            # Match against base names.
+            if not dir_list:
+                for item in os.listdir(lpath):
+                    for base_name in self._fw_files:
+                        if base_name in item:
+                            lfile_path = os.path.join(lpath, item)
+                            rfile_path = os.path.join(self._remote_fw_dir, self._remote_fw_files[base_name])
+                            dir_list.append([lfile_path, rfile_path])
+
+            return dir_list
+        except Exception, e:
+            self.error(e)
+    
+    
+    
+    def prepare_update(self, lpath):
+        try:        
+            file_paths = []
+            if os.path.isdir(lpath):
+                
+                if lpath[-1:] == '/':
+                    lpath = lpath[0:-1]
+                
+                check_fw_path = os.path.join(lpath, self._fw_dir)
+                
+                if os.path.exists(check_fw_path):
+                    lpath = check_fw_path 
+
+                file_paths = self.get_file_paths(lpath)
+
             else:
-                print 'Skipping %s' % item
-        return paths
-    except Exception, e:
-        error(e)
-    
-    
-    
-    
-    
-    
+                file_name = os.path.basename(lpath)
+                base_file_name = os.path.splitext(file_name)[0]
+
+                for base_name in self._fw_files:
+                    if base_name.lower() in base_file_name:
+                        rpath = os.path.join(self._remote_fw_dir, self._remote_fw_files[base_name])
+                        file_paths = [[lpath, rpath]]
+                        break     
+#######
+            print file_paths
+            if file_paths:
+                for item in file_paths:
+                    if item[0].endswith('cbf'):
+                        cbfchk = cbf_check(item[0], True)
+
+                        if not cbfchk:
+                            self.error('%s failed CBF check' % os.path.basename(item[0]))
+
+                if not self._module.exists_i(self._remote_fw_dir):
+                    self._module.mkdir_i(self._remote_fw_dir)
+        
+                return file_paths
+            
+            else:
+                self.error('Problem with firmware.')
+        except Exception, e:
+            self.error(e)
+        
+        
+        

@@ -33,6 +33,77 @@
 # config.py Version 0.1
 
 import os
+from shutil import copytree
+
+FILES_DIR = 'files'
+
+LPAD_NAME = 'Lpad'
+LPAD_NAMES = ['lpad', 'lxp', 'leappad', 'leappad explorer', 'explorer leappad']
+LPAD_VDICT = 'leappadexplorer'
+LPAD_DIR = os.path.abspath(os.path.join(FILES_DIR, LPAD_NAME))
+
+LX_NAME = 'LX'
+LX_NAMES = ['lx', 'explorer', 'leapster explorer']
+LX_VDICT = 'lexplorer'
+LX_DIR = os.path.abspath(os.path.join(FILES_DIR, LX_NAME))
+
+DIDJ_NAME = 'Didj'
+DIDJ_NAMES = ['didj']
+DIDJ_VDICT = 'didj'
+DIDJ_DIR = os.path.abspath(os.path.join(FILES_DIR, DIDJ_NAME))
+
+DOWNLOAD_NAME = 'Downloads'
+DOWNLOAD_DIR = os.path.abspath(os.path.join(FILES_DIR, DOWNLOAD_NAME))
+
+SCRIPTS_NAME = 'Scripts'
+SCRIPTS_DIR = os.path.abspath(os.path.join(FILES_DIR, SCRIPTS_NAME))
+
+
+
+def error(e):
+    assert False, '%s' % e
+
+
+
+def olc_files_dirs_check():
+    try:
+        dirs = [LPAD_DIR, LX_DIR, DIDJ_DIR, DOWNLOAD_DIR, SCRIPTS_DIR]
+        
+        for item in dirs:
+                
+            if not os.path.exists(item):
+                if item == SCRIPTS_DIR:
+                    copytree('extras/dftp_scripts', SCRIPTS_DIR)
+                else:
+                    os.mkdir(item)
+                
+                print 'Created %s/%s/' % (os.path.basename(os.path.dirname(item)), os.path.basename(item))
+            elif not os.path.isdir(item):
+                error('Name conflict in files directory.')
+    except Exception, e:
+        error(e)
+
+
+
+def olc_device_settings(name):
+    if name.lower() in LPAD_NAMES:
+        nname = LPAD_NAME
+        vdict = LPAD_VDICT
+        fdir = LPAD_DIR
+    elif name.lower() in LX_NAMES:
+        nname = LX_NAME
+        vdict = LX_VDICT
+        fdir = LX_DIR
+    elif name.lower() in DIDJ_NAMES:
+        nname = DIDJ_NAME
+        vdict = DIDJ_VDICT
+        fdir = DIDJ_DIR
+    else:
+        error('Device name could not be determined.')
+    
+    return {'name':nname, 'dir':fdir, 'vdict':vdict}
+
+
 
 class debug(object):
     def __init__(self, module):

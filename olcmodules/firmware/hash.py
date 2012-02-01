@@ -30,9 +30,8 @@
 ##############################################################################
 
 #@
-# firmware.helpers.py Version 0.1
+# firmware.hash.py Version 0.1
 
-import os
 from hashlib import md5, sha1
 
 
@@ -62,42 +61,4 @@ def get_sha1(path):
         return sha1h.hexdigest()
     except Exception, e:
         error(e)
-
-
-
-def device_info(name):
-    _lx_dir = os.path.abspath('files/Explorer')
-    _lpad_dir = os.path.abspath('files/LeapPad')
-    _didj_dir = os.path.abspath('files/Didj')
-    
-    _device_dir = {'Explorer':_lx_dir, 'LeapPad':_lpad_dir, 'Didj':_didj_dir}
-    
-    lpad_names = ['lpad', 'lxp', 'leappad', 'leappad explorer', 'explorer leappad']
-    lx_names = ['lx', 'explorer', 'leapster explorer']
-    didj_names = ['didj']
-
-    if name.lower() in lpad_names:
-        nname = 'LeapPad'
-    elif name.lower() in lx_names:
-        nname = 'Explorer'
-    elif name.lower() in didj_names:
-        nname = 'Didj'
-    else:
-        error('Device name could not be determined.')
-    
-    return [nname, _device_dir[nname]]
-
-
-
-def wheres_firmware_dir(lpath, utype):
-    if lpath[-1:] == '/':
-        lpath = lpath[0:-1]
-
-    if not os.path.basename(lpath) == utype:
-        lpath = os.path.join(lpath, utype)
-        
-        if not os.path.exists(lpath) or not os.path.isdir(lpath):
-            return False
-            
-    return lpath
 

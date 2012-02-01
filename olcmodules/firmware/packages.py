@@ -39,18 +39,19 @@ import xml.dom.minidom as xml
 from urllib import urlretrieve
 from urllib2 import urlopen
 
-from olcmodules.firmware.helpers import get_sha1, device_info
+from olcmodules import config
+from olcmodules.firmware.hash import get_sha1
 
-lpad_firmware_guid = ['LPAD-0x001E0012-000001', 'LPAD-0x001E0012-000003']
-lpad_surgeon_guid = ['LPAD-0x001E0011-000000']
+LPAD_FIRMWARE_GUID = ['LPAD-0x001E0012-000001', 'LPAD-0x001E0012-000003']
+LPAD_SURGEON_GUID = ['LPAD-0x001E0011-000000']
 
-lx_firmware_guid = ['LST3-0x00170029-000000']
-lx_surgeon_guid = ['LST3-0x00170028-000000']
+LX_FIRMWARE_GUID = ['LST3-0x00170029-000000']
+LX_SURGEON_GUID = ['LST3-0x00170028-000000']
 
-didj_firmware_guid = ['DIDJ-0x000E0003-000001']
-didj_bootloader_guid = ['DIDJ-0x000E0002-000001']
+DIDJ_FIRMWARE_GUID = ['DIDJ-0x000E0003-000001']
+DIDJ_BOOTLOADER_GUID = ['DIDJ-0x000E0002-000001']
 
-
+EXTS = ('lfp','lf2')
 
 def error(e):
     assert False, '%s' % e
@@ -58,45 +59,45 @@ def error(e):
 
 
 def extract(path):
-
-    exts = ('lfp','lf2')
-    files = []
-    if os.path.isdir(path):
-        dir_list = os.listdir(path)
-        files = [f for f in dir_list if f.endswith(exts)]
-    else:
-        if path.endswith(exts):
-            files = [os.path.basename(path)]
-            path = os.path.dirname(path)
-    
-    if len(files) > 0:
-        for file_name in files:
-            file_path = os.path.join(path, file_name)
-            
-            if file_name.endswith('lfp'):
-                print 'Extracting lfp: %s' % file_name
-                opener, mode = zipfile.ZipFile, 'r'
-            elif file_name.endswith('lf2'):
-                print 'Extracting lf2: %s' % file_name
-                opener, mode = tarfile.open, 'r:bz2'
-            else:
-                error('Extracting error.')
-            
-            f = opener(file_path, mode)
-            f.extractall(path)
-            f.close() 
-    else:
-        error('No packages found.')
+    try:
+        files = []
+        if os.path.isdir(path):
+            dir_list = os.listdir(path)
+            files = [f for f in dir_list if f.endswith(EXTS)]
+        else:
+            if path.endswith(EXTS):
+                files = [os.path.basename(path)]
+                path = os.path.dirname(path)
+        
+        if len(files) > 0:
+            for file_name in files:
+                file_path = os.path.join(path, file_name)
+                
+                if file_name.endswith('lfp'):
+                    print 'Extracting lfp: %s' % file_name
+                    opener, mode = zipfile.ZipFile, 'r'
+                elif file_name.endswith('lf2'):
+                    print 'Extracting lf2: %s' % file_name
+                    opener, mode = tarfile.open, 'r:bz2'
+                else:
+                    error('Extracting error.')
+                
+                f = opener(file_path, mode)
+                f.extractall(path)
+                f.close() 
+        else:
+            error('No packages found.')
+    except Exception, e:
+        error(e)
 
 
 
 class lf_packages(object):
     def __init__(self):
-        self._lpad_guids = {'firmware':lpad_firmware_guid, 'surgeon':lpad_surgeon_guid}
-        self._lx_guids = {'firmware':lx_firmware_guid, 'surgeon':lx_surgeon_guid}
-        self._didj_guids = {'firmware':didj_firmware_guid, 'bootloader':didj_bootloader_guid}
-        self._guid_list = {'LeapPad':self._lpad_guids, 'Explorer':self._lx_guids, 'Didj':self._didj_guids}
-        self._vdict_name = {'LeapPad':'leappadexplorer', 'Explorer':'lexplorer', 'Didj':'didj'}
+        self._lpad_guids = {'firmware':LPAD_FIRMWARE_GUID, 'surgeon':LPAD_SURGEON_GUID}
+        self._lx_guids = {'firmware':LX_FIRMWARE_GUID, 'surgeon':LX_SURGEON_GUID}
+        self._didj_guids = {'firmware':DIDJ_FIRMWARE_GUID, 'bootloader':DIDJ_BOOTLOADER_GUID}
+        self._guid_list = {config.LPAD_NAME:self._lpad_guids, config.LX_NAME:self._lx_guids, config.DIDJ_NAME:self._didj_guids}
 
 
 
@@ -141,8 +142,12 @@ class lf_packages(object):
 
 
 
-    def _get_package_info(self, comps, guid):
+    def _get_package_info(self, olc_ds, ptype):
+        dom = self._get_vdict_dom(olc_ds['vdict'])
+        comps = dom.getElementsByTagName('Component')
+        guid = self._guid_list[olc_ds['name']][ptype]
         url_list = []
+
         for comp in comps:
             cguid = self._xml_get_text(comp.getElementsByTagName('Guid')[0].childNodes)
 
@@ -160,34 +165,35 @@ class lf_packages(object):
 
 
     def get_package(self, dtype, ptype):
-        dname, fwdir = device_info(dtype)
+        olc_ds = config.olc_device_settings(dtype)
         ptype = self._pname_normalizer(ptype)
-        
-        dom = self._get_vdict_dom(self._vdict_name[dname])        
-        urls = self._get_package_info(dom.getElementsByTagName('Component'), self._guid_list[dname][ptype])
+                
+        urls = self._get_package_info(olc_ds, ptype)
 
         for pname, pver, purl, pchecksum in urls:             
             package_name = os.path.basename(purl)
             ext = os.path.splitext(package_name)[1]
-            
-            if dname == 'LeapPad':
-                if 'Base' in pname:
-                    ptype = '%s_%s' % (ptype, 'base')
-                elif 'Partition' in pname:
-                    ptype = '%s_%s' % (ptype, 'partition')
+            ptype_name = ptype
 
-            file_name = '%s_%s_%s%s' % (dname, ptype, pver, ext)
-            file_path = os.path.join(fwdir, file_name)
+            if olc_ds['name'] == config.LPAD_NAME:
+                if 'Base' in pname:
+                    ptype_name = '%s_%s' % (ptype, 'base')
+                elif 'Partition' in pname:
+                    print ptype
+                    ptype_name = '%s_%s' % (ptype, 'partition')
+
+            file_name = '%s_%s_%s%s' % (olc_ds['name'], ptype_name, pver, ext)
+            file_path = os.path.join(olc_ds['dir'], file_name)
             
             if not os.path.exists(file_path):
                 urlretrieve(purl, file_path)
                 print 'Downloading: %s' % file_name
                 sha1sum = get_sha1(file_path)
-
+                
                 if sha1sum == pchecksum:
                     print 'Packaged passed checksum'
                 else:
-                    error('Package failed checksum. Please check the file.')
+                    print 'Package failed checksum. Please check the file.'
 
             else:
                 error('Package already exists.')

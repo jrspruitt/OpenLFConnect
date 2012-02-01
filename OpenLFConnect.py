@@ -37,6 +37,7 @@ import sys
 import shlex
 
 from olcmodules.location import manager as loc_manager
+from olcmodules import config
 
 from olcmodules.system.networking import connection as net_connection
 from olcmodules.system.mount import connection as mount_connection
@@ -55,8 +56,8 @@ class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
         print 'OpenLFConnect Version 0.6.5'
-        self.debug = False
-                
+        self.debug = False        
+        
         self._init_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'files')).replace('\\', '/')
         self._lm = loc_manager(self._init_path, cmd.Cmd)
         
@@ -68,6 +69,8 @@ class OpenLFConnect(cmd.Cmd, object):
         self._device_id = ''
         
         self._lm.set_local(self._lm.local_path)
+        
+        config.olc_files_dirs_check()
         
 ##############################################################################
 # OpenLFConnect.py
@@ -122,12 +125,12 @@ class OpenLFConnect(cmd.Cmd, object):
 
     def didj_device_info(self):
         try:
-            print 'Device Name:\t\tDidj'
-            print 'Serial Number:\t\t%s' % self._didj_client.serial_number
-            print 'Battery Level:\t\t%s' % self._didj_client.battery_level
-            print 'Needs Repair:\t\t%s' % self._didj_client.needs_repair
-            print 'Device ID:\t\t%s' % self._lm.remote_conn.device_id
-            print 'Mount Point:\t\t%s' % self._lm.remote_conn.host_id
+            print '  Device Name:\t\tDidj'
+            print '  Serial Number:\t\t%s' % self._didj_client.serial_number
+            print '  Battery Level:\t\t%s' % self._didj_client.battery_level
+            print '  Needs Repair:\t\t%s' % self._didj_client.needs_repair
+            print '  Device ID:\t\t%s' % self._lm.remote_conn.device_id
+            print '  Mount Point:\t\t%s' % self._lm.remote_conn.host_id
         except Exception, e:
             self.error(e)
             
@@ -313,15 +316,15 @@ Remove Didj firmware and bootloader from device.
         try:
             device_name = self._dftp_client.device_name
             serial = self._dftp_client.serial_number
-            print 'Device:\t\t\t%s' % device_name
-            print 'Firmware Version:\t%s' % self._dftp_client.firmware_version
-            print 'Serial Number\t\t%s' % serial
-            print 'Board ID:\t\t%s' % self._dftp_client.board_id
-            print 'Battery Level\t\t%s' % self._dftp_client.battery_level
-            print 'Device IP:\t\t%s' % self._lm.remote_conn.device_id
-            print 'Host IP:\t\t%s' % self._lm.remote_conn.host_id
-            print 'Host Name:\t\t%s-%s' % (device_name, serial)
-            print 'DFTP Version: \t\t%s' % self._dftp_client.dftp_version
+            print '  Device:\t\t%s' % device_name
+            print '  Firmware Version:\t%s' % self._dftp_client.firmware_version
+            print '  Serial Number\t\t%s' % serial
+            print '  Board ID:\t\t%s' % self._dftp_client.board_id
+            print '  Battery Level\t\t%s' % self._dftp_client.battery_level
+            print '  Device IP:\t\t%s' % self._lm.remote_conn.device_id
+            print '  Host IP:\t\t%s' % self._lm.remote_conn.host_id
+            print '  Host Name:\t\t%s-%s' % (device_name, serial)
+            print '  DFTP Version:\t%s' % self._dftp_client.dftp_version
         except Exception, e:
             self.error(e)
 
@@ -420,14 +423,9 @@ Usage:
 
 CAUTION:
 !!Attempts to flash firmware, could potentially be harmful.!!
-!!Make sure Battery's are Fresh, or A/C adpater is used!!
+!!Make sure Battery's are Fresh, or A/C adapter is used!!
 
-Uploads and flashes to NAND the files in <local path>.
-Note: Files must conform to LF naming conventions. Explorer in a Firmware-Base/* directory, LeapPad in firmware/sd/*
-Searches from the current local directory for the top level directory of the firmware, local path can be directly inside the top level directory or one above it.
-What firmware it to tries to upload depends on version number.
-1.x.x.x = Explorer
-2.x.x.x = LeapPad
+Uploads and flashes the files found in path, or the file specified by path.
 
 Caution: Has not been tested on LeapPad, theoretically it should work though, please confirm to author yes or no if you get the chance.
         """
@@ -509,9 +507,10 @@ Password:<blank>
         """
         try:
             if s in ('start', 'stop'):
-                if os.path.exists('files/Scripts/telnet_%s.sh' % s):
+                script = os.path.join(config.SCRIPTS_DIR, 'telnet_%s.sh' % s)
+                if script:
                     self._lm.is_remote(self._dftp_client)            
-                    self._dftp_client.run_script('files/Scripts/telnet_%s.sh' % s)
+                    self._dftp_client.run_script(script)
                     print 'Telnet %s' % s
                 else:
                     self.error('The script file seems to be missing.')
@@ -533,9 +532,10 @@ Password:<blank>
         """
         try:
             if s in ('start', 'stop'):
-                if os.path.exists('files/Scripts/ftp_%s.sh' % s):
+                script = os.path.join(config.SCRIPTS_DIR, 'ftp_%s.sh' % s)
+                if script:
                     self._lm.is_remote(self._dftp_client)            
-                    self._dftp_client.run_script('files/Scripts/ftp_%s.sh' % s)
+                    self._dftp_client.run_script(script)
                     print 'FTP %s' % s
                 else:
                     self.error('The script file seems to be missing.')
@@ -557,9 +557,10 @@ Password:<blank>
         """
         try:
             if s in ('start', 'stop'):
-                if os.path.exists('files/Scripts/telnet_%s.sh' % s):
+                script = os.path.join(config.SCRIPTS_DIR, 'sshd_%s.sh' % s)
+                if script:
                     self._lm.is_remote(self._dftp_client)            
-                    self._dftp_client.run_script('files/Scripts/sshd_%s.sh' % s)
+                    self._dftp_client.run_script(script)
                     print 'SSHD %s' % s
                 else:
                     self.error('The script file seems to be missing.')
@@ -579,9 +580,10 @@ Patches the sshd_config file to permit login with a blank password.
 Should be run before starting sshd, only needs to be done once.
         """
         try:
-            if os.path.exists('files/Scripts/sshd_no_password.sh'):
+            script = os.path.join(config.SCRIPTS_DIR, 'sshd_no_password.sh')
+            if script:
                 self._lm.is_remote(self._dftp_client)
-                self._dftp_client.run_script('files/Scripts/sshd_no_password.sh')
+                self._dftp_client.run_script(script)
                 print 'sshd_config patched for empty passwords.'
             else:
                 self.error('The script file seems to be missing.')
@@ -1095,10 +1097,6 @@ Doesn't care what kind or how big of a file.
 # firmware.*
 #######################
 
-
-    def complete_rename_lx_firmware(self, text, line, begidx, endidx):
-        return self._lm.complete_local(text, line, begidx, endidx)
-
     def complete_package_extract(self, text, line, begidx, endidx):
         return self._lm.complete_local(text, line, begidx, endidx)
 
@@ -1113,34 +1111,6 @@ Doesn't care what kind or how big of a file.
 
     def complete_cbf_summary(self, text, line, begidx, endidx):
         return self._lm.complete_local(text, line, begidx, endidx)
-
-#######################
-# UI Explorer (LX) Firmware Functions
-# firmware.lx
-#######################
-## eventually remove, as this will be automagic
-    def do_lx_rename_firmware(self, s):
-        """
-Usage:
-    lx_rename_firmware [path]
-
-Renames the current or specified directory of files, with first, kernel, and or erootfs in the file names.
-Prepends the proper number prefix to each file.
-Will rename all files in the directory that match.
-        """
-        try:
-            self._lm.set_local()
-            abspath = self._lm.get_abspath(s)
-            
-            if self._lm.fs.is_dir(abspath):
-                dftp.rename(abspath)
-            else:
-                self.error('Path is not a directory.')
-                
-            self._lm.last_location()
-        except Exception, e:
-            self._lm.last_location()
-            self.perror(e)
 
 #######################
 # UI Package Functions

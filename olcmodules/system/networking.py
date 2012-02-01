@@ -138,6 +138,7 @@ class connection(object):
         try:
             ip_arr = search_ip.split('.')
             ip = ''
+
             for i in range(0, 3):
                 if i < len(ip_arr)-1:
                     ip += '%s\\.' % ip_arr[i]
@@ -165,9 +166,9 @@ class connection(object):
 
 
     def find_host_ip(self):
-        print 'Finding Host IP'
         try:
             timeout = self._host_ip_timeout
+
             while timeout:
                 
                 ip = self.parse_ifconfig(self._subnet)
@@ -186,7 +187,6 @@ class connection(object):
 
 
     def find_device_ip(self):
-        print 'Finding Device IP'
         try:
             sock = self.multicast_listen_socket(self._m_ip, self._m_port)
             rd, wd, xd = select.select([sock],[],[], self._device_ip_timeout)
@@ -202,7 +202,7 @@ class connection(object):
                     self._device_ip = m.group('ip')
                     return self._device_ip
                 else:
-                    self.error('Couldn\'t get IP address.')
+                    self.error('Couldn\'t get device IP address.')
     
             else:
                 self.error('Timed out waiting for device IP.')

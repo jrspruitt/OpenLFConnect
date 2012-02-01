@@ -10,14 +10,25 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-OpenLFConnect is a Python and sg3_utils based replacement application for the LeapFrog LFConnect program. For Explorer and LeapPad it can use their dftpdevice to upload firmware. It also manages uploading the surgeon.cbf file for USB boot recovery mode and is capable of enabling sshd on both devices. For Didj it can mount the USB drive, copy firmware over, and send the eject command that will attempt to start flashing the firmware.
+OpenLFConnect is a Python and sg3_utils based replacement application for the LeapFrog LFConnect
+program. For Explorer and LeapPad it can use their dftpdevice to upload firmware. It also manages
+uploading the surgeon.cbf file for USB boot recovery mode and is capable of enabling sshd on both
+devices. For Didj it can mount the USB drive, copy firmware over, and send the eject command that
+will attempt to start flashing the firmware.
 
-WARNING: This program attempts to flash new firmware, has the ability to make and delete, upload and download, files could be destroyed, firmware flashing could go wrong. There is no prompts for second chances.
+WARNING: This program attempts to flash new firmware, has the ability to make and delete, upload
+and download, files could be destroyed, firmware flashing could go wrong. There is no prompts for
+second chances.
 
 Check OpenLFConnect/doc/INSTALL for installation and configuration.
 
 
 Build Log:
+Version 0.6.6
+    Reworked Firmware updates with some new automagic
+    Created olcmodules/config.py file for holding olc vars like device name
+    Added start up function to buid files directory and copy scripts over
+
 Version 0.6.5
 	Centralized debug prints
 	changed debug_on debug_off to debug on|off was nearly exact same code for both
@@ -42,7 +53,8 @@ Version 0.6.3
 	
 Version 0.6.2
     Found the RUN command, which runs a shell script. Works much like upload RUN > data > 101 EOF
-    Removed enable ftp/sshd/telnet, rcS file is too important, should be done during Surgeon boot, with patient rfs mounted.
+    Removed enable ftp/sshd/telnet, rcS file is too important, should be done during Surgeon boot,
+        with patient rfs mounted.
     Added Mount Patient 2 mounts rfs, 1 mounts bulk/rfs, 0 unmounts any.
     Wrote some basic shell scripts for RUN, start|stop ftp/telnet/sshd/patch_sshd_config
     Removed local path getting reset on remote_destroy()
@@ -50,8 +62,10 @@ Version 0.6.2
     
 Version 0.6.1
 	Changed dftp downloads/cat/uploads to have functions that up/downloads to/from a buffer
-	Changed from enable sshd to ftp and telnet, was an easier, more universal patch, requires no ssh program on Windows
-	Used d/upload buffer to change how enabling is done, d/l to buffer, change string, upload from buffer.
+	Changed from enable sshd to ftp and telnet, was an easier, more universal patch, requires no ssh
+	   program on Windows
+	Used d/upload buffer to change how enabling is done, d/l to buffer, change string, upload from
+	   buffer.
 	Renamed dftp_send to send, and made it a direct raw call and receive.
 
 Version 0.6
@@ -93,7 +107,8 @@ Version 0.2
 	Fixed local.py/get_mount_path added time out feature, to wait while mount point is being created
 	OpenLFConnect.py/get_abspath changed from path_format, and simplified greatly
 	OpenLFConnect.py/path_completion simplified the code
-	local.py/mounting in Linux it now searches /sys/class/ for the correct vendor, compares it to /proc/mount
+	local.py/mounting in Linux it now searches /sys/class/ for the correct vendor, compares it to
+	   /proc/mount
 
 Version 0.1
 	Initial Commit

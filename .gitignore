@@ -1,20 +1,6 @@
 *.py[co]
 
-*.lfp
-*.lf2
-*.cbf
-
-files/Explorer/*
-files/LeapPad/*
-files/Didj/*
-
-
-files/Downloads/*
-
-!files/Downloads/doom
-!files/Explorer/firmware.urls
-!files/LeapPad/firmware.urls
-!files/Didj/firmware.urls
+files/*
 
 .project
 .pydevproject

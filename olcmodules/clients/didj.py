@@ -35,11 +35,11 @@ import os
 import sys
 from shlex import split as shlex_split
 from subprocess import Popen, PIPE
-from shutil import rmtree, copytree
+from shutil import rmtree, copy
 from time import sleep
 from olcmodules.config import debug as dbg
 
-import olcmodules.firmware.didj as fw
+import olcmodules.firmware.didj as fwdidj
 
 class client(object):
     def __init__(self, mount_config, debug=False):
@@ -99,13 +99,14 @@ class client(object):
 
 
 
-    def move_update(self, lpath, rpath):
+    def move_update(self, paths):
         try:
-            if os.path.exists(lpath) and os.path.exists(os.path.dirname(rpath)):
-                if not self._dbg.upload(lpath, rpath):
-                    copytree(lpath, rpath)
-            else:
-                self.error('One of the paths does not exist')
+            for lpath, rpath in paths:
+                if os.path.exists(lpath) and os.path.exists(os.path.dirname(rpath)):
+                    if not self._dbg.upload(lpath, rpath):
+                        copy(lpath, rpath)
+                else:
+                    self.error('One of the paths does not exist')
         except Exception, e:
             self.error(e)
 
@@ -192,8 +193,9 @@ class client(object):
 
     def upload_firmware(self, lpath):
         try:
-            lpath, rpath = fw.prepare_update(lpath, self._mount_config.host_id, 'firmware') 
-            self.move_update(lpath, rpath)
+            fw = fwdidj.config(self._mount_config.host_id, 'firmware')
+            paths = fw.prepare_update(lpath) 
+            self.move_update(paths)
         except Exception, e:
             self.rerror(e)
 
@@ -201,8 +203,9 @@ class client(object):
 
     def upload_bootloader(self, lpath):
         try:
-            lpath, rpath = fw.prepare_update(lpath, self._mount_config.host_id, 'bootloader')           
-            self.move_update(lpath, rpath)
+            fw = fwdidj.config(self._mount_config.host_id, 'bootloader')
+            paths = fw.prepare_update(lpath)           
+            self.move_update(paths)
         except Exception, e:
             self.rerror(e)
 
@@ -210,8 +213,8 @@ class client(object):
 
     def cleanup(self):
         try:
-            fwpath = fw.find_paths('', self._mount_config.host_id, 'firmware')[1]
-            blpath = fw.find_paths('', self._mount_config.host_id, 'bootloader')[1]
+            fwpath = os.path.join(self._mount_config.host_id, fwdidj.DIDJ_REMOTE_FW_DIR)
+            blpath = os.path.join(self._mount_config.host_id, fwdidj.DIDJ_REMOTE_BL_DIR)
                 
             if os.path.exists(fwpath):            
                 if not self._dbg.remove(fwpath):

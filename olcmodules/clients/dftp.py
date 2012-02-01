@@ -34,14 +34,13 @@
 import os
 import socket
 import time
+from olcmodules import config
 import olcmodules.firmware.dftp as fwdftp
-import olcmodules.firmware.fuse as fwfuse
-from olcmodules.config import debug as dbg
 
 class client(object):
     def __init__(self, net_config, debug=False):
         self.debug = debug
-        self._dbg = dbg(self)
+        self._dbg = config.debug(self)
         
         self._net_config = net_config
         self._sock0 = None
@@ -371,22 +370,22 @@ class client(object):
         try:
             if not os.path.exists(lpath):
                 self.error('Path does not exist.')
-            elif not os.path.isdir(lpath):
-                self.error('Path is not a directory.')
             elif self._surgeon_dftp_version != self.dftp_version:
                 self.error('Device is not in USB boot mode.')
             
-            if self.exists_i(fwfuse.remote_fw_root):
-                print 'Fuse update.'
-                paths = fwfuse.prepare_update(self, lpath)
+            if self.exists_i(fwdftp.FUSE_REMOTE_FW_ROOT):
+                utype = 'fuse'
+                fw = fwdftp.config(self, utype)
+                paths = fw.prepare_update(lpath)
             
-            elif self.exists_i(fwdftp.remote_fw_root):
-                print 'DFTP update'
-                paths = fwdftp.prepare_update(self, lpath)            
+            elif self.exists_i(fwdftp.DFTP_REMOTE_FW_ROOT):
+                utype = 'dftp'
+                fw = fwdftp.config(self, utype)
+                paths = fw.prepare_update(lpath)            
             else:
                 self.error('Could not determine update application to use.')
 
-            print 'Updating %s Firmware' % self.get_device_name()
+            print 'Updating %s Firmware with %s' % (self.get_device_name(), utype)
                
             for lfpath, rfpath in paths:
                 self.upload_file_i(lfpath, rfpath)
