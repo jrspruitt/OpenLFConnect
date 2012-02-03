@@ -56,7 +56,7 @@ from olcmodules.firmware.images import ubi, jffs2
 class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
-        print 'OpenLFConnect Version 0.7.1'
+        print 'OpenLFConnect Version 0.7.2'
         self.debug = False        
         
         self._init_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'files')).replace('\\', '/')
@@ -209,9 +209,10 @@ CAUTION:
 !!Attempts to flash firmware, could potentially be harmful.!!
 !!Make sure Battery's are Fresh, or A/C adpater is used!!
 
-Update Didj firmware and bootloader. Files must be in bootloader-LF_LF1000 and firmware-LF_LF1000 directories.
-Searches from the current local directory for the top level directory of the firmware, local path can be directly inside the top level directory or one above it.
- MD5 files will be created automatically.
+Update Didj firmware and bootloader.
+lightning-boot.bin, erootfs.jffs2 and kernel.bin are all required for the update to work.
+They can all be in the current directory, or in bootstrap-LF_LF1000 and firmware-LF_LF1000 respectively.
+MD5 files will be created automatically.
         """
         try:
             self._lm.is_remote(self._didj_client)
@@ -240,8 +241,10 @@ CAUTION:
 !!Attempts to flash firmware, could potentially be harmful.!!
 !!Make sure Battery's are Fresh, or A/C adpater is used!!
 
-Update Didj firmware. Files must be in firmware-LF_LF1000 directory.
-Searches from the current local directory for the top level directory of the firmware, local path can be directly inside the top level directory or one above it.
+Update Didj firmware.
+erootfs.jffs2 and kernel.bin are both required for update to take place.
+Files can have alternate names as long as their name is in the new name, ex. custom-kernel.bin, or erootfs-custom.jffs2
+Files must be in the current directory or in firmware-LF_LF1000 directory.
 MD5 files will be created automatically.
         """
         try:
@@ -270,8 +273,9 @@ CAUTION:
 !!Attempts to flash firmware, could potentially be harmful.!!
 !!Make sure Battery's are Fresh, or A/C adpater is used!!
 
-Update Didj bootloader. Files must be in bootloader-LF_LF1000 directory.
-Searches from the current local directory for the top level directory of the firmware, local path can be directly inside the top level directory or one above it.
+Update Didj bootloader.
+File must be in current directory, bootloader-LF_LF1000 directory or direct path to.
+File can have alternate name, but must include lightning-boot in it, ex custom-lightning-boot.bin
 MD5 files will be created automatically.
         """        
         try:
@@ -369,7 +373,7 @@ Usage:
     dftp_disconnect
 
 Disconnect DFTP client.
-This will cause the DFTP server to start announcing its IP again, except Explorer's surgeon.cbf version, which will reboot the device
+This will cause the DFTP server to start announcing its IP again, except Explorer's surgeon.cbf version, which will reboot the device.
         """
         try:
             self._lm.is_remote(self._dftp_client)
@@ -386,7 +390,7 @@ This will cause the DFTP server to start announcing its IP again, except Explore
 Usage
     dftp_server_version [number]
 
-Sets the version number of the dftp server. Or retrieves if none specified
+Sets the version number of the dftp server. Or retrieves if none specified.
 OpenLFConnect checks for version 1.12 for surgeon running before a firmware update.
 Set this to 1.12 if getting complaints, or surgeon has its dftp version updated.
     """
@@ -605,8 +609,6 @@ Usage:
     dftp_run_script <path>
 
 This takes a shell script as an argument, and proceeds to run it on the device.
-Username:root
-Password:<blank>
         """
         try:
             self._lm.is_remote(self._dftp_client)
@@ -728,7 +730,9 @@ File can be any name, but must conform to CBF standards.
 Usage:
     debug_on
 
-Setting this prevents updates from actually happening, instead printing the files that would have been uploaded.
+Turning debug on, turns most any filesystem action off, such as, up/download, rm, 
+mkdir, etc. It is replaced with text displaying what would have happened. Useful for
+checking updates before they happen, also will not eject Didj on update.
         """
         if s.lower() in ('on', 'true', 'enable'):
             self.debug = True
@@ -784,7 +788,7 @@ To reset to auto determine leave input blank.
 Usage:
     get_mount_point
 
-Returns the currently configured mount point to use when creating a new mount client client.
+Returns the currently configured mount point to use when creating a new mount client.
         """
         return self.host_id
 

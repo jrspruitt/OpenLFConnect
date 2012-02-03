@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# client.didj.py Version 0.8.1
+# client.didj.py Version 0.8.2
 import os
 import sys
 from shlex import split as shlex_split
@@ -101,14 +101,15 @@ class client(object):
 
     def move_update(self, paths):
         try:
-            for lpath, rpath in paths:
-                if os.path.exists(lpath) and os.path.exists(os.path.dirname(rpath)):
-                    if not self._dbg.upload(lpath, rpath):
-                        copy(lpath, rpath)
-                elif self.debug:
-                    self._dbg.upload(lpath, rpath)
-                else:
-                    self.error('One of the paths does not exist')
+            for group in paths:
+                for lpath, rpath in group:
+                    if os.path.exists(lpath) and os.path.exists(os.path.dirname(rpath)):
+                        if not self._dbg.upload(lpath, rpath):
+                            copy(lpath, rpath)
+                    elif self.debug:
+                        self._dbg.upload(lpath, rpath)
+                    else:
+                        self.error('One of the paths does not exist')
         except Exception, e:
             self.error(e)
 
@@ -195,9 +196,12 @@ class client(object):
 
     def upload_firmware(self, lpath):
         try:
-            fw = fwdidj.config(self, self._mount_config.host_id, 'firmware')
-            paths = fw.prepare_update(lpath) 
-            self.move_update(paths)
+            if os.path.isdir(lpath):
+                fw = fwdidj.config(self, self._mount_config.host_id, 'firmware')
+                paths = fw.prepare_update(lpath)
+                self.move_update(paths)
+            else:
+                self.error('Path is not a directory.')
         except Exception, e:
             self.rerror(e)
 

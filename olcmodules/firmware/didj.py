@@ -30,10 +30,9 @@
 ##############################################################################
 
 #@
-# firmware.didj.py Version 0.2.1
+# firmware.didj.py Version 0.2.2
 
 import os
-import copy
 from olcmodules.firmware.hash import get_md5
 from olcmodules.config import debug as dbg
 
@@ -70,6 +69,9 @@ class config(object):
         else:
             self.error('No update type selected.')
 
+        self._fw_file_counter = list(self._fw_files)
+
+
 
     def error(self, e):
         assert False, e
@@ -95,59 +97,56 @@ class config(object):
     
     def get_file_paths(self, lpath):
         try:
-            dir_list = []
-            fw_check = copy.deepcopy(self._fw_files)
-            
-            if not os.path.isdir(lpath):
-                lpath = os.path.dirname(lpath)
+            file_name = os.path.basename(lpath)
+            lfile_path = None
+            rfile_path = None
+            file_list = []
+            for base_name in self._fw_files:
+                if base_name in file_name and not file_name.endswith('md5'):
+                    del self._fw_file_counter[self._fw_file_counter.index(base_name)]
+                    lfile_path = lpath
+                    rfile_path = os.path.join(self._remote_fw_dir, self._remote_fw_files[base_name])
+                    md5_lpath = self.didj_md5_file(lfile_path, file_name)
+                    file_list.append([lfile_path, rfile_path])
+                    file_list.append([md5_lpath, '%s.md5' %os.path.splitext(rfile_path)[0]])
+
+            if file_list:
+                return file_list
             else:
-                # Catch standard formated files
-                for item in self._remote_fw_files.iteritems():
-                    lfile_path = os.path.join(lpath, item[1])
-    
-                    if os.path.exists(lfile_path) and not item[1].endswith('md5'):
-                        del fw_check[fw_check.index(item[0])]
-                        rfile_path = os.path.join(self._remote_fw_dir, item[1])
-                        dir_list.append([lfile_path, rfile_path])
-                        md5_lpath = self.didj_md5_file(lfile_path, item[1])
-                        dir_list.append([md5_lpath, '%s.md5' % os.path.splitext(rfile_path)[0]])
-            
-            # Non-standard formated then.
-            # Match against base names.
-            if not dir_list:
-                for item in os.listdir(lpath):
-                    for base_name in self._fw_files:
-                        if base_name in item and not item.endswith('md5'):
-                            del fw_check[fw_check.index(base_name)]
-                            lfile_path = os.path.join(lpath, item)
-                            rfile_path = os.path.join(self._remote_fw_dir, self._remote_fw_files[base_name])
-                            dir_list.append([lfile_path, rfile_path])
-                            md5_lpath = self.didj_md5_file(lfile_path, item)
-                            dir_list.append([md5_lpath, '%s.md5' %os.path.splitext(rfile_path)[0]])
-                            
-            if fw_check:
-                self.error('Missing update file: %s' % fw_check)
-            return dir_list
+                return False
         except Exception, e:
             self.error(e)
     
     
     
     def prepare_update(self, lpath):
-        try:      
+        try:
             file_paths = []
+            # firmware update
+            if os.path.isdir(lpath):
+                if lpath[-1:] == '/':
+                    lpath = lpath[0:-1]
                 
-            if lpath[-1:] == '/':
-                lpath = lpath[0:-1]
-            
-            check_fw_path = os.path.join(lpath, self._fw_dir)
-            
-            if os.path.exists(check_fw_path):
-                lpath = check_fw_path 
-            
-            file_paths = self.get_file_paths(lpath)
+                check_fw_path = os.path.join(lpath, self._fw_dir)
+                
+                if os.path.exists(check_fw_path):
+                    lpath = check_fw_path 
+                
+                for item in os.listdir(lpath):
+                    paths = self.get_file_paths(os.path.join(lpath, item))
+                    if paths:
+                        file_paths.append(paths)
+                        
+            else:
+                # This can only be lightning-boot
+                if self._fw_files[0] in lpath:
+                    paths = self.get_file_paths(lpath)
+                    if paths:
+                        file_paths.append(paths)
                     
-  
+            if self._fw_file_counter:
+                self.error('Missing update file: %s' % ' '.join(self._fw_file_counter))
+
             if file_paths:
                 if not os.path.exists(self._remote_fw_dir) and not self._dbg.make(self._remote_fw_dir):
                     os.mkdir(self._remote_fw_dir)                    

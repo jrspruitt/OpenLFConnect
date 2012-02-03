@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# firmware.dftp.py Version 0.2
+# firmware.dftp.py Version 0.2.2
 
 import os
 from olcmodules.firmware.cbf import check as cbf_check
@@ -85,16 +85,7 @@ class config(object):
     def get_file_paths(self, lpath):
         try:
             dir_list = []
-            
-            # Catch standard formated files
-            for item in self._remote_fw_files.iteritems():
-                lfile_path = os.path.join(lpath, item[1])
-                if os.path.exists(lfile_path):
-                    rfile_path = os.path.join(self._remote_fw_dir, item[1])
-                    dir_list.append([lfile_path, rfile_path])
 
-            # Non-standard formated then.
-            # Match against base names.
             if not dir_list:
                 for item in os.listdir(lpath):
                     for base_name in self._fw_files:

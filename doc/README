@@ -1,5 +1,3 @@
-
-
 ##############################################################################
 # Title:   OpenLFConnect
 # Author:  Jason Pruitt
@@ -24,6 +22,10 @@ Check OpenLFConnect/doc/INSTALL for installation and configuration.
 
 
 Build Log:
+Version 0.7.2
+    Cleaned up dftp/didj firmware formatters
+    Fixed some help text.
+
 Version 0.7.1
     Added jffs2/ubi erootfs mount/umount/create functions
     Found issue with didj firmware, patched a bit for now
