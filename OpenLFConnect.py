@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# OpenLFConnect.py Version 0.7.0
+# OpenLFConnect.py Version 0.7.1
 import os
 import cmd
 import sys
@@ -50,12 +50,13 @@ from olcmodules.clients.local import client as local_client
 from olcmodules.clients.interface import filesystem as fs_iface
 
 from olcmodules.firmware import cbf, packages
+from olcmodules.firmware.images import ubi, jffs2
 
 
 class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
-        print 'OpenLFConnect Version 0.7.0'
+        print 'OpenLFConnect Version 0.7.1'
         self.debug = False        
         
         self._init_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'files')).replace('\\', '/')
@@ -120,14 +121,14 @@ class OpenLFConnect(cmd.Cmd, object):
         return self._lm.complete_local(text, line, begidx, endidx)
 
     def complete_didj_update_firmware(self, text, line, begidx, endidx):
-        return self._lm.path_complete_local(text, line, begidx, endidx)
+        return self._lm.complete_local(text, line, begidx, endidx)
 
 
     def didj_device_info(self):
         try:
             print '  Device Name:\t\tDidj'
-            print '  Serial Number:\t\t%s' % self._didj_client.serial_number
-            print '  Battery Level:\t\t%s' % self._didj_client.battery_level
+            print '  Serial Number:\t%s' % self._didj_client.serial_number
+            print '  Battery Level:\t%s' % self._didj_client.battery_level
             print '  Needs Repair:\t\t%s' % self._didj_client.needs_repair
             print '  Device ID:\t\t%s' % self._lm.remote_conn.device_id
             print '  Mount Point:\t\t%s' % self._lm.remote_conn.host_id
@@ -1118,6 +1119,24 @@ Doesn't care what kind or how big of a file.
     def complete_cbf_summary(self, text, line, begidx, endidx):
         return self._lm.complete_local(text, line, begidx, endidx)
 
+    def complete_ubi_mount_erootfs(self, text, line, begidx, endidx):
+        return self._lm.complete_local(text, line, begidx, endidx)
+
+    def complete_ubi_umount_erootfs(self, text, line, begidx, endidx):
+        return self._lm.complete_local(text, line, begidx, endidx)
+
+    def complete_ubi_create_erootfs(self, text, line, begidx, endidx):
+        return self._lm.complete_local(text, line, begidx, endidx)
+
+    def complete_jffs2_mount_erootfs(self, text, line, begidx, endidx):
+        return self._lm.complete_local(text, line, begidx, endidx)
+
+    def complete_jffs2_umount_erootfs(self, text, line, begidx, endidx):
+        return self._lm.complete_local(text, line, begidx, endidx)
+
+    def complete_jffs2_create_erootfs(self, text, line, begidx, endidx):
+        return self._lm.complete_local(text, line, begidx, endidx)
+
 #######################
 # UI Package Functions
 # firmware.packages
@@ -1244,6 +1263,136 @@ CBF is used on kernels and surgeon, to wrap a zImage or Image file.
             self._lm.last_location()
         except Exception, e:
             self._lm.last_location()
+            self.perror(e)
+
+#######################
+# UI Firmware Images Functions
+# firmware.images
+#######################
+
+    def do_ubi_mount_erootfs(self, s):
+        """
+Usage:
+    ubi_mount <erootfs.ubi>
+
+Mounts an Explorer erootfs.ubi image to /mnt/ubi_leapfrog
+Caution this mounts an erootfs.ubi image specifically for the Explorer.
+This is a Linux only command.
+Will be prompted for password, sudo required for commands.
+        """
+        try:
+            if sys.platform != 'win32':
+                abspath = self._lm.get_abspath(s)
+                u = ubi()
+                u.mount(abspath)
+            else:
+                self.error('Linux only command.')
+        except Exception, e:
+            self.perror(e)
+
+
+
+    def do_ubi_umount_erootfs(self, s):
+        """
+Usage:
+    ubi_umount
+
+Unmounts /mnt/ubi_leapfrog
+This is a Linux only command.
+Will be prompted for password, sudo required for commands.
+        """
+        try:
+            if sys.platform != 'win32':
+                u = ubi()
+                u.umount()
+            else:
+                self.error('Linux only command.')
+        except Exception, e:
+            self.perror(e)
+
+
+
+    def do_ubi_create_erootfs(self, s):
+        """
+Usage:
+    ubi_create_erootfs path/to/rootfs/
+
+Creates an Explorer erootfs.ubi image in the current directory.
+Caution this image is specifically for the Explorer erootfs.
+This is a Linux only command.
+Will be prompted for password, sudo required for commands.
+        """
+        try:
+            if sys.platform != 'win32':
+                abspath = self._lm.get_abspath(s)
+                u = ubi()
+                u.create(abspath, self._lm.local_path)
+            else:
+                self.error('Linux only command.')
+        except Exception, e:
+            self.perror(e)
+
+
+
+    def do_jffs2_mount_erootfs(self, s):
+        """
+Usage:
+    jffs2_mount_erootfs <file_name>.jffs2
+
+Mounts a Didj erootfs.jffs2 image to /mnt/jffs2_leapfrog
+This is a Linux only command.
+Will be prompted for password, sudo required for commands.
+        """
+        try:
+            if sys.platform != 'win32':
+                abspath = self._lm.get_abspath(s)
+                j = jffs2()
+                j.mount(abspath)
+            else:
+                self.error('Linux only command.')
+        except Exception, e:
+            self.perror(e)
+
+
+
+    def do_jffs2_umount_erootfs(self, s):
+        """
+Usage:
+    jffs2_umount_erootfs
+
+Unmounts /mnt/jffs2_leapfrog
+This is a Linux only command.
+Will be prompted for password, sudo required for commands.
+        """
+        try:
+            if sys.platform != 'win32':
+                j = jffs2()
+                j.umount()
+            else:
+                self.error('Linux only command.')
+        except Exception, e:
+            self.perror(e)
+
+
+
+    def do_jffs2_create_erootfs(self, s):
+        """
+Usage:
+    jffs2_create_erootfs path/to/rootfs/
+
+Creates a Didj erootfs.jffs2 image in the current directory.
+Caution this image is specifically for the Didj erootfs
+This is a Linux only command.
+Will be prompted for password, sudo required for commands.
+        """
+        try:
+            if sys.platform != 'win32':
+                abspath = self._lm.get_abspath(s)
+                j = jffs2()
+                j.create(abspath, self._lm.local_path)
+            else:
+                self.error('Linux only command.')
+        except Exception, e:
             self.perror(e)
          
 if __name__ == '__main__':

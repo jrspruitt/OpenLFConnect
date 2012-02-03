@@ -24,10 +24,14 @@ Check OpenLFConnect/doc/INSTALL for installation and configuration.
 
 
 Build Log:
-Version 0.6.6
+Version 0.7.1
+    Added jffs2/ubi erootfs mount/umount/create functions
+    Found issue with didj firmware, patched a bit for now
+
+Version 0.7
     Reworked Firmware updates with some new automagic
     Created olcmodules/config.py file for holding olc vars like device name
-    Added start up function to buid files directory and copy scripts over
+    Added start up function to build files directory and copy scripts over
 
 Version 0.6.5
 	Centralized debug prints
