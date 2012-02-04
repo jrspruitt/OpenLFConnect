@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# cbf.py Version 0.1.1
+# cbf.py Version 0.1.2
 
 import os
 import array
@@ -49,9 +49,10 @@ MAGIC_NUMBER = '\xf0\xde\xbc\x9a'
 COMPRESSION_SIG = '\x1F\x8B\x08\x00' #gunzip
 CBF_VERSION = 1
 BLOCK_SIZE = 0x20000
-#KERNEL_LOAD = 0x8000
-KERNEL_LOAD = 0x100000
-KERNEL_JUMP = KERNEL_LOAD
+KERNEL_LOAD_08 = 0x8000
+KERNEL_JUMP_08 = KERNEL_LOAD_08
+KERNEL_LOAD_10 = 0x100000
+KERNEL_JUMP_10 = KERNEL_LOAD_10
 
 def error(e):
 	assert False, e
@@ -108,7 +109,7 @@ def extract(path):
 	print 'Saved as: %s' % kernel_name
 
 
-def create(path, name):
+def create(path, name, ptype=''):
 	try:
 		image_name = os.path.basename(path)
 		image_path = os.path.dirname(path)
@@ -123,7 +124,7 @@ def create(path, name):
 		if len(name) > 64:
 			error('Output name is too long.')
 		
-		p = packer(path, name)
+		p = packer(path, name, ptype)
 		p.pack()
 		summary(os.path.join(image_path, '%s.cbf' % name))
 	except Exception, e:
@@ -206,7 +207,7 @@ class parse(object):
 
 
 class packer(object):
-	def __init__(self, path, name):
+	def __init__(self, path, name, ptype):
 		self._path = path
 		self._file_path = os.path.join(os.path.dirname(path), '%s.cbf' % name)
 		self._summary = ''
@@ -214,6 +215,13 @@ class packer(object):
 		self._buffer = ''
 		self._buffer_crc = ''
 		self._size = 0 
+		
+		if ptype == 'lpad':
+			self._kernel_jump = KERNEL_JUMP_10
+			self._kernel_load = KERNEL_LOAD_10
+		else:
+			self._kernel_jump = KERNEL_JUMP_08
+			self._kernel_load = KERNEL_LOAD_08
 
 
 
@@ -279,7 +287,7 @@ class packer(object):
 			
 		self._summary = MAGIC_NUMBER
 
-		self._summary += struct.pack('IIII', CBF_VERSION, KERNEL_LOAD, KERNEL_JUMP, self._size)
+		self._summary += struct.pack('IIII', CBF_VERSION, self._kernel_load, self._kernel_jump, self._size)
 		self._summary_crc = self.crc(self._summary)
 		self._summary += struct.pack('I', self._summary_crc)		
 		

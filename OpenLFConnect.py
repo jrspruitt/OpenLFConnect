@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# OpenLFConnect.py Version 0.7.1
+# OpenLFConnect.py Version 0.7.2
 import os
 import cmd
 import sys
@@ -1117,7 +1117,10 @@ Doesn't care what kind or how big of a file.
     def complete_cbf_wrap_surgeon(self, text, line, begidx, endidx):
         return self._lm.complete_local(text, line, begidx, endidx)
 
-    def complete_cbf_wrap_kernel(self, text, line, begidx, endidx):
+    def complete_cbf_wrap_kernel_lx(self, text, line, begidx, endidx):
+        return self._lm.complete_local(text, line, begidx, endidx)
+
+    def complete_cbf_wrap_kernel_lpad(self, text, line, begidx, endidx):
         return self._lm.complete_local(text, line, begidx, endidx)
 
     def complete_cbf_summary(self, text, line, begidx, endidx):
@@ -1230,21 +1233,49 @@ If cbf file already exists will fail.
 
 
 
-    def do_cbf_wrap_kernel(self, s):
+    def do_cbf_wrap_kernel_lx(self, s):
         """
 Usage:
-    cbf_wrap_kernel <file path>
+    cbf_wrap_kernel_lx <file path>
 
 Creates the CBF wrapper named kernel.cbf and prints a summary.
 CBF is used on kernels and surgeon, to wrap a zImage or Image file.
 Saves the image file to the same directory the kernel file was in.
 Kernel should be a zImage or Image file.
 If cbf file already exists will fail.
+This Explorer variation uses
+kernel_jump=0x0008000
+kernel_load=0x0008000
         """
         try:
             self._lm.set_local()
             abspath = self._lm.get_abspath(s)
             cbf.create(abspath, 'kernel')
+            self._lm.last_location()
+        except Exception, e:
+            self._lm.last_location()
+            self.perror(e)
+
+
+
+    def do_cbf_wrap_kernel_lpad(self, s):
+        """
+Usage:
+    cbf_wrap_kernel_lpad <file path>
+
+Creates the CBF wrapper named kernel.cbf and prints a summary.
+CBF is used on kernels and surgeon, to wrap a zImage or Image file.
+Saves the image file to the same directory the kernel file was in.
+Kernel should be a zImage or Image file.
+If cbf file already exists will fail.
+This LeapPad variation uses
+kernel_jump=0x00100000
+kernel_load=0x00100000
+        """
+        try:
+            self._lm.set_local()
+            abspath = self._lm.get_abspath(s)
+            cbf.create(abspath, 'kernel', 'lpad')
             self._lm.last_location()
         except Exception, e:
             self._lm.last_location()
