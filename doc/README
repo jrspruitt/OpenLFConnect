@@ -22,6 +22,12 @@ Check OpenLFConnect/doc/INSTALL for installation and configuration.
 
 
 Build Log:
+Version 0.7.3
+    Added path complete with 1 or 2 arguments ahead of it on the cli
+    Changed cbf/ubi/jffs2 create commands to utilize these and dropped erootfs from names
+    Fixed error with building LeapPad kernel kernel_jump/load wrong
+    Added ubi_create bulk, undetermined on adding to firmware update LF package is basically empty
+
 Version 0.7.2
     Cleaned up dftp/didj firmware formatters
     Fixed some help text.

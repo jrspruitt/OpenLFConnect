@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# firmware/images.py Version 0.1
+# firmware/images.py Version 0.2
 import os
 import re
 from subprocess import Popen, PIPE
@@ -130,11 +130,17 @@ class jffs2(object):
 
 
 
-    def create(self, rfs_path, save_path):
+    def create(self, opath, ipath):
         try:
-            erootfs = os.path.join(save_path, 'erootfs.jffs2')
-            cmd_mkjffs2 = shlex_split('sudo mkfs.jffs2 -p -r %s -e 128 -o %s' % (rfs_path, erootfs))
-            self.popen(cmd_mkjffs2)
+            if not os.path.isdir(ipath):
+                self.error('Input path is not a directory.')
+            if not opath.endswith('.jffs2'):
+                opath = '%s.jffs2' % opath
+
+            cmd_mkjffs2 = shlex_split('sudo mkfs.jffs2 -p -r %s -e 128 -o %s' % (ipath, opath))
+            cmd_chmod = shlex_split('sudo chmod 777 %s' % opath)
+            cmds = [cmd_mkjffs2, cmd_chmod]
+            self.popen_arr(cmds)
         except Exception, e:
             self.error(e)
 
@@ -180,7 +186,7 @@ class ubi(object):
     def mount(self, path):
         try:
             if not 'erootfs' in path and not path.endswith('.ubi'):
-                self.error('Path does not look like an Explorer erootfs.ubi file.')
+                self.error('Path does not look like an Explorer UBI file.')
             
             if os.path.exists(self._mount):
                 self.error('Looks like a ubi image is already mounted.')
@@ -258,13 +264,27 @@ class ubi(object):
 
 
 
-    def create(self, rfs_path, save_path):
+    def create(self, part, opath, ipath):
         try:
-            erootfs = os.path.join(save_path, 'erootfs.ubi')
-            cmd_mkubi = shlex_split('sudo /usr/sbin/mkfs.ubifs -m 2048 -e 129024 -c 677 -r %s ubifs.img' % (rfs_path) )        
-            cmd_ubinize = shlex_split('sudo /usr/sbin/ubinize -o %s -p 131072 -m 2048 -s 512 -O 512 olcmodules/firmware/erootfs.ini' % (erootfs))
+            if not opath.endswith('.ubi'):
+                opath = '%s.ubi' % opath
+                
+            if not os.path.isdir(ipath):
+                self.error('Input path is not a directory.')
+
+            if part.lower() == 'erootfs':
+                leb_count = 677
+                ini_file = 'olcmodules/firmware/erootfs.ini'
+            elif part.lower() == 'bulk':
+                leb_count = 3291
+                ini_file = 'olcmodules/firmware/bulk.ini'
+            else:
+                self.error('Explorer partion must be erootfs, or bulk.')
+
+            cmd_mkubi = shlex_split('sudo /usr/sbin/mkfs.ubifs -m 2048 -e 129024 -c %s -r %s ubifs.img' % (leb_count, ipath))        
+            cmd_ubinize = shlex_split('sudo /usr/sbin/ubinize -o %s -p 131072 -m 2048 -s 512 -O 512 %s' % (opath, ini_file))
             cmd_rmimg = shlex_split('sudo rm ubifs.img')
-            cmd_chmod = shlex_split('sudo chmod 777 %s' % erootfs)
+            cmd_chmod = shlex_split('sudo chmod 777 %s' % opath)
             cmds = [cmd_mkubi, cmd_ubinize, cmd_rmimg, cmd_chmod]
             self.popen_arr(cmds)
         except Exception, e:

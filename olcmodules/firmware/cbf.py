@@ -98,9 +98,6 @@ def extract(path):
 
 	kernel_path = os.path.join(os.path.dirname(path), kernel_name)
 	
-	if os.path.exists(kernel_path):
-		error('%s already exists.' % kernel_name)
-	
 	print 'Unwrapping Kernel from CBF'
 
 	fimg = open(kernel_path, 'wb')
@@ -109,24 +106,36 @@ def extract(path):
 	print 'Saved as: %s' % kernel_name
 
 
-def create(path, name, ptype=''):
+def create(mem, opath, ipath):
 	try:
-		image_name = os.path.basename(path)
-		image_path = os.path.dirname(path)
+		image_name = os.path.basename(ipath)
+		image_path = os.path.dirname(ipath)
+
+		if not mem in ('high', 'low'):
+			error('Memory location should be high or low')
+
+		if not opath:
+			error('No output file selected.')
 		
-		if not os.path.exists(path):
+		if not ipath:
+			error('No output file selected')
+
+		if not os.path.exists(ipath):
 			error('Path does not exist.')
-		elif os.path.isdir(path):
+		elif os.path.isdir(ipath):
 			error('Path is not a file.')
 		elif 'zImage' not in image_name and 'Image' not in image_name:
 			error('Does not appear to be an Image or zImage file.')
 		
-		if len(name) > 64:
+		if len(os.path.basename(opath)) > 64:
 			error('Output name is too long.')
 		
-		p = packer(path, name, ptype)
+		if not opath.endswith('.cbf'):
+			opath = '%s.cbf' % opath
+
+		p = packer(mem, opath, ipath)
 		p.pack()
-		summary(os.path.join(image_path, '%s.cbf' % name))
+		summary(os.path.join(image_path, opath))
 	except Exception, e:
 		error(e)
 
@@ -207,21 +216,23 @@ class parse(object):
 
 
 class packer(object):
-	def __init__(self, path, name, ptype):
-		self._path = path
-		self._file_path = os.path.join(os.path.dirname(path), '%s.cbf' % name)
+	def __init__(self, mem, opath, ipath):
+		self._in_path = ipath
+		self._out_path = opath
 		self._summary = ''
 		self._summary_crc = ''
 		self._buffer = ''
 		self._buffer_crc = ''
 		self._size = 0 
 		
-		if ptype == 'lpad':
+		if mem.lower() == 'high':
 			self._kernel_jump = KERNEL_JUMP_10
 			self._kernel_load = KERNEL_LOAD_10
-		else:
+		elif mem.lower() == 'low':
 			self._kernel_jump = KERNEL_JUMP_08
 			self._kernel_load = KERNEL_LOAD_08
+		else:
+			self.error('Memory location must be high, or low.')
 
 
 
@@ -258,7 +269,7 @@ class packer(object):
 			padding = pad_len * '\xFF'
 			buf += padding
 			print 'Writing CBF file.'
-			f = open(self._file_path, 'wb')
+			f = open(self._out_path, 'wb')
 			f.write(buf)
 			f.close()
 			
@@ -269,7 +280,7 @@ class packer(object):
 
 	
 	def set_buffer(self):			
-		f = open(self._path, 'rb')
+		f = open(self._in_path, 'rb')
 		self._buffer = f.read()		
 		self._size = len(self._buffer)
 		self._buffer_crc = self.crc(self._buffer)
@@ -286,7 +297,6 @@ class packer(object):
 			self.error('Pack problem reading buffer for summary.')
 			
 		self._summary = MAGIC_NUMBER
-
 		self._summary += struct.pack('IIII', CBF_VERSION, self._kernel_load, self._kernel_jump, self._size)
 		self._summary_crc = self.crc(self._summary)
 		self._summary += struct.pack('I', self._summary_crc)		

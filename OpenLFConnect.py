@@ -56,7 +56,7 @@ from olcmodules.firmware.images import ubi, jffs2
 class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
-        print 'OpenLFConnect Version 0.7.2'
+        print 'OpenLFConnect Version 0.7.3'
         self.debug = False        
         
         self._init_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'files')).replace('\\', '/')
@@ -1114,35 +1114,29 @@ Doesn't care what kind or how big of a file.
     def complete_cbf_unwrap(self, text, line, begidx, endidx):
         return self._lm.complete_local(text, line, begidx, endidx)
 
-    def complete_cbf_wrap_surgeon(self, text, line, begidx, endidx):
-        return self._lm.complete_local(text, line, begidx, endidx)
-
-    def complete_cbf_wrap_kernel_lx(self, text, line, begidx, endidx):
-        return self._lm.complete_local(text, line, begidx, endidx)
-
-    def complete_cbf_wrap_kernel_lpad(self, text, line, begidx, endidx):
-        return self._lm.complete_local(text, line, begidx, endidx)
+    def complete_cbf_wrap(self, text, line, begidx, endidx):
+        return self._lm.complete_2arg_local(text, line, begidx, endidx)
 
     def complete_cbf_summary(self, text, line, begidx, endidx):
         return self._lm.complete_local(text, line, begidx, endidx)
 
-    def complete_ubi_mount_erootfs(self, text, line, begidx, endidx):
+    def complete_ubi_mount(self, text, line, begidx, endidx):
         return self._lm.complete_local(text, line, begidx, endidx)
 
-    def complete_ubi_umount_erootfs(self, text, line, begidx, endidx):
+    def complete_ubi_umount(self, text, line, begidx, endidx):
         return self._lm.complete_local(text, line, begidx, endidx)
 
-    def complete_ubi_create_erootfs(self, text, line, begidx, endidx):
+    def complete_ubi_create(self, text, line, begidx, endidx):
+        return self._lm.complete_2arg_local(text, line, begidx, endidx)
+
+    def complete_jffs2_mount(self, text, line, begidx, endidx):
         return self._lm.complete_local(text, line, begidx, endidx)
 
-    def complete_jffs2_mount_erootfs(self, text, line, begidx, endidx):
+    def complete_jffs2_umount(self, text, line, begidx, endidx):
         return self._lm.complete_local(text, line, begidx, endidx)
 
-    def complete_jffs2_umount_erootfs(self, text, line, begidx, endidx):
-        return self._lm.complete_local(text, line, begidx, endidx)
-
-    def complete_jffs2_create_erootfs(self, text, line, begidx, endidx):
-        return self._lm.complete_local(text, line, begidx, endidx)
+    def complete_jffs2_create(self, text, line, begidx, endidx):
+        return self._lm.complete_1arg_local(text, line, begidx, endidx)
 
 #######################
 # UI Package Functions
@@ -1198,7 +1192,6 @@ Usage:
 Removes the CBF wrapper and prints a summary.
 CBF is used on kernels and surgeon, to wrap a zImage or Image file.
 Saves the image file to the same directory the cbf file was in.
-If image file already exists will fail.
         """
         try:
             self._lm.set_local()
@@ -1211,71 +1204,21 @@ If image file already exists will fail.
 
 
 
-    def do_cbf_wrap_surgeon(self, s):
+    def do_cbf_wrap(self, s):
         """
 Usage:
-    cbf_wrap_surgeon <file path>
+    cbf_wrap <low|high> <output file name> <input file path>
 
-Creates the CBF wrapper named surgeon.cbf and prints a summary.
-CBF is used on kernels and surgeon, to wrap a zImage or Image file.
-Saves the image file to the same directory the kernel file was in.
+Creates the CBF wrapped file <output file name> of the <input file path> and prints a summary.
+File is saved to current directory.
 Kernel should be a zImage or Image file.
-If cbf file already exists will fail.
+Low is standard setting for everything but LeapPad Kernel which is High
         """
         try:
+            mem, ofile, ifile = s.split(' ')
             self._lm.set_local()
-            abspath = self._lm.get_abspath(s)
-            cbf.create(abspath, 'surgeon')
-            self._lm.last_location()
-        except Exception, e:
-            self._lm.last_location()
-            self.perror(e)
-
-
-
-    def do_cbf_wrap_kernel_lx(self, s):
-        """
-Usage:
-    cbf_wrap_kernel_lx <file path>
-
-Creates the CBF wrapper named kernel.cbf and prints a summary.
-CBF is used on kernels and surgeon, to wrap a zImage or Image file.
-Saves the image file to the same directory the kernel file was in.
-Kernel should be a zImage or Image file.
-If cbf file already exists will fail.
-This Explorer variation uses
-kernel_jump=0x0008000
-kernel_load=0x0008000
-        """
-        try:
-            self._lm.set_local()
-            abspath = self._lm.get_abspath(s)
-            cbf.create(abspath, 'kernel')
-            self._lm.last_location()
-        except Exception, e:
-            self._lm.last_location()
-            self.perror(e)
-
-
-
-    def do_cbf_wrap_kernel_lpad(self, s):
-        """
-Usage:
-    cbf_wrap_kernel_lpad <file path>
-
-Creates the CBF wrapper named kernel.cbf and prints a summary.
-CBF is used on kernels and surgeon, to wrap a zImage or Image file.
-Saves the image file to the same directory the kernel file was in.
-Kernel should be a zImage or Image file.
-If cbf file already exists will fail.
-This LeapPad variation uses
-kernel_jump=0x00100000
-kernel_load=0x00100000
-        """
-        try:
-            self._lm.set_local()
-            abspath = self._lm.get_abspath(s)
-            cbf.create(abspath, 'kernel', 'lpad')
+            abspath = self._lm.get_abspath(ifile)
+            cbf.create(mem, os.path.join(self._lm.local_path, ofile), abspath)
             self._lm.last_location()
         except Exception, e:
             self._lm.last_location()
@@ -1305,13 +1248,12 @@ CBF is used on kernels and surgeon, to wrap a zImage or Image file.
 # firmware.images
 #######################
 
-    def do_ubi_mount_erootfs(self, s):
+    def do_ubi_mount(self, s):
         """
 Usage:
-    ubi_mount <erootfs.ubi>
+    ubi_mount <file.ubi>
 
 Mounts an Explorer erootfs.ubi image to /mnt/ubi_leapfrog
-Caution this mounts an erootfs.ubi image specifically for the Explorer.
 This is a Linux only command.
 Will be prompted for password, sudo required for commands.
         """
@@ -1327,7 +1269,7 @@ Will be prompted for password, sudo required for commands.
 
 
 
-    def do_ubi_umount_erootfs(self, s):
+    def do_ubi_umount(self, s):
         """
 Usage:
     ubi_umount
@@ -1347,21 +1289,23 @@ Will be prompted for password, sudo required for commands.
 
 
 
-    def do_ubi_create_erootfs(self, s):
+    def do_ubi_create(self, s):
         """
 Usage:
-    ubi_create_erootfs path/to/rootfs/
+    ubi_create <erootfs|bulk> <output file name> <input directory path>
 
-Creates an Explorer erootfs.ubi image in the current directory.
-Caution this image is specifically for the Explorer erootfs.
+Creates an Explorer UBI image <output file name> of the <input directory path>.
+File is saved to the current directory.
+Caution this image is specifically for the Explorer.
 This is a Linux only command.
 Will be prompted for password, sudo required for commands.
         """
         try:
             if sys.platform != 'win32':
-                abspath = self._lm.get_abspath(s)
+                part, ofile, ipath = s.split(' ')
+                abspath = self._lm.get_abspath(ipath)
                 u = ubi()
-                u.create(abspath, self._lm.local_path)
+                u.create(part, os.path.join(self._lm.local_path, ofile), abspath)
             else:
                 self.error('Linux only command.')
         except Exception, e:
@@ -1369,12 +1313,12 @@ Will be prompted for password, sudo required for commands.
 
 
 
-    def do_jffs2_mount_erootfs(self, s):
+    def do_jffs2_mount(self, s):
         """
 Usage:
-    jffs2_mount_erootfs <file_name>.jffs2
+    jffs2_mount <file_name>.jffs2
 
-Mounts a Didj erootfs.jffs2 image to /mnt/jffs2_leapfrog
+Mounts <file_name>.jffs2 image to /mnt/jffs2_leapfrog
 This is a Linux only command.
 Will be prompted for password, sudo required for commands.
         """
@@ -1390,10 +1334,10 @@ Will be prompted for password, sudo required for commands.
 
 
 
-    def do_jffs2_umount_erootfs(self, s):
+    def do_jffs2_umount(self, s):
         """
 Usage:
-    jffs2_umount_erootfs
+    jffs2_umount
 
 Unmounts /mnt/jffs2_leapfrog
 This is a Linux only command.
@@ -1410,21 +1354,22 @@ Will be prompted for password, sudo required for commands.
 
 
 
-    def do_jffs2_create_erootfs(self, s):
+    def do_jffs2_create(self, s):
         """
 Usage:
-    jffs2_create_erootfs path/to/rootfs/
+    jffs2_create <output file name> <input directory path>
 
-Creates a Didj erootfs.jffs2 image in the current directory.
-Caution this image is specifically for the Didj erootfs
+Creates an <output file name> image of the <input directory path>  
+File is saved in the current directory.
 This is a Linux only command.
 Will be prompted for password, sudo required for commands.
         """
         try:
             if sys.platform != 'win32':
-                abspath = self._lm.get_abspath(s)
+                ifile, opath = s.split(' ')
+                abspath = self._lm.get_abspath(opath)
                 j = jffs2()
-                j.create(abspath, self._lm.local_path)
+                j.create(os.path.join(self._lm.local_path, ifile), abspath)
             else:
                 self.error('Linux only command.')
         except Exception, e:

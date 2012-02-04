@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# location.py Version 0.5.2
+# location.py Version 0.5.3
 import os
 import sys
 
@@ -249,9 +249,10 @@ class manager(object):
 
 
 
-    def path_completion(self, text, line, begidx, endidx):
+    def path_completion(self, line):
         try:
             mline = line.partition(' ')[2]
+
             if mline[-1:] != '/' and not mline == '':
                 abspath = os.path.dirname(self.get_abspath(mline))
                 stub = '%s' % os.path.basename(mline)
@@ -267,15 +268,42 @@ class manager(object):
 
     def complete_local(self, text, line, begidx, endidx):
         try:
-            remote = self._remote_set
-            
-            if remote:
-                self.set_local()
-            comp = self.path_completion(text, line, begidx, endidx)
-            
-            if remote:
-                self.set_remote()
+            self.set_local()
+            comp = self.path_completion(line)
+            self.last_location()
             return comp        
+        except:
+            pass
+
+
+
+    def complete_1arg_local(self, text, line, begidx, endidx):
+        try:
+            line_arr = line.split(' ')
+
+            if len(line_arr) <= 2:
+                return ''
+            
+            self.set_local()
+            comp = self.path_completion('x %s' % line_arr[2])
+            self.last_location()
+            return comp
+        except:
+            pass
+
+
+
+    def complete_2arg_local(self, text, line, begidx, endidx):
+        try:
+            line_arr = line.split(' ')
+
+            if len(line_arr) <= 3:
+                return ''
+            
+            self.set_local()
+            comp = self.path_completion('x %s' % line_arr[3])
+            self.last_location()
+            return comp
         except:
             pass
 
@@ -284,16 +312,9 @@ class manager(object):
     def complete_remote(self, text, line, begidx, endidx):
         try:
             self.is_remote()
-            remote = self._remote_set
-            
-            if not remote:
-                self.set_remote()
-                
-            comp = self.path_completion(text, line, begidx, endidx)
-            
-            if not remote:
-                self.set_local()
-                
+            self.set_remote()
+            comp = self.path_completion(line)
+            self.last_location()
             return comp
         except:
             pass
@@ -302,7 +323,7 @@ class manager(object):
 
     def complete_path(self, text, line, begidx, endidx):
         try:
-            return self.path_completion(text, line, begidx, endidx)
+            return self.path_completion(line)
         except:
             pass
 
