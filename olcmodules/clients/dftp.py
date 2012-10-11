@@ -209,8 +209,8 @@ class client(object):
                 running = True
                 
                 while running:
-                    ret = self.sendrtn('GETS SCRIPT_RUNNING')
-                    if ret != 'SCRIPT_RUNNING=1':
+                    ret = self.sendrtn('GETS SCRIPT_RUNNING', True)
+                    if 'SCRIPT_RUNNING=1' in ret[0] :
                         running = False
 
                 return True

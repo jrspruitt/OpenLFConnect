@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# client.didj.py Version 0.8.2
+# client.didj.py Version 0.8.3
 import os
 import sys
 from shlex import split as shlex_split
@@ -232,3 +232,44 @@ class client(object):
 
         except Exception, e:
             self.rerror(e)
+
+    def eb_update(self, lpath):
+        try:
+            if os.path.exists(lpath):
+                appm_file0 = '#!/bin/sh\nset -e\nset -x\necho "Flash EB"\nflash_eraseall /dev/mtd0\nflash_eraseall /dev/mtd1\n'
+                appm_file1 = 'mtd_debug write /dev/mtd0 0x0 0x%x /Didj/Base/bin/%s\n'
+                appm_file2 = 'echo "Flash EB Done";\nexit 0\n'
+                
+                appm_dir = os.path.join(self._mount_config.host_id, 'Base/bin')
+                appm_path = os.path.join(appm_dir, 'AppManager')
+        
+                eb_name = os.path.basename(lpath)
+                eb_path = os.path.join(appm_dir, eb_name)
+                eb_size = os.path.getsize(lpath)
+                appm_file = appm_file1 % (eb_size, eb_name)
+                
+                if os.path.exists(appm_path):
+                    os.rename(appm_path, '%s.bak' % appm_path)
+
+                copy(lpath, os.path.join(eb_path))
+                
+                f = open(appm_path, 'w')
+                f.write(appm_file0)
+                f.write(appm_file)
+                f.write(appm_file2)
+                f.close()
+            else:
+                self.error('File does not exist.')
+        except Exception, e:
+            self.rerror(e)
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+            

@@ -49,10 +49,11 @@ FUSE_REMOTE_FW_FILES = {'rfs':'sd/ext4/3/rfs',
 DFTP_FW_DIR = 'Firmware-Base'
 DFTP_REMOTE_FW_ROOT = '/LF/Bulk/Downloads/'
 DFTP_REMOTE_FW_DIR = os.path.join(DFTP_REMOTE_FW_ROOT, DFTP_FW_DIR)
-DFTP_FW_FILES = ('FIRST', 'kernel', 'erootfs')
+DFTP_FW_FILES = ('FIRST', 'kernel', 'erootfs', 'bulk')
 DFTP_REMOTE_FW_FILES = {'FIRST':'1048576,8,FIRST.32.rle',
                          'kernel':'2097152,64,kernel.cbf',
-                         'erootfs':'10485760,688,erootfs.ubi'}
+                         'erootfs':'10485760,688,erootfs.ubi',
+                         'bulk':'100663296,15616,'}
 
 
 

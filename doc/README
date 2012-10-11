@@ -22,6 +22,11 @@ Check OpenLFConnect/doc/INSTALL for installation and configuration.
 
 
 Build Log:
+Version 0.7.4
+    Added Bulk_empty up/download for Lpad and Explorer
+    Fixed ubi_mount where it would only except erootfs
+    Fixed packages.py to use unused function for name checking
+
 Version 0.7.3
     Added path complete with 1 or 2 arguments ahead of it on the cli
     Changed cbf/ubi/jffs2 create commands to utilize these and dropped erootfs from names

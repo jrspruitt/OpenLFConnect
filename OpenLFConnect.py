@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# OpenLFConnect.py Version 0.7.2
+# OpenLFConnect.py Version 0.7.4
 import os
 import cmd
 import sys
@@ -123,6 +123,8 @@ class OpenLFConnect(cmd.Cmd, object):
     def complete_didj_update_firmware(self, text, line, begidx, endidx):
         return self._lm.complete_local(text, line, begidx, endidx)
 
+    def complete_didj_update_eb(self, text, line, begidx, endidx):
+        return self._lm.complete_local(text, line, begidx, endidx)
 
     def didj_device_info(self):
         try:
@@ -207,7 +209,7 @@ Usage:
 
 CAUTION:
 !!Attempts to flash firmware, could potentially be harmful.!!
-!!Make sure Battery's are Fresh, or A/C adpater is used!!
+!!Make sure Battery's are Fresh, or A/C adapter is used!!
 
 Update Didj firmware and bootloader.
 lightning-boot.bin, erootfs.jffs2 and kernel.bin are all required for the update to work.
@@ -239,7 +241,7 @@ Usage:
 
 CAUTION:
 !!Attempts to flash firmware, could potentially be harmful.!!
-!!Make sure Battery's are Fresh, or A/C adpater is used!!
+!!Make sure Battery's are Fresh, or A/C adapter is used!!
 
 Update Didj firmware.
 erootfs.jffs2 and kernel.bin are both required for update to take place.
@@ -271,7 +273,7 @@ Usage:
 
 CAUTION:
 !!Attempts to flash firmware, could potentially be harmful.!!
-!!Make sure Battery's are Fresh, or A/C adpater is used!!
+!!Make sure Battery's are Fresh, or A/C adapter is used!!
 
 Update Didj bootloader.
 File must be in current directory, bootloader-LF_LF1000 directory or direct path to.
@@ -308,6 +310,33 @@ Remove Didj firmware and bootloader from device.
         except Exception, e:
             self.perror(e)
 
+
+    def do_didj_update_eb(self, s):
+        """
+Usage:
+    didj_update_eb <path to emerald-boot>
+CAUTION:
+!!Attempts to flash firmware, could potentially be harmful.!!
+!!Make sure Battery's are Fresh, or A/C adapter is used!!
+!!Requires NAND enabled Emerald Boot!!
+Flash Emerald Boot to Didj NAND.
+After running Didj will shutdown, unplug USB and turn on device. It should then turn itself off.
+You should now be able to USB Boot like the Explorer and update using DFTP.
+        """
+        try:
+            self._lm.is_remote(self._didj_client)
+            self._lm.set_local()
+            abspath = self._lm.get_abspath(s)
+            self._didj_client.eb_update(abspath)
+            if not self.debug:                
+                self._didj_client.eject()
+                self._lm.last_location()
+                self._lm.remote_destroy()
+            else:
+                self._lm.last_location()
+        except Exception, e:
+            self._lm.last_location()
+            self.perror(e)
 ##############################################################################
 # DFTP Internal Functions
 # clients.dftp
@@ -728,7 +757,7 @@ File can be any name, but must conform to CBF standards.
     def do_debug(self, s):
         """
 Usage:
-    debug_on
+    debug <on | off>
 
 Turning debug on, turns most any filesystem action off, such as, up/download, rm, 
 mkdir, etc. It is replaced with text displaying what would have happened. Useful for
@@ -1166,11 +1195,11 @@ Will overwrite without warning.
     def do_package_download(self, s):
         """
 Usage:
-    get_firmware <Didj|Explorer\LeapPad> <firmware|surgeon|bootloader>
+    get_firmware <Didj|Explorer|LeapPad> <firmware|surgeon|bootloader|bulk>
 
 Downloads the LF firmware package for device specified to files/<device>
-Bootloader is for Didj only. Didj also has no surgeon.
-Short names work also.
+Bootloader is for Didj only.
+Surgeon and Bulk are for LeapPad and Explorer only.
         """
         try:
             dtype, ftype = shlex.split(s)            

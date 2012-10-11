@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# firmware/images.py Version 0.2
+# firmware/images.py Version 0.3
 import os
 import re
 from subprocess import Popen, PIPE
@@ -134,6 +134,7 @@ class jffs2(object):
         try:
             if not os.path.isdir(ipath):
                 self.error('Input path is not a directory.')
+            
             if not opath.endswith('.jffs2'):
                 opath = '%s.jffs2' % opath
 
@@ -185,7 +186,7 @@ class ubi(object):
         
     def mount(self, path):
         try:
-            if not 'erootfs' in path and not path.endswith('.ubi'):
+            if not path.endswith('.ubi'):
                 self.error('Path does not look like an Explorer UBI file.')
             
             if os.path.exists(self._mount):

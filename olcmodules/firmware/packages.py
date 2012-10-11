@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# firmware.packages.py Version 0.1
+# firmware.packages.py Version 0.2
 
 import os
 import tarfile
@@ -44,12 +44,20 @@ from olcmodules.firmware.hash import get_sha1
 
 LPAD_FIRMWARE_GUID = ['LPAD-0x001E0012-000001', 'LPAD-0x001E0012-000003']
 LPAD_SURGEON_GUID = ['LPAD-0x001E0011-000000']
+LPAD_BULK_ERASE_GUID = ['LPAD-0x001E0012-000004']
+LPAD_PTYPES = ['firmware', 'surgeon', 'bulk']
+LPAD_GUIDS = {'firmware':LPAD_FIRMWARE_GUID, 'surgeon':LPAD_SURGEON_GUID, 'bulk':LPAD_BULK_ERASE_GUID}
 
 LX_FIRMWARE_GUID = ['LST3-0x00170029-000000']
 LX_SURGEON_GUID = ['LST3-0x00170028-000000']
+LX_BULK_ERASE_GUID = ['LST3-0x00170037-000000']
+LX_PTYPES = ['firmware', 'surgeon', 'bulk']
+LX_GUIDS = {'firmware':LX_FIRMWARE_GUID, 'surgeon':LX_SURGEON_GUID, 'bulk':LX_BULK_ERASE_GUID}
 
 DIDJ_FIRMWARE_GUID = ['DIDJ-0x000E0003-000001']
 DIDJ_BOOTLOADER_GUID = ['DIDJ-0x000E0002-000001']
+DIDJ_PTYPES = ['firmware', 'bootloader']
+DIDJ_GUIDS = {'firmware':DIDJ_FIRMWARE_GUID, 'bootloader':DIDJ_BOOTLOADER_GUID}
 
 EXTS = ('lfp','lf2')
 
@@ -94,10 +102,7 @@ def extract(path):
 
 class lf_packages(object):
     def __init__(self):
-        self._lpad_guids = {'firmware':LPAD_FIRMWARE_GUID, 'surgeon':LPAD_SURGEON_GUID}
-        self._lx_guids = {'firmware':LX_FIRMWARE_GUID, 'surgeon':LX_SURGEON_GUID}
-        self._didj_guids = {'firmware':DIDJ_FIRMWARE_GUID, 'bootloader':DIDJ_BOOTLOADER_GUID}
-        self._guid_list = {config.LPAD_NAME:self._lpad_guids, config.LX_NAME:self._lx_guids, config.DIDJ_NAME:self._didj_guids}
+        self._guid_list = {config.LPAD_NAME:LPAD_GUIDS, config.LX_NAME:LX_GUIDS, config.DIDJ_NAME:DIDJ_GUIDS}
 
 
 
@@ -128,17 +133,22 @@ class lf_packages(object):
 
 
 
-    def _pname_normalizer(self, ptype):
-        if 'firmware' in ptype.lower():
-            ptype = 'firmware'
-        elif 'surgeon' in ptype.lower():
-            ptype = 'surgeon'
-        elif 'bootloader' in ptype.lower():
-            ptype = 'bootloader'
+    def _input_check(self, dtype, ptype):
+        if config.LPAD_NAME == dtype:
+            fw_list = LPAD_PTYPES
+        if config.LX_NAME == dtype:
+            fw_list = LX_PTYPES
+        if config.DIDJ_NAME == dtype:
+            fw_list = DIDJ_PTYPES
+            
+        ptype = ptype.lower()
+
+        if ptype in fw_list:
+            return ptype
         else:
-            error('Could not determine package you meant.')
+            error('Package specified is not available.')
         
-        return ptype
+            
 
 
 
@@ -166,7 +176,7 @@ class lf_packages(object):
 
     def get_package(self, dtype, ptype):
         olc_ds = config.olc_device_settings(dtype)
-        ptype = self._pname_normalizer(ptype)
+        ptype = self._input_check(olc_ds['name'], ptype)
                 
         urls = self._get_package_info(olc_ds, ptype)
 
