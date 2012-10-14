@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# OpenLFConnect.py Version 0.7.4
+# OpenLFConnect.py Version 0.7.5
 import os
 import cmd
 import sys
@@ -51,12 +51,12 @@ from olcmodules.clients.interface import filesystem as fs_iface
 
 from olcmodules.firmware import cbf, packages
 from olcmodules.firmware.images import ubi, jffs2
-
+from olcmodules.firmware.initramfs import extract as irfs_extract
 
 class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
-        print 'OpenLFConnect Version 0.7.3'
+        print 'OpenLFConnect Version 0.7.5'
         self.debug = False        
         
         self._init_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'files')).replace('\\', '/')
@@ -676,18 +676,21 @@ Advanced use only, don't know, probably shouldn't.
 # clients.pager
 #######################    
 
-    def complete_boot_surgeon(self, text, line, begidx, endidx):
+    def complete_surgeon_boot(self, text, line, begidx, endidx):
         return self._lm.complete_path(text, line, begidx, endidx)
+
+    def complete_surgeon_extract_rootfs(self, text, line, begidx, endidx):
+        return self._lm.complete_1arg_local(text, line, begidx, endidx)
 
 #######################
 # Pager User Functions
 # clients.pager
 #######################
 
-    def do_boot_surgeon(self, s):
+    def do_surgeon_boot(self, s):
         """
 Usage:
-    boot_surgeon <path to surgeon.cbf>
+    surgeon_boot <path to surgeon.cbf>
 
 Uploads a Surgeon.cbf file to a device in USB Boot mode. 
 File can be any name, but must conform to CBF standards.
@@ -705,6 +708,27 @@ File can be any name, but must conform to CBF standards.
                 self.error('Path is not a file.')
 
             self._pager_client = None
+        except Exception, e:
+            self.perror(e)
+
+    def do_surgeon_extract_rootfs(self, s):
+        """
+Usage:
+    surgeon_extract_rootfs <rootfs suffix> <path to surgeon.cbf or zImage>
+
+Extracts the Root file system (initramfs) to <current directory>/rootfs.<suffix>
+        """
+        try:
+            if sys.platform != 'win32':
+                suffix, ipath = s.split(' ')
+                abspath = self._lm.get_abspath(ipath)
+    
+                if not self._lm.fs.is_dir(abspath):
+                    irfs_extract(abspath, suffix)
+                else:
+                    self.error('Path is not a file.')
+            else:
+                self.error('Linux only command.')
         except Exception, e:
             self.perror(e)
 
@@ -1195,7 +1219,7 @@ Will overwrite without warning.
     def do_package_download(self, s):
         """
 Usage:
-    get_firmware <Didj|Explorer|LeapPad> <firmware|surgeon|bootloader|bulk>
+    package_download <Didj|Explorer|LeapPad> <firmware|surgeon|bootloader|bulk>
 
 Downloads the LF firmware package for device specified to files/<device>
 Bootloader is for Didj only.
@@ -1204,7 +1228,7 @@ Surgeon and Bulk are for LeapPad and Explorer only.
         try:
             dtype, ftype = shlex.split(s)            
             lfp = packages.lf_packages()
-            lfp.get_package(dtype, ftype)
+            lfp.get_package(dtype, ftype, self._lm.local_path)
         except Exception, e:
             self.perror(e)
 

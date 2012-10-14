@@ -236,6 +236,13 @@ class client(object):
     def eb_update(self, lpath):
         try:
             if os.path.exists(lpath):
+                f = open(lpath, 'rb')
+                buf = f.read()
+                f.close()
+
+                if not buf.endswith('\x44\x49\x44\x4A\x0A\x0A'):
+                    self.error('Emerald Boot does not appear to be compiled for Didj.')
+
                 appm_file0 = '#!/bin/sh\nset -e\nset -x\necho "Flash EB"\nflash_eraseall /dev/mtd0\nflash_eraseall /dev/mtd1\n'
                 appm_file1 = 'mtd_debug write /dev/mtd0 0x0 0x%x /Didj/Base/bin/%s\n'
                 appm_file2 = 'echo "Flash EB Done";\nexit 0\n'

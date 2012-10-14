@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# firmware.packages.py Version 0.2
+# firmware.packages.py Version 0.3
 
 import os
 import tarfile
@@ -174,7 +174,7 @@ class lf_packages(object):
 
 
 
-    def get_package(self, dtype, ptype):
+    def get_package(self, dtype, ptype, path):
         olc_ds = config.olc_device_settings(dtype)
         ptype = self._input_check(olc_ds['name'], ptype)
                 
@@ -193,7 +193,7 @@ class lf_packages(object):
                     ptype_name = '%s_%s' % (ptype, 'partition')
 
             file_name = '%s_%s_%s%s' % (olc_ds['name'], ptype_name, pver, ext)
-            file_path = os.path.join(olc_ds['dir'], file_name)
+            file_path = os.path.join(path, file_name)
             
             if not os.path.exists(file_path):
                 urlretrieve(purl, file_path)
