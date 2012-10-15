@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# initramfs.py Version 0.1
+# initramfs.py Version 0.1.1
 import os
 from shutil import rmtree
 
@@ -56,12 +56,14 @@ def extract(path, suffix):
 
 class initramfs():
     def __init__(self, suffix):
+        self.CPIO_SIG_START = '\x30\x37\x30\x37\x30\x31'
+        self.CPIO_SIG_END = '\x54\x52\x41\x49\x4c\x45\x52\x21\x21\x21'
         self._GUNZIP_SIG = '\x1F\x8B\x08\x00'
         self._kernel_t = '/tmp/initramfs_t'
         self._cpio_t = '/tmp/initramfs.cpio'
         self._gzip_t = '/tmp/gzip_t.gz'
         self._cpio_cmd = 'sudo cpio --quiet -i --make-directories --preserve-modification-time --no-absolute-filenames -F %s' % self._cpio_t
-        self._gzip_cmd = 'gunzip -cf %s' % self._gzip_t
+        self._gzip_cmd = 'gunzip -cqf %s' % self._gzip_t
         self._rootfs = 'rootfs.%s' % suffix
         self._rootfs_path = ''
 
@@ -131,9 +133,24 @@ class initramfs():
 
     def cpio_extract(self):
         try:
+            self.cpio_find()
+
             if os.path.exists(self._rootfs_path):
                 rmtree(self._rootfs_path)          
+
             os.mkdir(self._rootfs_path)
-            os.system('cd ' + self._rootfs_path + ';' + self._cpio_cmd)
+            if os.system('cd ' + self._rootfs_path + ';' + self._cpio_cmd):
+                rmtree(self._rootfs_path)
+                self.error('Problem extracting CPIO archive.')
+            os.system('sudo chmod -R 777 %s' % self._rootfs_path)
         except Exception, e:
             self.error(e)
+
+
+    def cpio_find(self):
+        buf_cpio = self.file_open(self._kernel_t)
+        if self.CPIO_SIG_START in buf_cpio:
+            buf = buf_cpio[buf_cpio.index(self.CPIO_SIG_START):buf_cpio.rindex(self.CPIO_SIG_END)+11]
+            self.file_write(buf, self._cpio_t)
+        else:
+            self.error('Couldn\'t find CPIO archive.')
