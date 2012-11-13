@@ -187,7 +187,7 @@ class manager(object):
 
     def is_empty(self, s):
         if s == '':
-            self.error('No path was set.')
+            self.error('No argument(s) given.')
         else:
             return True
 

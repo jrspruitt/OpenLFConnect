@@ -51,7 +51,7 @@ DIDJ_REMOTE_BL_FILES = {'lightning-boot':'lightning-boot.bin'}
 
 
 class config(object):
-    def __init__(self,module, mount_point, utype=''):
+    def __init__(self, module, mount_point, utype=''):
         self._utype = utype
         self._dbg = dbg(module)
         

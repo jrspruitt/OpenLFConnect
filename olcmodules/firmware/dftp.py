@@ -30,49 +30,67 @@
 ##############################################################################
 
 #@
-# firmware.dftp.py Version 0.2.2
+# firmware.dftp.py Version 0.3.0
 
 import os
+import ConfigParser
 from olcmodules.firmware.cbf import check as cbf_check
-
+from olcmodules.config import PARTITIONS_PATH
 
 FUSE_FW_DIR = 'firmware'
 FUSE_REMOTE_FW_ROOT = '/LF/fuse/'
 FUSE_REMOTE_FW_DIR = os.path.join(FUSE_REMOTE_FW_ROOT, FUSE_FW_DIR)
-FUSE_FW_FILES = ('rfs', 'FIRST_Lpad', 'kernel', 'mbr2G')
-FUSE_REMOTE_FW_FILES = {'rfs':'sd/ext4/3/rfs',
-                         'FIRST_Lpad':'sd/raw/1/FIRST_Lpad.cbf',
-                         'kernel':'sd/raw/2/kernel.cbf',
-                         'mbr2G':'sd/partition/mbr2G.image'}
-
 
 DFTP_FW_DIR = 'Firmware-Base'
 DFTP_REMOTE_FW_ROOT = '/LF/Bulk/Downloads/'
 DFTP_REMOTE_FW_DIR = os.path.join(DFTP_REMOTE_FW_ROOT, DFTP_FW_DIR)
-DFTP_FW_FILES = ('FIRST', 'kernel', 'erootfs', 'bulk')
-DFTP_REMOTE_FW_FILES = {'FIRST':'1048576,8,FIRST.32.rle',
-                         'kernel':'2097152,64,kernel.cbf',
-                         'erootfs':'10485760,688,erootfs.ubi',
-                         'bulk':'100663296,15616,'}
 
+PACKET_SIZE = 131072
 
 
 class config(object):
-    def __init__(self, module, utype=''):
+    def __init__(self, module, utype, config):
         self._module = module
         self._utype = utype
+        
+        self._remote_fw_files = ''
+        self._fw_dir = ''
+        self._remote_fw_dir = ''
+        self._fw_files = ''
+        self._cfg = ConfigParser.ConfigParser()
+        self._cfg.read(os.path.join(PARTITIONS_PATH, config))
+        self._remote_fw_files = {}
+        self._fw_files = ()
+        self.fs = ''
+        self._set_fw()
+ 
+    def _cfg_get_list(self):
+            plist = self._cfg.get(self._utype, 'LIST')
+            return plist.split(',')
+
+    def _set_fw(self):
+        plist = self._cfg_get_list()
+        
+        for part in plist:
+            name = self._cfg.get(part, 'NAME')
+            match = self._cfg.get(part, 'MATCH')
+
+            if self._utype == 'dftp':
+                addr = self._cfg.get(part, 'ADDR')
+                size = self._cfg.get(part, 'SIZE')
+                self.fs += '%s %s payload/%s\n' % (addr, size, name)
+                name = '%s,%s,%s' % (eval(addr), (eval(size)/PACKET_SIZE), name)
+                
+            self._fw_files += (match,)
+            self._remote_fw_files[match] = name
 
         if self._utype == 'fuse':
-            self._remote_fw_files = FUSE_REMOTE_FW_FILES
             self._fw_dir = FUSE_FW_DIR
             self._remote_fw_dir = FUSE_REMOTE_FW_DIR
-            self._fw_files = FUSE_FW_FILES
 
         elif self._utype == 'dftp':
-            self._remote_fw_files = DFTP_REMOTE_FW_FILES
             self._fw_dir = DFTP_FW_DIR
             self._remote_fw_dir = DFTP_REMOTE_FW_DIR
-            self._fw_files = DFTP_FW_FILES
         else:
             self.error('No update type selected.')
 
@@ -81,8 +99,7 @@ class config(object):
     def error(self, e):
         assert False, e
     
-    
-    
+ 
     def get_file_paths(self, lpath):
         try:
             dir_list = []

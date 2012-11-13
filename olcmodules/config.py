@@ -30,54 +30,60 @@
 ##############################################################################
 
 #@
-# config.py Version 0.1
+# config.py Version 0.2
 
 import os
 from shutil import copytree
 
-FILES_DIR = 'files'
+APP_PATH = os.path.dirname(os.path.dirname(__file__))
+FILES_PATH = os.path.join(APP_PATH, 'files')
 
 LPAD_NAME = 'Lpad'
 LPAD_NAMES = ['lpad', 'lxp', 'leappad', 'leappad explorer', 'explorer leappad']
 LPAD_VDICT = 'leappadexplorer'
-LPAD_DIR = os.path.abspath(os.path.join(FILES_DIR, LPAD_NAME))
+LPAD_PATH = os.path.join(FILES_PATH, LPAD_NAME)
 
 LX_NAME = 'LX'
 LX_NAMES = ['lx', 'explorer', 'leapster explorer']
 LX_VDICT = 'lexplorer'
-LX_DIR = os.path.abspath(os.path.join(FILES_DIR, LX_NAME))
+LX_PATH = os.path.join(FILES_PATH, LX_NAME)
 
 DIDJ_NAME = 'Didj'
 DIDJ_NAMES = ['didj']
 DIDJ_VDICT = 'didj'
-DIDJ_DIR = os.path.abspath(os.path.join(FILES_DIR, DIDJ_NAME))
+DIDJ_PATH = os.path.join(FILES_PATH, DIDJ_NAME)
 
 DOWNLOAD_NAME = 'Downloads'
-DOWNLOAD_DIR = os.path.abspath(os.path.join(FILES_DIR, DOWNLOAD_NAME))
+DOWNLOAD_PATH = os.path.abspath(os.path.join(FILES_PATH, DOWNLOAD_NAME))
 
+EXTRAS_NAME = 'Extras'
+EXTRAS_PATH = os.path.join(APP_PATH, FILES_PATH, EXTRAS_NAME)
 SCRIPTS_NAME = 'Scripts'
-SCRIPTS_DIR = os.path.abspath(os.path.join(FILES_DIR, SCRIPTS_NAME))
-
-
+SCRIPTS_PATH = os.path.join(EXTRAS_PATH, SCRIPTS_NAME)
+PARTITIONS_NAME = 'Partitions'
+PARTITIONS_PATH = os.path.join(EXTRAS_PATH, PARTITIONS_NAME)
 
 def error(e):
     assert False, '%s' % e
 
 
-
 def olc_files_dirs_check():
     try:
-        if not os.path.exists(FILES_DIR):
-            os.mkdir(FILES_DIR)
-            print 'Created %s/' % FILES_DIR
 
-        dirs = [LPAD_DIR, LX_DIR, DIDJ_DIR, DOWNLOAD_DIR, SCRIPTS_DIR]
-        
+        if not os.path.exists(FILES_PATH):
+            os.mkdir(FILES_PATH)
+            print 'Files folder is missing, lets repopulate.'
+            print 'Created %s/' % FILES_PATH
+
+        dirs = [LPAD_PATH, LX_PATH, DIDJ_PATH, DOWNLOAD_PATH, EXTRAS_PATH, SCRIPTS_PATH, PARTITIONS_PATH]
+
         for item in dirs:
-                
+
             if not os.path.exists(item):
-                if item == SCRIPTS_DIR:
-                    copytree('extras/dftp_scripts', SCRIPTS_DIR)
+                if item == SCRIPTS_PATH:
+                    copytree(os.path.join(APP_PATH, 'extras/dftp_scripts'), SCRIPTS_PATH)
+                elif item == PARTITIONS_PATH:
+                    copytree(os.path.join(APP_PATH, 'extras/dftp_partitions'), PARTITIONS_PATH)
                 else:
                     os.mkdir(item)
                 
@@ -93,15 +99,15 @@ def olc_device_settings(name):
     if name.lower() in LPAD_NAMES:
         nname = LPAD_NAME
         vdict = LPAD_VDICT
-        fdir = LPAD_DIR
+        fdir = LPAD_PATH
     elif name.lower() in LX_NAMES:
         nname = LX_NAME
         vdict = LX_VDICT
-        fdir = LX_DIR
+        fdir = LX_PATH
     elif name.lower() in DIDJ_NAMES:
         nname = DIDJ_NAME
         vdict = DIDJ_VDICT
-        fdir = DIDJ_DIR
+        fdir = DIDJ_PATH
     else:
         error('Device name could not be determined.')
     

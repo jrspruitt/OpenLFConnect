@@ -22,6 +22,14 @@ Check OpenLFConnect/doc/INSTALL for installation and configuration.
 
 
 Build Log:
+Version 0.8.0
+    Fixed repopulation of files/ directory when started outside of application root.
+    Fixed Image mounts not check if path exists
+    Made Image mounts print mount path on mount
+    Added some is_empty checks for commands requiring arguments
+    Created a cfg file parser for figuring out the DFTP numbers
+    Tried to make entire app more friendly to starting outside root, can ln -s in usr/bin/ now
+
 Version 0.7.5
     Added extract initramfs from Surgeon
     Fixed package_download to work in current directory

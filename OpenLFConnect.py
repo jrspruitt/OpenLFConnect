@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# OpenLFConnect.py Version 0.7.5
+# OpenLFConnect.py Version 0.8.0
 import os
 import cmd
 import sys
@@ -56,10 +56,10 @@ from olcmodules.firmware.initramfs import extract as irfs_extract
 class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
-        print 'OpenLFConnect Version 0.7.5'
+        print 'OpenLFConnect Version 0.8.0'
         self.debug = False        
         
-        self._init_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'files')).replace('\\', '/')
+        self._init_path = config.FILES_PATH.replace('\\', '/')
         self._lm = loc_manager(self._init_path, cmd.Cmd)
         
         self._dftp_client = None
@@ -86,6 +86,7 @@ class OpenLFConnect(cmd.Cmd, object):
 
     def emptyline(self):
         pass
+
 #######################
 # Internal User Connection/Client Config Functions
 # OpenLFConnect
@@ -324,6 +325,7 @@ After running Didj will shutdown, unplug USB and turn on device. It should then 
 You should now be able to USB Boot like the Explorer and update using DFTP.
         """
         try:
+            self._lm.is_empty(s)
             self._lm.is_remote(self._didj_client)
             self._lm.set_local()
             abspath = self._lm.get_abspath(s)
@@ -345,6 +347,10 @@ You should now be able to USB Boot like the Explorer and update using DFTP.
     def complete_dftp_update(self, text, line, begidx, endidx):
         return self._lm.complete_local(text, line, begidx, endidx)
 
+    def complete_dftp_update_partitions(self, text, line, begidx, endidx):
+        l = line.split(' ')
+        line ='%s %s' % (l[0], os.path.join(config.PARTITIONS_PATH, l[1]))
+        return self._lm.complete_local(text, line, begidx, endidx)
 
     def dftp_device_info(self):
         try:
@@ -474,7 +480,24 @@ Caution: Has not been tested on LeapPad, theoretically it should work though, pl
             self.perror(e)
 
 
-    
+    def do_dftp_update_partitions(self, s):
+        """
+Usage:
+    dftp_update_partitions <partitions_file>
+
+Sets the partition configuration file located in files/Extras/Partitions/ for use with DFTP Update.
+Set to custom config file when your device uses DFTP but with modified partition sizes/addresses.
+Default is LeapFrog.cfg
+
+Caution: This does not repartition your device. The table is hard coded in the kernel/bootloader.
+        """
+        try:
+            self._lm.is_remote(self._dftp_client)
+            print self._dftp_client.update_partitions(s)
+        except Exception, e:
+            self.perror(e)
+
+
     def do_dftp_reboot(self, s):
         """
 Usage:
@@ -541,13 +564,10 @@ Password:<blank>
         """
         try:
             if s in ('start', 'stop'):
-                script = os.path.join(config.SCRIPTS_DIR, 'telnet_%s.sh' % s)
-                if script:
-                    self._lm.is_remote(self._dftp_client)            
-                    self._dftp_client.run_script(script)
-                    print 'Telnet %s' % s
-                else:
-                    self.error('The script file seems to be missing.')
+                script = os.path.join(config.SCRIPTS_PATH, 'telnet_%s.sh' % s)
+                self._lm.is_remote(self._dftp_client)            
+                self._dftp_client.run_script(script)
+                print 'Telnet %s' % s
             else:
                 self.error('Command not recognized.')
         except Exception, e:
@@ -566,13 +586,10 @@ Password:<blank>
         """
         try:
             if s in ('start', 'stop'):
-                script = os.path.join(config.SCRIPTS_DIR, 'ftp_%s.sh' % s)
-                if script:
-                    self._lm.is_remote(self._dftp_client)            
-                    self._dftp_client.run_script(script)
-                    print 'FTP %s' % s
-                else:
-                    self.error('The script file seems to be missing.')
+                script = os.path.join(config.SCRIPTS_PATH, 'ftp_%s.sh' % s)
+                self._lm.is_remote(self._dftp_client)            
+                self._dftp_client.run_script(script)
+                print 'FTP %s' % s
             else:
                 self.error('Command not recognized.')
         except Exception, e:
@@ -591,18 +608,16 @@ Password:<blank>
         """
         try:
             if s in ('start', 'stop'):
-                script = os.path.join(config.SCRIPTS_DIR, 'sshd_%s.sh' % s)
-                if script:
-                    self._lm.is_remote(self._dftp_client) 
-                    if self._dftp_client.exists_i('/etc/ssh'):           
-                        self._dftp_client.run_script(script)
-                        print 'SSHD %s' % s
-                    else:
-                        self.error('SSHD not installed, must be running Surgeon?')
+                script = os.path.join(config.SCRIPTS_PATH, 'sshd_%s.sh' % s)
+                self._lm.is_remote(self._dftp_client) 
+
+                if self._dftp_client.exists_i('/etc/ssh'):           
+                    self._dftp_client.run_script(script)
+                    print 'SSHD %s' % s
                 else:
-                    self.error('The script file seems to be missing.')
+                    self.error('SSHD not installed, must be running Surgeon?')
             else:
-                self.error('Command not recognized.')
+                self.error('Option not recognized.')
         except Exception, e:
             self.perror(e)
 
@@ -617,16 +632,14 @@ Patches the sshd_config file to permit login with a blank password.
 Should be run before starting sshd, only needs to be done once.
         """
         try:
-            script = os.path.join(config.SCRIPTS_DIR, 'sshd_no_password.sh')
-            if script:
-                self._lm.is_remote(self._dftp_client)
-                if self._dftp_client.exists_i('/etc/ssh'):           
-                    self._dftp_client.run_script(script)
-                    print 'sshd_config patched for empty passwords.'
-                else:
-                    self.error('SSHD not installed, must be running Surgeon?')
+            script = os.path.join(config.SCRIPTS_PATH, 'sshd_no_password.sh')
+            self._lm.is_remote(self._dftp_client)
+
+            if self._dftp_client.exists_i('/etc/ssh'):           
+                self._dftp_client.run_script(script)
+                print 'sshd_config patched for empty passwords.'
             else:
-                self.error('The script file seems to be missing.')
+                self.error('SSHD not installed, must be running Surgeon?')
         except Exception, e:
             self.perror(e)
 
@@ -640,6 +653,7 @@ Usage:
 This takes a shell script as an argument, and proceeds to run it on the device.
         """
         try:
+            self._lm.is_empty(s)
             self._lm.is_remote(self._dftp_client)
             self._lm.set_local()            
             path = self._lm.get_abspath(s)
@@ -661,6 +675,7 @@ Usage:
 Advanced use only, don't know, probably shouldn't.
         """
         try:
+            self._lm.is_empty(s)
             self._lm.is_remote(self._dftp_client)
             self._dftp_client._sock1.settimeout(3)
             self._dftp_client.send('%s\x00' % s)
@@ -696,6 +711,7 @@ Uploads a Surgeon.cbf file to a device in USB Boot mode.
 File can be any name, but must conform to CBF standards.
         """
         try:
+            self._lm.is_empty(s)
             self._pager_client = pager_client(self.debug)
             abspath = self._lm.get_abspath(s)
 
@@ -719,6 +735,7 @@ Usage:
 Extracts the Root file system (initramfs) to <current directory>/rootfs.<suffix>
         """
         try:
+            self._lm.is_empty(s)
             if sys.platform != 'win32':
                 suffix, ipath = s.split(' ')
                 abspath = self._lm.get_abspath(ipath)
@@ -1206,6 +1223,7 @@ Takes a file path, or will extract all packages in a directory.
 Will overwrite without warning.
         """
         try:
+            self._lm.is_empty(s)
             self._lm.set_local()
             abspath = self._lm.get_abspath(s)
             packages.extract(abspath)
@@ -1226,6 +1244,7 @@ Bootloader is for Didj only.
 Surgeon and Bulk are for LeapPad and Explorer only.
         """
         try:
+            self._lm.is_empty(s)
             dtype, ftype = shlex.split(s)            
             lfp = packages.lf_packages()
             lfp.get_package(dtype, ftype, self._lm.local_path)
@@ -1247,6 +1266,7 @@ CBF is used on kernels and surgeon, to wrap a zImage or Image file.
 Saves the image file to the same directory the cbf file was in.
         """
         try:
+            self._lm.is_empty(s)
             self._lm.set_local()
             abspath = self._lm.get_abspath(s)
             cbf.extract(abspath)
@@ -1268,6 +1288,7 @@ Kernel should be a zImage or Image file.
 Low is standard setting for everything but LeapPad Kernel which is High
         """
         try:
+            self._lm.is_empty(s)
             mem, ofile, ifile = s.split(' ')
             self._lm.set_local()
             abspath = self._lm.get_abspath(ifile)
@@ -1288,6 +1309,7 @@ Display the CBF wrapper summary.
 CBF is used on kernels and surgeon, to wrap a zImage or Image file.
         """
         try:
+            self._lm.is_empty(s)
             self._lm.set_local()
             abspath = self._lm.get_abspath(s)
             cbf.summary(abspath)
@@ -1311,6 +1333,7 @@ This is a Linux only command.
 Will be prompted for password, sudo required for commands.
         """
         try:
+            self._lm.is_empty(s)
             if sys.platform != 'win32':
                 abspath = self._lm.get_abspath(s)
                 u = ubi()
@@ -1354,6 +1377,7 @@ This is a Linux only command.
 Will be prompted for password, sudo required for commands.
         """
         try:
+            self._lm.is_empty(s)
             if sys.platform != 'win32':
                 part, ofile, ipath = s.split(' ')
                 abspath = self._lm.get_abspath(ipath)
@@ -1376,6 +1400,7 @@ This is a Linux only command.
 Will be prompted for password, sudo required for commands.
         """
         try:
+            self._lm.is_empty(s)
             if sys.platform != 'win32':
                 abspath = self._lm.get_abspath(s)
                 j = jffs2()
@@ -1418,6 +1443,7 @@ This is a Linux only command.
 Will be prompted for password, sudo required for commands.
         """
         try:
+            self._lm.is_empty(s)
             if sys.platform != 'win32':
                 ifile, opath = s.split(' ')
                 abspath = self._lm.get_abspath(opath)

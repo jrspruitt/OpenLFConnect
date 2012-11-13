@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# dftp.py Version 0.8.1
+# dftp.py Version 0.9.0
 import os
 import socket
 import time
@@ -41,7 +41,6 @@ class client(object):
     def __init__(self, net_config, debug=False):
         self.debug = debug
         self._dbg = config.debug(self)
-        
         self._net_config = net_config
         self._sock0 = None
         self._sock1 = None
@@ -55,6 +54,10 @@ class client(object):
         self._board_id = 0
         self._dftp_version = 0
         self._recieve_timeout = 1
+
+        self._partitions_default = 'leapfrog.cfg'
+        self._partitions_config = self._partitions_default
+        self._remote_fs_file = '/var/1.2.0.fs'
 
 #######################
 # Internal Functions
@@ -184,7 +187,7 @@ class client(object):
                 self.sendrtn('101 EOF')
                 return bytes_sent
             else:
-                self.error('Failed to upload file.')
+                self.error('Failed to uDIRpload file.')
         except Exception, e:
             self.error(e)
 
@@ -375,13 +378,16 @@ class client(object):
             
             if self.exists_i(fwdftp.FUSE_REMOTE_FW_ROOT):
                 utype = 'fuse'
-                fw = fwdftp.config(self, utype)
+                fw = fwdftp.config(self, utype, self._partitions_config)
                 paths = fw.prepare_update(lpath)
             
             elif self.exists_i(fwdftp.DFTP_REMOTE_FW_ROOT):
                 utype = 'dftp'
-                fw = fwdftp.config(self, utype)
-                paths = fw.prepare_update(lpath)            
+                fw = fwdftp.config(self, utype, self._partitions_config)
+                paths = fw.prepare_update(lpath)
+                
+                if self._partitions_config != self._partitions_default:
+                    self.upload_buffer(fw.fs, self._remote_fs_file)     
             else:
                 self.error('Could not determine update application to use.')
 
@@ -426,7 +432,7 @@ class client(object):
     def run_script(self, path):
         try:
             if not os.path.exists(path):
-                self.error('Path does not exist.')
+                self.error('Script does not exist.')
             elif os.path.isdir(path):
                 self.error('Path is not a file.')
 
@@ -454,6 +460,17 @@ class client(object):
         except Exception, e:
             self.rerror(e)
 
+
+    def update_partitions(self, cfg):
+        if cfg == '':
+            return self._partitions_config
+        else:
+            if os.path.exists(os.path.join(config.PARTITIONS_PATH, cfg)):
+                self._partitions_config = cfg
+                return "Set to: %s" % self._partitions_config
+            else:
+                return 'Config file not found.'
+        
 #######################
 # Filesystem Interface Functions
 #######################
@@ -461,7 +478,7 @@ class client(object):
     def exists_i(self, path):
         try:
             ret = self.sendrtn('LIST %s' % path)
-    
+
             if ret.startswith('550'):
                 return False
             else:

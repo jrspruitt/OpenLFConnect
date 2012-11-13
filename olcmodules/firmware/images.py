@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# firmware/images.py Version 0.3
+# firmware/images.py Version 0.4
 import os
 import re
 from subprocess import Popen, PIPE
@@ -74,6 +74,9 @@ class jffs2(object):
                        
     def mount(self, path):
         try:
+            if not os.path.exists(path):
+                self.error('Image path does not exist.')
+
             if not path.endswith('.jffs2'):
                 self.error('Path does not look like a jffs2 file.')
             
@@ -111,6 +114,9 @@ class jffs2(object):
             cmd_mount = shlex_split('sudo /bin/mount -t jffs2 /dev/mtdblock%s %s -o rw,noatime,nodiratime,users' % (mtd_num, self._mount))
             cmds = [cmd_dd, cmd_mount]
             self.popen_arr(cmds)
+
+            print 'Mounted at: %s' % self._mount
+
         except Exception, e:
             self.error(e)
 
@@ -186,6 +192,9 @@ class ubi(object):
         
     def mount(self, path):
         try:
+            if not os.path.exists(path):
+                self.error('Image path does not exist.')
+
             if not path.endswith('.ubi'):
                 self.error('Path does not look like an Explorer UBI file.')
             
@@ -245,6 +254,8 @@ class ubi(object):
             
             cmd_mount = shlex_split('sudo /bin/mount -t ubifs ubi%s %s -o rw,noatime,nodiratime,users' % (ubi_num, self._mount))
             self.popen(cmd_mount)
+
+            print 'Mounted at: %s' % self._mount
                 
         except Exception, e:
             self.error(e)
