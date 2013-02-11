@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# OpenLFConnect.py Version 0.8.0
+# OpenLFConnect.py Version 0.9.0
 import os
 import cmd
 import sys
@@ -45,6 +45,7 @@ from olcmodules.system.interface import config as conn_iface
 
 from olcmodules.clients.pager import client as pager_client
 from olcmodules.clients.dftp import client as dftp_client
+from olcmodules.clients.dftp4 import client as dftp4_client
 from olcmodules.clients.didj import client as didj_client
 from olcmodules.clients.local import client as local_client
 from olcmodules.clients.interface import filesystem as fs_iface
@@ -63,6 +64,7 @@ class OpenLFConnect(cmd.Cmd, object):
         self._lm = loc_manager(self._init_path, cmd.Cmd)
         
         self._dftp_client = None
+        self._dftp4_client = None
         self._didj_client = None
         self._pager_client = None
 
@@ -339,6 +341,280 @@ You should now be able to USB Boot like the Explorer and update using DFTP.
         except Exception, e:
             self._lm.last_location()
             self.perror(e)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##############################################################################
+# DFTP2 Internal Functions
+# clients.dftp
+#######################
+
+    def complete_dftp4_update(self, text, line, begidx, endidx):
+        return self._lm.complete_local(text, line, begidx, endidx)
+
+    def complete_dftp4_update_partitions(self, text, line, begidx, endidx):
+        l = line.split(' ')
+        line ='%s %s' % (l[0], os.path.join(config.PARTITIONS_PATH, l[1]))
+        return self._lm.complete_local(text, line, begidx, endidx)
+
+    def dftp4_device_info(self):
+        try:
+            device_name = self._dftp4_client.device_name
+            serial = self._dftp4_client.serial_number
+            print '  Device:\t\t%s' % device_name
+            print '  Firmware Version:\t%s' % self._dftp4_client.firmware_version
+            print '  Serial Number\t\t%s' % serial
+            print '  Board ID:\t\t%s' % self._dftp4_client.board_id
+            print '  Battery Level\t\t%s' % self._dftp4_client.battery_level
+            print '  Device ID:\t\t%s' % self._lm.remote_conn.device_id
+            print '  DFTP Version:\t\t%s' % self._dftp4_client.dftp_version
+        except Exception, e:
+            self.error(e)
+
+#######################
+# DFTP2 User Functions
+# clients.dftp
+#######################
+        
+    def do_dftp4_connect(self, s):
+        """
+Usage:
+    dftp_connect
+
+Connect to device for dftp session.
+Will attempt to configure IPs as needed.
+This could take a minute or so, if you just booted the device.
+        """
+        try:
+            if not self._lm.is_client(self._dftp4_client):
+                try:
+                    mc = conn_iface(mount_connection(self.device_id, 'NULL', self.debug))
+                    self._dftp4_client = dftp4_client(mc, self.debug)
+                    self._lm.remote_connection_init(mc, fs_iface(self._dftp4_client), self._dftp4_client)
+                    self._dftp4_client.create_client()
+                    self._lm.remote_path_init()
+                    self.dftp4_device_info()
+                except Exception, e:
+                    self._dftp4_client = None
+                    self._lm.remote_destroy() 
+                    self.error(e)                   
+            else:
+                self.perror('DFTP client already running')
+        except Exception, e:
+            self.perror(e)
+
+
+
+    def do_dftp4_disconnect(self, s):
+        """
+Usage:
+    dftp_disconnect
+
+Disconnect DFTP client.
+This will cause the DFTP server to start announcing its IP again, except Explorer's surgeon.cbf version, which will reboot the device.
+        """
+        try:
+            self._lm.is_remote(self._dftp4_client)
+            self._dftp4_client.disconnect()
+            self._dftp4_client = None
+            self._lm.remote_destroy()
+        except Exception, e:
+            self.perror(e)
+
+
+
+    def do_dftp4_server_version(self, s):
+        """
+Usage
+    dftp_server_version [number]
+
+Sets the version number of the dftp server. Or retrieves if none specified.
+OpenLFConnect checks for version 1.12 for surgeon running before a firmware update.
+Set this to 1.12 if getting complaints, or surgeon has its dftp version updated.
+    """
+        try:
+            self._lm.is_remote(self._dftp4_client)
+            if s != '':
+                self._dftp4_client.dftp_version = s
+            else:
+                print self._dftp4_client.dftp_version
+        except Exception, e:
+            self.perror(e)
+
+
+
+    def do_dftp4_device_info(self, s):
+        """
+Usage:
+    dftp_device_info
+
+Returns various information about the device, and connection.
+Note: Device name is guessed from board id.
+        """
+        try:
+            self._lm.is_remote(self._dftp4_client)
+            self.dftp_device_info()
+        except Exception, e:
+            self.perror(e)
+
+
+
+    def do_dftp4_update(self, s):
+        """
+Usage:
+    dftp_update <local path>
+
+CAUTION:
+!!Attempts to flash firmware, could potentially be harmful.!!
+!!Make sure Battery's are Fresh, or A/C adapter is used!!
+
+Uploads and flashes the files found in path, or the file specified by path.
+
+Caution: Has not been tested on LeapPad, theoretically it should work though, please confirm to author yes or no if you get the chance.
+        """
+        try:
+            self._lm.is_remote(self._dftp4_client)
+            self._lm.set_local()
+            abspath = self._lm.get_abspath(s)
+            self._dftp4_client.update_firmware(abspath)
+            self._lm.last_location()
+        except Exception, e:
+            self._lm.last_location()
+            self.perror(e)
+
+    def do_dftp4_reboot(self, s):
+        """
+Usage:
+    dftp_reboot
+
+This will trigger a reboot.
+        """
+        try:
+            self._lm.is_remote(self._dftp4_client)
+            self._dftp4_client.reboot()
+            self._dftp4_client = None
+            self._lm.remote_destroy()
+        except Exception, e:
+            self._dftp4_client = None
+            self._lm.remote_destroy()
+            self.perror(e)
+
+
+
+    def do_dftp4_reboot_usbmode(self, s):
+        """
+Usage:
+    dftp_reboot_usbmode
+
+This will reboot the device into USB mode, for sending a surgeon.cbf to boot.
+If surgeon is booted, will do a standared reboot.
+        """
+        try:
+            self._lm.is_remote(self._dftp4_client)
+            self._dftp4_client.reboot_usbmode()
+            self._dftp4_client = None
+            self._lm.remote_destroy()
+        except Exception, e:
+            self._dftp4_client = None
+            self._lm.remote_destroy()
+            self.perror(e)
+
+
+    def do_dftp4_mount_patient(self, s):
+        """
+Usage:
+    dftp_mount_patient 0|1|2
+
+Surgeon booted device only. These give you access to the devices filesystem.
+0 Unmounts /patient-rfs and /patient-bulk/
+1 Mounts /patient-rfs and /patient-bulk/
+2 Mounts only /patient-rfs
+        """
+        try:
+            self._lm.is_remote(self._dftp4_client)
+            self._dftp4_client.mount_patient(s)
+        except Exception, e:
+            self.perror(e)
+
+
+    def do_dftp4_run_script(self, s):
+        """
+Usage:
+    dftp_run_script <path>
+
+This takes a shell script as an argument, and proceeds to run it on the device.
+        """
+        try:
+            self._lm.is_empty(s)
+            self._lm.is_remote(self._dftp4_client)
+            self._lm.set_local()            
+            path = self._lm.get_abspath(s)
+            
+            self._dftp4_client.run_script(path)
+                
+            self._lm.last_location()
+        except Exception, e:
+            self._lm.last_location()
+            self.perror(e)
+
+
+
+    def do_send2(self, s):
+        """
+Usage:
+    send small[True|False] <raw command>
+
+Advanced use only, don't know, probably shouldn't.
+small is the request length, 512 for most commands
+10240 for uploading files
+        """
+        try:
+            self._lm.is_empty(s)
+            size, space ,cmd = s.partition(' ')
+            if size.lower() in ['true', 'false'] or cmd != '':
+                self._lm.is_remote(self._dftp4_client)
+                self._dftp4_client.send('%s\x00' % cmd, size)
+                ret = self._dftp4_client.receive(size)
+                if ret:
+                    print ret
+            else:
+                print 'bad command structure.'
+        except Exception, e:
+            self.perror(e)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ##############################################################################
 # DFTP Internal Functions
 # clients.dftp

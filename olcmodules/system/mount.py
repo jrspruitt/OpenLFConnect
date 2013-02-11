@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# mount.py Version 0.5.1
+# mount.py Version 0.5.2
 import os
 import re
 import sys
@@ -64,8 +64,10 @@ class connection(object):
                 self.rerror('Malformed device id.')
         else:
             self._device_id = device_id
-            
-        if mount_point != '':
+        
+        if mount_point == 'NULL':
+            self._mount_point = '/'
+        elif mount_point != '':
             if self.check_mount_point(mount_point):
                 self._mount_point = mount_point
             else:
@@ -136,7 +138,7 @@ class connection(object):
                                 if sys.platform == 'win32':
                                     self._device_id = '%s' % line.split(' ')[0]
                                 else:
-                                    print lines[lines.index(line) -1]
+                                    #print lines[lines.index(line) -1] delete after testing didj, why here?
                                     self._device_id = '%s' % lines[lines.index(line) -1].split(' ')[0].replace(':', '')
                 
                                 return self._device_id

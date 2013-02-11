@@ -1,6 +1,7 @@
 # Mount Didj
 # SCSI device accessible by user
 # Run Didj unlock command
+# Version 1.1
 
 
 ATTRS{model}!="Didj", GOTO="mount_didj_end"
@@ -16,6 +17,6 @@ LABEL="mount_didj_end"
 
 ATTRS{model}=="Didj", GOTO="usb_boot_end"
 
-SUBSYSTEM=="scsi_generic", KERNEL=="sg*" ACTION=="add", ATTRS{vendor}=="Leapfrog", MODE="666", NAME="leapfrog"
+SUBSYSTEM=="scsi_generic", KERNEL=="sg*" ACTION=="add", ATTRS{vendor}=="Leap[fF]*rog", MODE="666", NAME="leapfrog"
 
 LABEL="usb_boot_end"
