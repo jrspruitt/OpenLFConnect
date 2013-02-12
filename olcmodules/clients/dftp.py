@@ -303,7 +303,7 @@ class client(object):
     def get_board_id(self):
         try:
             if not self._board_id:
-                self._board_id = int(self.cat_i('/sys/devices/platform/lf1000-gpio/board_id').strip())
+                self._board_id = int(self.cat_i('/sys/devices/platform/lf1000-gpio/board_id').strip(), 16)
             return self._board_id
         except Exception, e:
             self.rerror(e)
@@ -360,12 +360,33 @@ class client(object):
 
 
     def disconnect(self):
-        self.send('NOOP\x00')
-        self.send('DCON\x00')
-        self._sock0.close()
-        self._sock0 = None
-        self._sock1.close()
-        self._sock1 = None
+        try:
+            self.send('NOOP\x00')
+            self.send('DCON\x00')
+            self._sock0.close()
+            self._sock0 = None
+            self._sock1.close()
+            self._sock1 = None
+        except Exception, e:
+            self.rerror(e)
+
+
+
+    def reboot(self):
+        try:
+            self.send('RSET\x00')
+            self.disconnect()
+        except Exception, e:
+            self.rerror(e)
+
+
+
+    def reboot_usbmode(self):
+        try:
+            self.send('UPD8\x00')
+            self.disconnect()
+        except Exception, e:
+            self.rerror(e)
 
 
 
@@ -396,34 +417,6 @@ class client(object):
             for lfpath, rfpath in paths:
                 self.upload_file_i(lfpath, rfpath)
                                         
-        except Exception, e:
-            self.rerror(e)
-
-
-
-    def reboot(self):
-        try:
-            self.send('RSET\x00')
-            self.send('NOOP\x00')
-            self.send('DCON\x00')
-            self._sock0.close()
-            self._sock0 = None
-            self._sock1.close()
-            self._sock1 = None
-        except Exception, e:
-            self.rerror(e)
-
-
-
-    def reboot_usbmode(self):
-        try:
-            self.send('UPD8\x00')
-            self.send('NOOP\x00')
-            self.send('DCON\x00')
-            self._sock0.close()
-            self._sock0 = None
-            self._sock1.close()
-            self._sock1 = None
         except Exception, e:
             self.rerror(e)
 

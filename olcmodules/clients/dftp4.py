@@ -342,7 +342,7 @@ class client(object):
     def get_board_id(self):
         try:
             if not self._board_id:
-                self._board_id = int(self.cat_i('/sys/devices/platform/lf1000-gpio/board_id').strip())
+                self._board_id = int(self.cat_i('/sys/devices/platform/lf1000-gpio/board_id').strip(), 16)
             return self._board_id
         except Exception, e:
             self.rerror(e)
@@ -393,7 +393,28 @@ class client(object):
 
 
     def disconnect(self):
-        self.send('DCON')
+        try:
+            self.send('DCON')
+        except Exception, e:
+            self.rerror(e)
+
+
+
+    def reboot(self):
+        try:
+            self.send('RSET\x00')
+            self.disconnect()
+        except Exception, e:
+            self.rerror(e)
+
+
+
+    def reboot_usbmode(self):
+        try:
+            self.send('UPD8\x00')
+            self.disconnect()
+        except Exception, e:
+            self.rerror(e)
 
 
 
@@ -429,22 +450,6 @@ class client(object):
 
 
 
-    def reboot(self):
-        try:
-            self.send('RSET')
-        except Exception, e:
-            self.rerror(e)
-
-
-
-    def reboot_usbmode(self):
-        try:
-            self.send('UPD8')
-        except Exception, e:
-            self.rerror(e)
-
-
-
     def run_script(self, path):
         try:
             if not os.path.exists(path):
@@ -466,7 +471,7 @@ class client(object):
         try:
             if num in ('0', '1', '2'):
                 if self.dftp_version == self._surgeon_dftp_version:
-                    self.sendrtn('SETS MOUNTPATIENT=%s' % num)
+                    self.sendrtn('SETS MOUNTPATIENT=%s\x00' % num)
                 else:
                     self.error('Wrong version of DFTP is running.')
             else:
@@ -504,7 +509,7 @@ class client(object):
 
     def is_dir_i(self, path):
         try:
-            path = path.replace('', '')
+            path = path.replace('\x00', '')
             ret_arr = self.sendrtn('LIST %s' % path, True)
             if len(ret_arr) > 1 and ret_arr[0].startswith('D'):
                 return True

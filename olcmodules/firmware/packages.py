@@ -31,10 +31,7 @@
 
 #@
 # firmware.packages.py Version 0.4
-##################################
-# change to just hardcoded links
-# don't see how to system coexist
-##################################
+
 import os
 import tarfile
 import zipfile
