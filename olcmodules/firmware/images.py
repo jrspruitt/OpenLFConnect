@@ -237,13 +237,14 @@ class ubi(object):
             p = Popen(cmd_ubiformat, stdout=PIPE, stderr=PIPE)
             ufout = p.stdout.read()
             uferr = p.stderr.read()
-
+            print uferr
+            print ufout
             if 'first detach mtd' in uferr:
                 self.error('Another image is already mounted')            
 
             cmd_ubiattach = shlex_split('%subiattach /dev/ubi_ctrl -m %s' % (self._ubi_loc, mtd_num))
             uout = self.popen(cmd_ubiattach)[0]
-
+            print uout
             ubir = re.compile(ubiattach_regex)
             ubis = ubir.search(uout)
 

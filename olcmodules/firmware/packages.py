@@ -35,29 +35,41 @@
 import os
 import tarfile
 import zipfile
+from copy import copy
 import xml.dom.minidom as xml
 from urllib import urlretrieve
 from urllib2 import urlopen
 
 from olcmodules import config
-from olcmodules.firmware.hash import get_sha1
 
-LPAD_FIRMWARE_GUID = ['LPAD-0x001E0012-000001', 'LPAD-0x001E0012-000003']
-LPAD_SURGEON_GUID = ['LPAD-0x001E0011-000000']
-LPAD_BULK_ERASE_GUID = ['LPAD-0x001E0012-000004']
-LPAD_PTYPES = ['firmware', 'surgeon', 'bulk']
+LPAD_FIRMWARE_GUID = ['LPAD-0x001E0012-000001.lf2', 'LPAD-0x001E0012-000003.lf2']
+LPAD_SURGEON_GUID = ['LPAD-0x001E0011-000000.lfp']
+LPAD_BULK_ERASE_GUID = ['LPAD-0x001E0012-000004.lf2']
+LPAD_PTYPES = ['firmware', 'firmware4', 'surgeon', 'surgeon4', 'bulk', 'bulk4']
 LPAD_GUIDS = {'firmware':LPAD_FIRMWARE_GUID, 'surgeon':LPAD_SURGEON_GUID, 'bulk':LPAD_BULK_ERASE_GUID}
 
-LX_FIRMWARE_GUID = ['LST3-0x00170029-000000']
-LX_SURGEON_GUID = ['LST3-0x00170028-000000']
-LX_BULK_ERASE_GUID = ['LST3-0x00170037-000000']
-LX_PTYPES = ['firmware', 'surgeon', 'bulk']
+LX_FIRMWARE_GUID = ['LST3-0x00170029-000000.lfp']
+LX_SURGEON_GUID = ['LST3-0x00170028-000000.lfp']
+LX_BULK_ERASE_GUID = ['LST3-0x00170037-000000.lfp']
+LX_PTYPES = ['firmware', 'firmware4', 'surgeon', 'surgeon4', 'bulk', 'bulk4']
 LX_GUIDS = {'firmware':LX_FIRMWARE_GUID, 'surgeon':LX_SURGEON_GUID, 'bulk':LX_BULK_ERASE_GUID}
 
-DIDJ_FIRMWARE_GUID = ['DIDJ-0x000E0003-000001']
-DIDJ_BOOTLOADER_GUID = ['DIDJ-0x000E0002-000001']
+DIDJ_FIRMWARE_GUID = ['DIDJ-0x000E0003-000001.lfp']
+DIDJ_BOOTLOADER_GUID = ['DIDJ-0x000E0002-000001.lfp']
 DIDJ_PTYPES = ['firmware', 'bootloader']
 DIDJ_GUIDS = {'firmware':DIDJ_FIRMWARE_GUID, 'bootloader':DIDJ_BOOTLOADER_GUID}
+
+LXGS_FIRMWARE_GUID = ['GAM2-0x00210004-000000.lfp']
+LXGS_SURGEON_GUID = ['GAM2-0x00210003-000000.lfp']
+LXGS_BULK_ERASE_GUID = ['GAM2-0x00210004-000002.lfp']
+LXGS_PTYPES = ['firmware4', 'surgeon4', 'bulk4']
+LXGS_GUIDS = {'firmware':LXGS_FIRMWARE_GUID, 'surgeon':LXGS_SURGEON_GUID, 'bulk':LXGS_BULK_ERASE_GUID}
+
+LPAD2_FIRMWARE_GUID = ['PAD2-0x00220004-000000.lfp']
+LPAD2_SURGEON_GUID = ['PAD2-0x00220003-000000.lfp']
+LPAD2_BULK_ERASE_GUID = ['PAD2-0x00220004-000002.lfp']
+LPAD2_PTYPES = ['firmware4', 'surgeon4', 'bulk4']
+LPAD2_GUIDS = {'firmware':LPAD2_FIRMWARE_GUID, 'surgeon':LPAD2_SURGEON_GUID, 'bulk':LPAD2_BULK_ERASE_GUID}
 
 EXTS = ('lfp','lf2')
 
@@ -102,8 +114,11 @@ def extract(path):
 
 class lf_packages(object):
     def __init__(self):
-        self._guid_list = {config.LPAD_NAME:LPAD_GUIDS, config.LX_NAME:LX_GUIDS, config.DIDJ_NAME:DIDJ_GUIDS}
-
+        self._file_list = {config.LPAD_NAME:LPAD_GUIDS,
+                           config.LX_NAME:LX_GUIDS,
+                           config.DIDJ_NAME:DIDJ_GUIDS,
+                           config.LXGS_NAME:LXGS_GUIDS,
+                           config.LPAD2_NAME:LPAD2_GUIDS }
 
 
     def error(self, e):
@@ -123,7 +138,6 @@ class lf_packages(object):
             self.error(e)
 
 
-
     def _xml_get_text(self, nodelist):
         rc = []
         for node in nodelist:
@@ -140,47 +154,65 @@ class lf_packages(object):
             fw_list = LX_PTYPES
         if config.DIDJ_NAME == dtype:
             fw_list = DIDJ_PTYPES
-            
+        if config.LXGS_NAME == dtype:
+            fw_list = LXGS_PTYPES
+        if config.LPAD2_NAME == dtype:
+            fw_list = LPAD2_PTYPES
+
         ptype = ptype.lower()
 
         if ptype in fw_list:
             return ptype
         else:
-            error('Package specified is not available.')
-        
-            
-
+            error('Package specified is not available.')     
 
 
     def _get_package_info(self, olc_ds, ptype):
         dom = self._get_vdict_dom(olc_ds['vdict'])
         comps = dom.getElementsByTagName('Component')
-        guid = self._guid_list[olc_ds['name']][ptype]
+        file_list = copy(self._file_list[olc_ds['name']][ptype])
         url_list = []
 
         for comp in comps:
             cguid = self._xml_get_text(comp.getElementsByTagName('Guid')[0].childNodes)
 
-            if cguid in guid:
-                del guid[guid.index(cguid)]
-                name = self._xml_get_text(comp.getElementsByTagName('Name')[0].childNodes)
-                ver = self._xml_get_text(comp.getElementsByTagName('Version')[0].childNodes)
-                url = self._xml_get_text(comp.getElementsByTagName('Url')[0].childNodes)
-                checksum = self._xml_get_text(comp.getElementsByTagName('Checksum')[0].childNodes)
-                url_list.append((name, ver, url, checksum))
-                if len(guid) < 1:
-                    break
-        return url_list
+            for pfile in file_list:
+                if cguid == os.path.splitext(pfile)[0]:
+                    del file_list[file_list.index(pfile)]
+                    name = self._xml_get_text(comp.getElementsByTagName('Name')[0].childNodes)
+                    url = self._xml_get_text(comp.getElementsByTagName('Url')[0].childNodes)
+                    url_list.append((name, url))
 
+                    if len(file_list) < 1:
+                        return url_list
+        
+
+
+    def _get_dcont_urls(self, olc_ds, ptype):
+        dcont_url = 'http://digitalcontent.leapfrog.com/packages/%s/' % olc_ds['dcont']
+        file_list = copy(self._file_list[olc_ds['name']][ptype])
+        url_list = []
+
+        for file_name in file_list:
+            del file_list[file_list.index(file_name)]
+            name = file_name
+            url = '%s%s' % (dcont_url, file_name)
+            url_list.append((name, url))
+            if len(file_list) < 1:
+                break
+        return url_list
 
 
     def get_package(self, dtype, ptype, path):
         olc_ds = config.olc_device_settings(dtype)
         ptype = self._input_check(olc_ds['name'], ptype)
-                
-        urls = self._get_package_info(olc_ds, ptype)
 
-        for pname, pver, purl, pchecksum in urls:             
+        if ptype.endswith('4'):
+            urls = self._get_dcont_urls(olc_ds, ptype.replace('4',''))
+        else:     
+            urls = self._get_package_info(olc_ds, ptype)
+
+        for pname, purl in urls:             
             package_name = os.path.basename(purl)
             ext = os.path.splitext(package_name)[1]
             ptype_name = ptype
@@ -189,21 +221,14 @@ class lf_packages(object):
                 if 'Base' in pname:
                     ptype_name = '%s_%s' % (ptype, 'base')
                 elif 'Partition' in pname:
-                    print ptype
                     ptype_name = '%s_%s' % (ptype, 'partition')
 
-            file_name = '%s_%s_%s%s' % (olc_ds['name'], ptype_name, pver, ext)
+            file_name = '%s_%s%s' % (olc_ds['name'], ptype_name, ext)
             file_path = os.path.join(path, file_name)
-            
+
             if not os.path.exists(file_path):
                 urlretrieve(purl, file_path)
                 print 'Downloading: %s' % file_name
-                sha1sum = get_sha1(file_path)
-                
-                if sha1sum == pchecksum:
-                    print 'Packaged passed checksum'
-                else:
-                    print 'Package failed checksum. Please check the file.'
 
             else:
                 error('Package already exists.')

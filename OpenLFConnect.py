@@ -34,7 +34,6 @@
 import os
 import cmd
 import sys
-import shlex
 
 from olcmodules.location import manager as loc_manager
 from olcmodules import config
@@ -1513,17 +1512,19 @@ Will overwrite without warning.
     def do_package_download(self, s):
         """
 Usage:
-    package_download <Didj|Explorer|LeapPad> <firmware|surgeon|bootloader|bulk>
+    package_download <Didj|Explorer|LeapPad[2]|gs> <bootloader|firmware[4]|surgeon[4]|bulk[4]>
 
 Downloads the LF firmware package for device specified to files/<device>
 Bootloader is for Didj only.
-Surgeon and Bulk are for LeapPad and Explorer only.
+Surgeon and Bulk are for everything but the Didj.
+firmware4, surgeon4, and bulk4 is for devices using DFTP4 as their update system.
         """
         try:
             self._lm.is_empty(s)
-            dtype, ftype = shlex.split(s)            
+            dtype, ftype = s.split(' ')            
             lfp = packages.lf_packages()
             lfp.get_package(dtype, ftype, self._lm.local_path)
+            lfp = None
         except Exception, e:
             self.perror(e)
 

@@ -379,6 +379,7 @@ class client(object):
 
     dftp_version = property(get_dftp_version, set_dftp_version)
 
+
 #######################
 # Client User Command Functions
 #######################

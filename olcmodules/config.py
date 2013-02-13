@@ -58,12 +58,14 @@ DIDJ_PATH = os.path.join(FILES_PATH, DIDJ_NAME)
 
 LXGS_NAME = 'LXGS'
 LXGS_NAMES = ['lxgs', 'gs', 'explorer gs']
-LXGS_DCONT = 'GAM2'
+LXGS_VDICT = ''
+LXGS_DCONT = 'GAMFW'
 LXGS_PATH = os.path.join(FILES_PATH, LXGS_NAME)
 
 LPAD2_NAME = 'Lpad2'
 LPAD2_NAMES = ['lpad2', 'lxp2', 'leappad2', 'leappad2 explorer', 'explorer leappad2']
-LPAD2_DCONT = 'PAD2'
+LPAD2_VDICT = ''
+LPAD2_DCONT = 'PADFW'
 LPAD2_PATH = os.path.join(FILES_PATH, LPAD2_NAME)
 
 
@@ -127,10 +129,12 @@ def olc_device_settings(name):
         fdir = DIDJ_PATH
     elif name.lower() in LXGS_NAMES:
         nname = LXGS_NAME
+        vdict = LXGS_VDICT
         dcont = LXGS_DCONT
         fdir = LXGS_PATH
     elif name.lower() in LPAD2_NAMES:
         nname = LPAD2_NAME
+        vdict = LPAD2_VDICT
         dcont = LPAD2_DCONT
         fdir = LPAD2_PATH
     else:
