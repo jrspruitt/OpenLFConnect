@@ -258,10 +258,10 @@ class client(object):
 
     def get_device_name(self):
         bid = self.get_board_id()
-        if bid > 10:
-            return self._name_lpad
-        elif bid <= 10:
+        if bid <= '\x0A':
             return self._name_lx
+        elif bid >= '\x0B':
+            return self._name_lpad
         else:
             return 'Could not determine device'
 
@@ -332,13 +332,7 @@ class client(object):
         except Exception, e:
             self.rerror(e)
 
-    def set_dftp_version(self, num):
-        try:
-            self._dftp_version = num
-        except Exception, e:
-            self.rerror(e)
-
-    dftp_version = property(get_dftp_version, set_dftp_version)
+    dftp_version = property(get_dftp_version)
 
 #######################
 # Client User Command Functions

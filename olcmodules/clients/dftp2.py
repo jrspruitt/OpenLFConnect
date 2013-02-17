@@ -30,9 +30,11 @@
 ##############################################################################
 
 #@
-# dftp4.py Version 0.0.1
+# dftp2.py Version 0.0.3
+
 import os
 import sys
+from time import sleep
 from shlex import split as shlex_split
 from subprocess import Popen, PIPE
 from olcmodules import config
@@ -44,19 +46,16 @@ class client(object):
         self._dbg = config.debug(self)
         self._mount_config = mount_config
         
-        self._name_lpad = 'LeapPad'
+        self._name_lpad = 'LeapPad1'
         self._name_lx = 'Explorer'
+        self._name_lxgs = 'LeapsterGS'
+        self._name_lpad2 = 'LeapPad2'
        
-        self._surgeon_dftp_version = '1.12'
+        self._surgeon_dftp_version = '4'
         
         self._firmware_version = 0
         self._board_id = 0
         self._dftp_version = 0
-        self._recieve_timeout = 1
-
-        self._partitions_default = 'leapfrog.cfg'
-        self._partitions_config = self._partitions_default
-        self._remote_fs_file = '/var/1.2.0.fs'
         
         self._request_large = 10240
         self._request_small = 512
@@ -108,7 +107,6 @@ class client(object):
                 if not small:
                     ret = self.receive()
                     if not '103 CONT' in ret:
-                        print 'NOT 103'
                         break
 
             if not small:
@@ -135,7 +133,17 @@ class client(object):
             scsi_cmd = shlex_split(scsi_cmd)
             p = Popen(scsi_cmd, stdout=PIPE, stderr=PIPE)
             buf = ''
-
+            while(p.poll() is not None):
+                sleep(.1)
+                continue
+            
+            line = p.stdout.read(1)
+            if line == '':
+                p.stdout.flush()
+                return False
+            else:
+                buf = line
+                
             while 1:
                 line = p.stdout.read()
                 if line == '':
@@ -198,6 +206,7 @@ class client(object):
                     
                 while True:                    
                     buf = self.receive(False)
+
                     if '500 unknown command' in buf.lower():
                         error = True
                         break
@@ -297,10 +306,14 @@ class client(object):
 
     def get_device_name(self):
         bid = self.get_board_id()
-        if bid > 10:
-            return self._name_lpad
-        elif bid <= 10:
+        if bid <= '\x0A':
             return self._name_lx
+        elif bid >= '\x0B' and bid <= '\x0D':
+            return self._name_lpad
+        elif bid >= '\x200' and bid <= '\x205':
+            return self._name_lxgs
+        elif bid >= '\x206' and bid <= '\x209':
+            return self._name_lpad2
         else:
             return 'Could not determine device'
 
@@ -386,8 +399,12 @@ class client(object):
 
     def create_client(self):
         try:
-            pass
-            # nothing to really do hear yet
+            self._mount_config.device_id
+            while self.send('INFO'):
+                sleep(1)
+                if self.receive():
+                    sleep(1)
+                    break
         except Exception, e:
             self.rerror(e)
 
@@ -395,7 +412,8 @@ class client(object):
 
     def disconnect(self):
         try:
-            self.send('DCON')
+            self.send('NOOP\x00')
+            self.send('DCON\x00')
         except Exception, e:
             self.rerror(e)
 

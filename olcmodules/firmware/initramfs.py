@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# initramfs.py Version 0.1.1
+# initramfs.py Version 0.1.2
 import os
 from shutil import rmtree
 
@@ -58,7 +58,7 @@ class initramfs():
     def __init__(self, suffix):
         self.CPIO_SIG_START = '\x30\x37\x30\x37\x30\x31'
         self.CPIO_SIG_END = '\x54\x52\x41\x49\x4c\x45\x52\x21\x21\x21'
-        self._GUNZIP_SIG = '\x1F\x8B\x08\x00'
+        self._GUNZIP_SIG = '\x1F\x8B\x08'
         self._kernel_t = '/tmp/initramfs_t'
         self._cpio_t = '/tmp/initramfs.cpio'
         self._gzip_t = '/tmp/gzip_t.gz'

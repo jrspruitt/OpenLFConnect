@@ -45,13 +45,13 @@ from olcmodules import config
 LPAD_FIRMWARE_GUID = ['LPAD-0x001E0012-000001.lf2', 'LPAD-0x001E0012-000003.lf2']
 LPAD_SURGEON_GUID = ['LPAD-0x001E0011-000000.lfp']
 LPAD_BULK_ERASE_GUID = ['LPAD-0x001E0012-000004.lf2']
-LPAD_PTYPES = ['firmware', 'firmware4', 'surgeon', 'surgeon4', 'bulk', 'bulk4']
+LPAD_PTYPES = ['firmware', 'firmware2', 'surgeon', 'surgeon2', 'bulk', 'bulk2']
 LPAD_GUIDS = {'firmware':LPAD_FIRMWARE_GUID, 'surgeon':LPAD_SURGEON_GUID, 'bulk':LPAD_BULK_ERASE_GUID}
 
 LX_FIRMWARE_GUID = ['LST3-0x00170029-000000.lfp']
 LX_SURGEON_GUID = ['LST3-0x00170028-000000.lfp']
 LX_BULK_ERASE_GUID = ['LST3-0x00170037-000000.lfp']
-LX_PTYPES = ['firmware', 'firmware4', 'surgeon', 'surgeon4', 'bulk', 'bulk4']
+LX_PTYPES = ['firmware', 'firmware2', 'surgeon', 'surgeon2', 'bulk', 'bulk2']
 LX_GUIDS = {'firmware':LX_FIRMWARE_GUID, 'surgeon':LX_SURGEON_GUID, 'bulk':LX_BULK_ERASE_GUID}
 
 DIDJ_FIRMWARE_GUID = ['DIDJ-0x000E0003-000001.lfp']
@@ -62,13 +62,13 @@ DIDJ_GUIDS = {'firmware':DIDJ_FIRMWARE_GUID, 'bootloader':DIDJ_BOOTLOADER_GUID}
 LXGS_FIRMWARE_GUID = ['GAM2-0x00210004-000000.lfp']
 LXGS_SURGEON_GUID = ['GAM2-0x00210003-000000.lfp']
 LXGS_BULK_ERASE_GUID = ['GAM2-0x00210004-000002.lfp']
-LXGS_PTYPES = ['firmware4', 'surgeon4', 'bulk4']
+LXGS_PTYPES = ['firmware2', 'surgeon2', 'bulk2']
 LXGS_GUIDS = {'firmware':LXGS_FIRMWARE_GUID, 'surgeon':LXGS_SURGEON_GUID, 'bulk':LXGS_BULK_ERASE_GUID}
 
 LPAD2_FIRMWARE_GUID = ['PAD2-0x00220004-000000.lfp']
 LPAD2_SURGEON_GUID = ['PAD2-0x00220003-000000.lfp']
 LPAD2_BULK_ERASE_GUID = ['PAD2-0x00220004-000002.lfp']
-LPAD2_PTYPES = ['firmware4', 'surgeon4', 'bulk4']
+LPAD2_PTYPES = ['firmware2', 'surgeon2', 'bulk2']
 LPAD2_GUIDS = {'firmware':LPAD2_FIRMWARE_GUID, 'surgeon':LPAD2_SURGEON_GUID, 'bulk':LPAD2_BULK_ERASE_GUID}
 
 EXTS = ('lfp','lf2')
@@ -207,8 +207,8 @@ class lf_packages(object):
         olc_ds = config.olc_device_settings(dtype)
         ptype = self._input_check(olc_ds['name'], ptype)
 
-        if ptype.endswith('4'):
-            urls = self._get_dcont_urls(olc_ds, ptype.replace('4',''))
+        if ptype.endswith('2'):
+            urls = self._get_dcont_urls(olc_ds, ptype.replace('2',''))
         else:     
             urls = self._get_package_info(olc_ds, ptype)
 

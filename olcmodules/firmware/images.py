@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# firmware/images.py Version 0.4
+# firmware/images.py Version 0.5
 import os
 import re
 from subprocess import Popen, PIPE
@@ -154,10 +154,12 @@ class jffs2(object):
 
 
 class ubi(object):
-    def __init__(self):
+    def __init__(self, fw_version='1'):
         self._mount = '/mnt/ubi_leapfrog'
         self._modprobe = 'sudo /sbin/modprobe'
         self._ubi_loc = 'sudo /usr/sbin/'
+        self._fw_version = fw_version
+        self._force_4096 = ''
 
 
 
@@ -210,7 +212,12 @@ class ubi(object):
             if not os.path.exists(self._mount):
                 self.popen(shlex_split('sudo mkdir %s' % self._mount)) 
 
-            cmd_nandsim = shlex_split('%s nandsim first_id_byte=0x2C second_id_byte=0xDC third_id_byte=0x00 fourth_id_byte=0x15' % self._modprobe)
+            if self._fw_version == '1':
+	            cmd_nandsim = shlex_split('%s nandsim first_id_byte=0x2C second_id_byte=0xDC third_id_byte=0x00 fourth_id_byte=0x15' % self._modprobe)
+            elif self._fw_version == '2':
+                cmd_nandsim = shlex_split('%s nandsim first_id_byte=0x2C second_id_byte=0x68 third_id_byte=0x04 fourth_id_byte=0x4A cache_file=/tmp/nandsim_cache' % self._modprobe)
+                self._force_4096 = '-O 4096'
+
             self.popen(cmd_nandsim)
             
             if os.path.exists(proc_mtd):
@@ -232,19 +239,21 @@ class ubi(object):
             cmd_ubi = shlex_split('%s ubi mtd=%s' % (self._modprobe, mtd_num))
             cmd_ubidetach = shlex_split('%subidetach /dev/ubi_ctrl -m %s' % (self._ubi_loc, mtd_num)) 
             self.popen_arr([cmd_ubi, cmd_ubidetach])
-            
-            cmd_ubiformat = shlex_split('%subiformat -e 1 /dev/mtd%s -f %s' % (self._ubi_loc, mtd_num, path))
-            p = Popen(cmd_ubiformat, stdout=PIPE, stderr=PIPE)
+            cmd_ubiformat = shlex_split('%subiformat -e 1 %s /dev/mtd%s -f %s' % (self._ubi_loc, self._force_4096, mtd_num, path))           
+
+            p = Popen(cmd_ubiformat, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+
+            if self._fw_version == '2':
+                p.stdin.write('y\n')
+
             ufout = p.stdout.read()
             uferr = p.stderr.read()
-            print uferr
-            print ufout
-            if 'first detach mtd' in uferr:
-                self.error('Another image is already mounted')            
 
-            cmd_ubiattach = shlex_split('%subiattach /dev/ubi_ctrl -m %s' % (self._ubi_loc, mtd_num))
+            if 'first detach mtd' in uferr:
+                self.error('Another image is already mounted')
+
+            cmd_ubiattach = shlex_split('%subiattach /dev/ubi_ctrl -m %s %s' % (self._ubi_loc, mtd_num, self._force_4096))
             uout = self.popen(cmd_ubiattach)[0]
-            print uout
             ubir = re.compile(ubiattach_regex)
             ubis = ubir.search(uout)
 
@@ -259,6 +268,7 @@ class ubi(object):
             print 'Mounted at: %s' % self._mount
                 
         except Exception, e:
+            print e
             self.error(e)
 
 

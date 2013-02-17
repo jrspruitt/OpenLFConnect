@@ -25,6 +25,10 @@ Build Log:
 Version 0.9.0
     Adding DFTP4 Functionality
     Minor fixes
+    	initramfs.py GZIP sig works with v2 surgeon now
+        fixed dftp/2 device_name complaint int/str
+    Mount ubi changed for version 2 firmware, requires kernel 2.6.37+ hack though :(
+        perhaps later kernel support for chip as of 3.7 no
 
 Version 0.8.0
     Fixed repopulation of files/ directory when started outside of application root.

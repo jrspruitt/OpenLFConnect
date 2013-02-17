@@ -130,7 +130,7 @@ class connection(object):
             time_out = self._time_out
 
             while time_out:
-                if not os.path.exists(self._linux_dev):
+                if sys.platform == 'win32':
                     lines = self.sg_scan().split('\n')
                     if lines:
                         for line in lines:
@@ -143,7 +143,24 @@ class connection(object):
                 
                                 return self._device_id
 
+                elif not os.path.exists(self._linux_dev):
+                    vendor_pattern = '/sys/class/scsi_disk/%s:0:0:0/device/vendor'
+                    blockdev_pattern = '/sys/class/scsi_disk/%s:0:0:0/device/block'
 
+                    for i in range(0, 100):
+                        vendor_path = vendor_pattern % (i)
+
+                        if os.path.exists(vendor_path):
+                            f = open(vendor_path, 'r')
+                            vendor = f.readline()
+                            f.close()
+
+                            if vendor.rstrip().lower() == 'leapfrog':
+                                for sdx in os.listdir(blockdev_pattern % i):
+
+                                    if sdx.startswith('sd'):
+                                        self._device_id = '/dev/%s' % sdx
+                                        return self._device_id
                 else:
                     self._device_id = self._linux_dev
                     return self._device_id
