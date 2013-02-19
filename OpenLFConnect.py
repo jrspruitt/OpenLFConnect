@@ -48,6 +48,7 @@ from olcmodules.clients.dftp2 import client as dftp2_client
 from olcmodules.clients.didj import client as didj_client
 from olcmodules.clients.local import client as local_client
 from olcmodules.clients.interface import filesystem as fs_iface
+from olcmodules.devices import profile
 
 from olcmodules.firmware import cbf, packages
 from olcmodules.firmware.images import ubi, jffs2
@@ -56,7 +57,7 @@ from olcmodules.firmware.initramfs import extract as irfs_extract
 class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
-        print 'OpenLFConnect Version 0.8.0'
+        print 'OpenLFConnect Version 1.0.0'
         self.debug = False        
         
         self._init_path = config.FILES_PATH.replace('\\', '/')
@@ -66,7 +67,11 @@ class OpenLFConnect(cmd.Cmd, object):
         self._dftp2_client = None
         self._didj_client = None
         self._pager_client = None
-
+        
+        self._profile = profile()
+        self._profile.load_profile()
+        self._device_profile = self._profile.get_profile() 
+        
         self._host_id = ''
         self._device_id = ''
         
@@ -110,6 +115,69 @@ class OpenLFConnect(cmd.Cmd, object):
         self._host_id = hid
 
     host_id = property(get_host_id, set_host_id)
+
+
+
+##############################################################################
+# Profile Internal Functions
+# devices.profile
+#######################
+
+    def device_profile(self):
+        return self._device_profile
+
+
+##############################################################################
+# Profile User Functions
+# devices.profile
+#######################  
+
+    def complete_device_profile_load(self, text, line, begidx, endidx):
+        return self._lm.complete_local(text, line, begidx, endidx)
+
+
+
+    def do_device_profile_load(self, s):
+        """
+Usage:
+    device_profile_load <path>
+
+Loads a device profile for the particular device you wish to use.
+Standard profiles are in Extras/Profiles/*.cfg
+        """
+        try:
+            abspath = self._lm.get_abspath(s)
+            self._profile.load_profile(abspath)
+            self._device_profile = self._profile.get_profile()
+        except Exception, e:
+            self.perror(e)
+
+
+
+    def do_device_profile_name(self, s):
+        """
+Usage:
+    device_profile_name
+
+Prints the file name of the currently loaded device profile
+        """
+        print self._device_profile['olfc']['profile_name']
+
+
+
+    def do_device_profile_default(self, s):
+        """
+Usage:
+    device_profile_default
+
+Saves currently loaded profile as the default profile loaded on startup.
+        """
+        try:
+            self._profile.save_as_default()
+        except Exception, e:
+            self.prerror(e)
+
+
 
 ##############################################################################
 # Didj Internal Functions
@@ -184,21 +252,6 @@ Could take some time to unmount and eject if you have written files to the devic
             self._lm.is_remote(self._didj_client)
             self._didj_client.eject()
             self._lm.remote_destroy()
-        except Exception, e:
-            self.perror(e)
-
-
-
-    def do_didj_device_info(self, s):
-        """
-Usage:
-    didj_device_info
-
-Returns various information about device and mount.
-        """
-        try:
-            self._lm.is_remote(self._didj_client)
-            self.didj_device_info()
         except Exception, e:
             self.perror(e)
 
@@ -313,6 +366,7 @@ Remove Didj firmware and bootloader from device.
             self.perror(e)
 
 
+
     def do_didj_update_eb(self, s):
         """
 Usage:
@@ -404,7 +458,7 @@ This could take a minute or so, if you just booted the device.
             if not self._lm.is_client(self._dftp2_client):
                 try:
                     mc = conn_iface(mount_connection(self.device_id, 'NULL', self.debug))
-                    self._dftp2_client = dftp2_client(mc, self.debug)
+                    self._dftp2_client = dftp2_client(mc, self.device_profile, self.debug)
                     self._lm.remote_connection_init(mc, fs_iface(self._dftp2_client), self._dftp2_client)
                     self._dftp2_client.create_client()
                     self._lm.remote_path_init()
@@ -577,16 +631,16 @@ This takes a shell script as an argument, and proceeds to run it on the device.
     def do_send2(self, s):
         """
 Usage:
-    send small[True|False] <raw command>
+    send <True|False> <raw command>
 
 Advanced use only, don't know, probably shouldn't.
-small is the request length, 512 for most commands
-10240 for uploading files
+<True|False> is the request length, True: 512 for most commands
+False: 10240 for uploading files
         """
         try:
             self._lm.is_empty(s)
             size, space ,cmd = s.partition(' ')
-            if size.lower() in ['true', 'false'] or cmd != '':
+            if size.lower() in ['true', 'false'] and cmd != '':
                 self._lm.is_remote(self._dftp2_client)
                 self._dftp2_client.send('%s\x00' % cmd, size)
                 ret = self._dftp2_client.receive(size)
@@ -1483,19 +1537,16 @@ Will overwrite without warning.
     def do_package_download(self, s):
         """
 Usage:
-    package_download <Didj|Explorer|LeapPad[2]|gs> <bootloader|firmware[2]|surgeon[2]|bulk[2]>
+    package_download  <bootloader|firmware|surgeon|bulk>
 
-Downloads the LF firmware package for device specified to files/<device>
-Bootloader is for Didj only.
-Surgeon and Bulk are for everything but the Didj.
-firmware2, surgeon4, and bulk4 is for devices using DFTP4 as their update system.
+Downloads specified files of currently loaded device.
+bootloader is Didj specific.
+surgeon and bulk are not available for Didj.
         """
         try:
-            self._lm.is_empty(s)
-            dtype, ftype = s.split(' ')            
-            lfp = packages.lf_packages()
-            lfp.get_package(dtype, ftype, self._lm.local_path)
-            lfp = None
+            self._lm.is_empty(s)           
+            lfp = packages.lf_packages(self._device_profile)
+            lfp.get_package(s, self._lm.local_path)
         except Exception, e:
             self.perror(e)
 

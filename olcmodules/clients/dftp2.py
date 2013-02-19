@@ -438,6 +438,11 @@ class client(object):
 
 
     def update_firmware(self, lpath):
+        #################################
+        # Needs to change how its determined
+        # fuse is present all the time now
+        # from the looks of things
+        #################################
         try:
             if not os.path.exists(lpath):
                 self.error('Path does not exist.')
@@ -446,13 +451,13 @@ class client(object):
             
             if self.exists_i(fwdftp.FUSE_REMOTE_FW_ROOT):
                 utype = 'fuse'
-                fw = fwdftp.config(self, utype, self._partitions_config)
-                paths = fw.prepare_update(lpath)
+                fw = fwdftp.config(self, utype, lpath, self._partitions_config)
+                paths = fw.prepare_update()
             
             elif self.exists_i(fwdftp.DFTP_REMOTE_FW_ROOT):
                 utype = 'dftp'
-                fw = fwdftp.config(self, utype, self._partitions_config)
-                paths = fw.prepare_update(lpath)
+                fw = fwdftp.config(self, utype, lpath, self._partitions_config)
+                paths = fw.prepare_update()
                 
                 if self._partitions_config != self._partitions_default:
                     self.upload_buffer(fw.fs, self._remote_fs_file)     

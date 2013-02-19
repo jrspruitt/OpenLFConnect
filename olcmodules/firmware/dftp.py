@@ -35,7 +35,7 @@
 import os
 import ConfigParser
 from olcmodules.firmware.cbf import check as cbf_check
-from olcmodules.config import PARTITIONS_PATH
+from olcmodules.config import PROFILES_PATH
 
 FUSE_FW_DIR = 'firmware'
 FUSE_REMOTE_FW_ROOT = '/LF/fuse/'
@@ -53,7 +53,6 @@ class config(object):
         self._module = module
         self._utype = utype
         
-        self._remote_fw_files = ''
         self._fw_dir = ''
         self._remote_fw_dir = ''
         self._fw_files = ''
