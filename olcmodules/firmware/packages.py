@@ -85,7 +85,7 @@ def extract(path):
 class lf_packages(object):
     def __init__(self, device_profile):
         self._package_types = ['bootloader','firmware','bulk','surgeon']
-        self._device_profile = device_profile
+        self._device_profile = device_profile.get()
         self._package_url_name = self._device_profile['names']['lf_url']
 
         if self._device_profile['firmware']['version'] == '1':
@@ -103,6 +103,11 @@ class lf_packages(object):
  
     def get_package(self, ptype, path):
         try:
+            try:
+                test = self._device_profile['names']['lf_url']
+            except Exception, e:
+                raise Exception('Packages not available for this profile.')
+
             if self._url == '':
                 self.error('URL could not be determined. Check device profile.')
 

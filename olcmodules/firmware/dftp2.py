@@ -33,24 +33,19 @@
 # firmware.dftp2.py Version 0.1.0
 
 import os
-import ConfigParser
-from olcmodules.firmware.cbf import check as cbf_check
-from olcmodules import config
-from olcmodules.config import PROFILES_PATH
 
 PACKET_SIZE = 131072
 
 
 class config(object):
-    def __init__(self, module, device_profile, lpath):
-        self._module = module
-        self._device_profile = device_profile
+    def __init__(self, device_profile, lpath):
+        self._device_profile = device_profile.get()
         self._lpath = lpath
         self._lpath_isdir = os.path.isdir(lpath)
 
-        self._local_file_list = ()
+        self._local_file_list = []
         self._fw_conf_info = []
-        self._remote_fw_path = self._device_profile['firmware']['remote_dir']        
+        self._remote_fw_path = self._device_profile['firmware']['remote_path']        
         
         self.fs = ''
 
@@ -69,56 +64,62 @@ class config(object):
             if self._lpath[-1:] == '/':
                 self._lpath = self._lpath[0:-1]
 
-            local_fw_name = self._device_profile['firmware']['local_dirs']
+            local_fw_name = self._device_profile['firmware']['local_dir']
                 
             check_fw_path = os.path.join(self._lpath, local_fw_name)
             
             if os.path.exists(check_fw_path):
                 self._lpath = check_fw_path
-                
-        if not self._module.exists_i(self._remote_fw_dir):
-            self._module.mkdir_i(self._remote_fw_dir)
 
 
     def _create_lfile_list(self):
         if self._lpath_isdir:
             for file_name in os.listdir(self._lpath):
-                self._local_file_list.append(os.path.join(self._lpath, file_name))
+                file_path = os.path.join(self._lpath, file_name)
+
+                if file_name == 'sd' and os.path.isdir(file_path):
+                    for file_iname, file_info in self._device_profile['firmware']['file_info'].items():
+                        sd_file_path = os.path.join(self._lpath, file_info['name'])
+
+                        if os.path.exists(sd_file_path):
+                                self._local_file_list.append(sd_file_path)
+                else:
+                    self._local_file_list.append(os.path.join(self._lpath, file_name))
 
         else:
             self._local_file_list.append(self._lpath)
 
 
-
-    def get_file_names(self):
+    def get_file_paths(self):
         fw_files = []
-        fw_file_count = len(self._device_profile['firmware']['firmware_names'])
+        fw_names = self._device_profile['firmware']['names'].split(',')
+        fw_version = int(self._device_profile['firmware']['version'])
+        fw_file_count = len(fw_names)
+
         for fw_lfile in self._local_file_list:
-            for file_info in self._device_profile['firmware']['firmware_names']:
-                # not going to work with leappad1 sd/blah/blah
+            for file_name, file_info in self._device_profile['firmware']['file_info'].items():
                 if file_info['match'] in fw_lfile:
-                    fw_file_count += 1
-                    if self._device_profile['firmware']['version'] == '1':
-                        pass
-                        # dftp1 style update
+                    fw_file_count -= 1
+
+                    if fw_version == 1:
                         if 'addr' in file_info and 'size' in file_info:
                             self.fs += '%s %s payload/%s\n' % (file_info['addr'], file_info['size'], name)
-                            name = '%s,%s,%s' % (eval(file_info['addr']), (eval(file_info['size'])/PACKET_SIZE), name)
-                            # assume custom partitions, make and upload 1.2.0.0.fs
+                            file_rname = '%s,%s,%s' % (eval(file_info['addr']), (eval(file_info['size'])/PACKET_SIZE), name)
                         else:
-                            pass
-                            # normal dftp1 update
-                    elif self._device_profile['firmware']['version'] == '2':
+                            file_rname = file_info['name']
+
+                    elif fw_version == 2:
                         if 'part_num' in file_info:
                             file_size = os.path.getsize(fw_lfile)
                             name = '%s,%s,%s' % (file_info['part_num'], file_size, file_info['name'])
-                            # everything but lpad1v2
                         else:
-                            name = file_info['name']
-        
-                fw_files.append((fw_lfile, os.path.join(self._remote_fw_dir, name)))
+                            file_rname = file_info['name']
+                    else:
+                        self.error('DFTP version \'%s\' is not supported.' % fw_version)
 
-            if fw_file_count == 0:
+                    fw_files.append((fw_lfile, os.path.join(self._remote_fw_path, file_rname)))
+
+            if fw_file_count == 1:
                 break
 
         if fw_files:

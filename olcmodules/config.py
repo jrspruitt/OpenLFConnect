@@ -34,7 +34,7 @@
 
 import os
 from shutil import copytree
-import ConfigParser as cp
+from olcmodules.devices import profile
 
 APP_PATH = os.path.dirname(os.path.dirname(__file__))
 FILES_PATH = os.path.join(APP_PATH, 'files')
@@ -42,43 +42,6 @@ EXTRAS_PATH = os.path.join(APP_PATH, FILES_PATH, 'Extras')
 SCRIPTS_PATH = os.path.join(EXTRAS_PATH, 'Scripts')
 PROFILES_PATH = os.path.join(EXTRAS_PATH, 'Profiles')
 DOWNLOAD_PATH = os.path.join(FILES_PATH, 'Downloads')
-
-
-
-LPAD_NAME = 'Lpad'
-LPAD_NAMES = ['lpad', 'lxp', 'leappad', 'leappad explorer', 'explorer leappad', 'Leappad1', 'lpad1']
-LPAD_VDICT = 'leappadexplorer'
-LPAD_DCONT = 'LPAD'
-LPAD_CONF = 'leappad1.cfg'
-LPAD_PATH = os.path.join(FILES_PATH, LPAD_NAME)
-
-LX_NAME = 'LX'
-LX_NAMES = ['lx', 'explorer', 'leapster explorer']
-LX_VDICT = 'lexplorer'
-LX_DCONT = 'LST3'
-LX_CONF = 'explorer.cfg'
-LX_PATH = os.path.join(FILES_PATH, LX_NAME)
-
-DIDJ_NAME = 'Didj'
-DIDJ_NAMES = ['didj']
-DIDJ_VDICT = 'didj'
-DIDJ_DCONT = ''
-DIDJ_CONF = ''
-DIDJ_PATH = os.path.join(FILES_PATH, DIDJ_NAME)
-
-LXGS_NAME = 'LXGS'
-LXGS_NAMES = ['lxgs', 'gs', 'explorer gs']
-LXGS_VDICT = ''
-LXGS_DCONT = 'GAMFW'
-LXGS_CONF = 'leapstergs.cfg'
-LXGS_PATH = os.path.join(FILES_PATH, LXGS_NAME)
-
-LPAD2_NAME = 'Lpad2'
-LPAD2_NAMES = ['lpad2', 'lxp2', 'leappad2', 'leappad2 explorer', 'explorer leappad2']
-LPAD2_VDICT = ''
-LPAD2_DCONT = 'PADFW'
-LPAD2_CONF = 'leappad2.cfg'
-LPAD2_PATH = os.path.join(FILES_PATH, LPAD2_NAME)
 
       
 def error(e):
@@ -93,15 +56,29 @@ def olc_files_dirs_check():
             print 'Files folder is missing, lets repopulate.'
             print 'Created %s/' % FILES_PATH
 
-        dirs = [LPAD_PATH, LX_PATH, DIDJ_PATH, LXGS_PATH, LPAD2_PATH, DOWNLOAD_PATH, EXTRAS_PATH, SCRIPTS_PATH, PROFILES_PATH]
+        dirs = [DOWNLOAD_PATH, EXTRAS_PATH, SCRIPTS_PATH, PROFILES_PATH]
+                
+
+        dprofile = profile()
+        for cfg in os.listdir(PROFILES_PATH):
+            if cfg.endswith('.cfg') and not os.path.isdir(cfg) and cfg != 'default.cfg':
+                try:
+                    device_profile = dprofile.load(os.path.join(PROFILES_PATH, cfg))
+                    if device_profile['olfc']['create_dir'].lower() == 'true':
+                        dirs.append(os.path.join(FILES_PATH, device_profile['names']['internal']))
+                    
+                except Exception, e:
+                    continue
+
+
 
         for item in dirs:
 
             if not os.path.exists(item):
                 if item == SCRIPTS_PATH:
                     copytree(os.path.join(APP_PATH, 'extras/dftp_scripts'), SCRIPTS_PATH)
-                elif item == PARTITIONS_PATH:
-                    copytree(os.path.join(APP_PATH, 'extras/device_profiles'), PARTITIONS_PATH)
+                elif item == PROFILES_PATH:
+                    copytree(os.path.join(APP_PATH, 'extras/device_profiles'), PROFILES_PATH)
                 else:
                     os.mkdir(item)
                 
@@ -111,43 +88,6 @@ def olc_files_dirs_check():
     except Exception, e:
         error(e)
 
-
-
-def olc_device_settings(name):
-    if name.lower() in LPAD_NAMES:
-        nname = LPAD_NAME
-        vdict = LPAD_VDICT
-        dcont = LPAD_DCONT
-        fdir = LPAD_PATH
-        conf = LPAD_CONF
-    elif name.lower() in LX_NAMES:
-        nname = LX_NAME
-        vdict = LX_VDICT
-        dcont = LX_DCONT
-        fdir = LX_PATH
-        conf = LX_CONF
-    elif name.lower() in DIDJ_NAMES:
-        nname = DIDJ_NAME
-        vdict = DIDJ_VDICT
-        dcont = DIDJ_DCONT
-        fdir = DIDJ_PATH
-        conf = DIDJ_CONF
-    elif name.lower() in LXGS_NAMES:
-        nname = LXGS_NAME
-        vdict = LXGS_VDICT
-        dcont = LXGS_DCONT
-        fdir = LXGS_PATH
-        conf = LXGS_CONF
-    elif name.lower() in LPAD2_NAMES:
-        nname = LPAD2_NAME
-        vdict = LPAD2_VDICT
-        dcont = LPAD2_DCONT
-        fdir = LPAD2_PATH
-        conf = LPAD2_CONF
-    else:
-        error('Device name could not be determined.')
-    
-    return {'name':nname, 'dir':fdir, 'vdict':vdict, 'dcont':dcont, 'conf':conf}
 
 
 

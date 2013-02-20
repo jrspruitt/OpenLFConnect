@@ -68,9 +68,9 @@ class OpenLFConnect(cmd.Cmd, object):
         self._didj_client = None
         self._pager_client = None
         
+        profile_path = os.path.join(config.PROFILES_PATH, 'default.cfg')
         self._profile = profile()
-        self._profile.load_profile()
-        self._device_profile = self._profile.get_profile() 
+        self._device_profile =  self._profile.load(profile_path)
         
         self._host_id = ''
         self._device_id = ''
@@ -119,15 +119,6 @@ class OpenLFConnect(cmd.Cmd, object):
 
 
 ##############################################################################
-# Profile Internal Functions
-# devices.profile
-#######################
-
-    def device_profile(self):
-        return self._device_profile
-
-
-##############################################################################
 # Profile User Functions
 # devices.profile
 #######################  
@@ -147,8 +138,7 @@ Standard profiles are in Extras/Profiles/*.cfg
         """
         try:
             abspath = self._lm.get_abspath(s)
-            self._profile.load_profile(abspath)
-            self._device_profile = self._profile.get_profile()
+            self._profile.load(abspath)
         except Exception, e:
             self.perror(e)
 
@@ -161,7 +151,7 @@ Usage:
 
 Prints the file name of the currently loaded device profile
         """
-        print self._device_profile['olfc']['profile_name']
+        print self._profile.get()['olfc']['profile_name']
 
 
 
@@ -175,7 +165,7 @@ Saves currently loaded profile as the default profile loaded on startup.
         try:
             self._profile.save_as_default()
         except Exception, e:
-            self.prerror(e)
+            self.perror(e)
 
 
 
@@ -458,7 +448,7 @@ This could take a minute or so, if you just booted the device.
             if not self._lm.is_client(self._dftp2_client):
                 try:
                     mc = conn_iface(mount_connection(self.device_id, 'NULL', self.debug))
-                    self._dftp2_client = dftp2_client(mc, self.device_profile, self.debug)
+                    self._dftp2_client = dftp2_client(mc, self._profile, self.debug)
                     self._lm.remote_connection_init(mc, fs_iface(self._dftp2_client), self._dftp2_client)
                     self._dftp2_client.create_client()
                     self._lm.remote_path_init()
@@ -1545,7 +1535,7 @@ surgeon and bulk are not available for Didj.
         """
         try:
             self._lm.is_empty(s)           
-            lfp = packages.lf_packages(self._device_profile)
+            lfp = packages.lf_packages(self._profile)
             lfp.get_package(s, self._lm.local_path)
         except Exception, e:
             self.perror(e)

@@ -38,14 +38,14 @@ from time import sleep
 from shlex import split as shlex_split
 from subprocess import Popen, PIPE
 from olcmodules import config
-import olcmodules.firmware.dftp as fwdftp
+import olcmodules.firmware.dftp2 as fwdftp
 
 class client(object):
-    def __init__(self, mount_config, debug=False):
+    def __init__(self, mount_config, device_profile, debug=False):
         self.debug = debug
         self._dbg = config.debug(self)
         self._mount_config = mount_config
-        
+        self._device_profile = device_profile.get()
         self._name_lpad = 'LeapPad1'
         self._name_lx = 'Explorer'
         self._name_lxgs = 'LeapsterGS'
@@ -162,12 +162,14 @@ class client(object):
         try:                
             self.send('%s' % cmd)
             ret = ''
-            while 1:
-                ret_p = self.receive()
+            ret_p = self.receive()
+            while 1:                
                 ret += ret_p
+                break
                 if '200 OK' in ret_p:
                     break
-                
+                elif ret_p.startswith('550 Path not found'):
+                    break
             if ret:
                 retarr = ret.split('\n')
             else:
@@ -438,33 +440,17 @@ class client(object):
 
 
     def update_firmware(self, lpath):
-        #################################
-        # Needs to change how its determined
-        # fuse is present all the time now
-        # from the looks of things
-        #################################
         try:
             if not os.path.exists(lpath):
                 self.error('Path does not exist.')
-            elif self._surgeon_dftp_version != self.dftp_version:
-                self.error('Device is not in USB boot mode.')
-            
-            if self.exists_i(fwdftp.FUSE_REMOTE_FW_ROOT):
-                utype = 'fuse'
-                fw = fwdftp.config(self, utype, lpath, self._partitions_config)
-                paths = fw.prepare_update()
-            
-            elif self.exists_i(fwdftp.DFTP_REMOTE_FW_ROOT):
-                utype = 'dftp'
-                fw = fwdftp.config(self, utype, lpath, self._partitions_config)
-                paths = fw.prepare_update()
-                
-                if self._partitions_config != self._partitions_default:
-                    self.upload_buffer(fw.fs, self._remote_fs_file)     
-            else:
-                self.error('Could not determine update application to use.')
 
-            print 'Updating %s Firmware with %s' % (self.get_device_name(), utype)
+            fw = fwdftp.config(self._device_profile, lpath)
+            paths = fw.get_file_paths()
+                
+            if not self._module.exists_i(self._device_profile['firmware']['remote_path']):
+                self._module.mkdir_i(self._device_profile['firmware']['remote_path'])
+
+            print 'Updating %s Firmware' % (self.get_device_name())
                
             for lfpath, rfpath in paths:
                 self.upload_file_i(lfpath, rfpath)
