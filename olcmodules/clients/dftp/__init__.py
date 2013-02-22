@@ -30,34 +30,32 @@
 ##############################################################################
 
 #@
-# dftp.py Version 0.9.0
+# dftp2.py Version 0.0.3
+
 import os
-import socket
-import time
 from olcmodules import config
 import olcmodules.firmware.dftp as fwdftp
 
 class client(object):
-    def __init__(self, net_config, debug=False):
+    def __init__(self, conn_iface, profile, debug=False):
         self.debug = debug
         self._dbg = config.debug(self)
-        self._net_config = net_config
-        self._sock0 = None
-        self._sock1 = None
-        
-        self._name_lpad = 'LeapPad'
+        self._conn_iface = conn_iface
+        self._profile = profile
+        self._connection = None
+
+        self._name_didj = 'Didj'
         self._name_lx = 'Explorer'
-       
-        self._surgeon_dftp_version = '1.12'
+        self._name_lxgs = 'LeapsterGS'
+        self._name_lpad = 'LeapPad1'
+        self._name_lpad2 = 'LeapPad2'
+
+        self._dftp_version_init = self._profile.get['firmware']['dftp_version']
         
         self._firmware_version = 0
         self._board_id = 0
         self._dftp_version = 0
-        self._recieve_timeout = 1
 
-        self._partitions_default = 'leapfrog.cfg'
-        self._partitions_config = self._partitions_default
-        self._remote_fs_file = '/var/1.2.0.fs'
 
 #######################
 # Internal Functions
@@ -68,159 +66,6 @@ class client(object):
 
     def rerror(self, e):
         assert False, 'DFTP Error: %s' % e
-
-
-
-    def send(self, cmd):
-        try:
-            return self._sock0.send(cmd)
-        except Exception, e:
-            self.error('Send error: %s' % e)
-
-
-
-    def receive(self, size=4096):
-        try:
-            return self._sock1.recv(size)     
-        except socket.timeout:
-            return False
-
-
-
-    def sendrtn(self, cmd, array=False):
-        try:
-            if not self._sock0:
-                self.error('Device not connected.')
-                
-            self.send('%s\x00' % cmd)
-            ret = self.receive()
-            if ret:
-                retarr = ret.split('\n')
-            else:
-                self.error('Receiving error.')
-            ok = False
-            
-            for item in retarr:
-
-                if '200 OK' in item:
-                    del retarr[retarr.index(item)]
-                    ok = True
-
-            if len(retarr) != 0 and not array:
-                return '\n'.join(retarr)
-            elif len(retarr) != 0 and array:
-                return retarr
-            elif ok:
-                return True
-            else:
-                return False
-        except Exception, e:
-            self.error(e)
-
-
-
-    def create_socket(self, device_ip, port):
-        for info in socket.getaddrinfo(device_ip, port, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, socket.AI_PASSIVE):
-            af, socktype, proto, canonname, sa = info
-            
-            try:
-                sock = socket.socket(af, socktype, proto)
-            except socket.error, e:
-                sock = None
-                continue
-            
-            try:
-                sock.connect(sa)
-            except socket.error, e:
-                sock.close()
-                sock = None
-                continue
-            
-        if sock is None:
-            self.error('Could not create socket to: %s' % (device_ip))
-        else:
-            return sock
-
-
-    def download_buffer(self, path):
-        try:
-            if self.sendrtn('RETR %s' % path.replace('\\', '/')):
-                ret_buf = ''
-                buf = ''
-                error = False
-                self.send('100 ACK: %s\x00' % 0)
-                    
-                while True:                    
-                    buf = self.receive(8192)
-    
-                    if buf is False:
-                        continue                        
-                    elif '101 EOF' in buf:
-                        break
-                    elif '500 unknown command' in buf.lower():
-                        error = True
-                        break
-                    else:
-                        self.send('100 ACK: %s\x00' % len(buf))
-                        ret_buf += buf
-                if error:
-                    return False
-                else:
-                    return ret_buf
-        except Exception, e:
-            self.error(e)
-
-
-
-    def upload_buffer(self, buf, rpath):
-        try:
-            if self.sendrtn('STOR %s' % rpath.replace('\\', '/')):             
-                bytes_sent = self.send(buf)
-                ret = True
-                    
-                while ret:
-                    ret = self.receive()
-                        
-                    if ret and '500 Unknown command' in ret:
-                        self.error('Problem occured while uploading.')
-                        
-                self.sendrtn('101 EOF')
-                return bytes_sent
-            else:
-                self.error('Failed to uDIRpload file.')
-        except Exception, e:
-            self.error(e)
-
-
-
-    def run_buffer(self, buf):
-        try:
-            if not buf.startswith('#!/bin/sh'):
-                self.error('File does not appear to be valid shell script, missing shebag line.')
-            
-            if self.sendrtn('RUN'):             
-                self.send(buf.replace('\r', ''))
-                ret = True
-                
-                while ret:
-                    ret = self.receive()
-                    
-                    if ret and '500 Unknown command' in ret:
-                        self.error('Problem occured while uploading.') 
-                
-                self.sendrtn('101 EOF')
-                running = True
-                
-                while running:
-                    ret = self.sendrtn('GETS SCRIPT_RUNNING', True)
-                    if 'SCRIPT_RUNNING=1' in ret[0] :
-                        running = False
-
-                return True
-            else:
-                self.error('Failed to run script.')
-        except Exception, e:
-            self.error(e)
 
 
 
@@ -250,6 +95,35 @@ class client(object):
             return False
         except Exception, e:
             self.error(e)
+
+#######################
+# Internal DFTP Connection Interface Functions
+#######################
+
+    def check_dftp_version(self):
+        if self._dftp_version_init != self._profile.get['firmware']['dftp_version']:
+            self.error('DFTP version mismatch, please change profiles, or reconnect.')
+
+    
+    def send(self, data, type='small'):
+        self.check_dftp_version()
+        return self._connection.send(data, type)
+
+    def receive(self, type='small'):
+        self.check_dftp_version()
+        return self._connection.receive(type)
+
+    def sendrtn(self, cmd, array=False):
+        return self._connection.sendrtn(cmd, array)
+
+    def download_buffer(self, path):
+        return self._connection.download_buffer(path)
+    
+    def upload_buffer(self, buf, rpath):
+        return self._connection.upload_buffer(buf, rpath)
+
+    def run_buffer(self, buf):
+        return self._connection.run_buffer(buf)
    
 
 #######################
@@ -258,10 +132,16 @@ class client(object):
 
     def get_device_name(self):
         bid = self.get_board_id()
-        if bid <= '\x0A':
+        if bid in ['\x00','\x03','\x04','\x05']:
+            return self._name_didj
+        elif bid <= '\x0A':
             return self._name_lx
-        elif bid >= '\x0B':
+        elif bid >= '\x0B' and bid <= '\x0D':
             return self._name_lpad
+        elif bid >= '\x200' and bid <= '\x205':
+            return self._name_lxgs
+        elif bid >= '\x206' and bid <= '\x209':
+            return self._name_lpad2
         else:
             return 'Could not determine device'
 
@@ -332,22 +212,31 @@ class client(object):
         except Exception, e:
             self.rerror(e)
 
-    dftp_version = property(get_dftp_version)
+    def set_dftp_version(self, num):
+        try:
+            self._dftp_version = num
+        except Exception, e:
+            self.rerror(e)
+
+    dftp_version = property(get_dftp_version, set_dftp_version)
+
 
 #######################
 # Client User Command Functions
 #######################
 
     def create_client(self):
-        try:
-            device_id = self._net_config.device_id
-            host_id = self._net_config.host_id
-            self._sock0 = self.create_socket(device_id, 5000)
-            self._sock0.sendall('ETHR %s 1383\x00' % host_id)
-            time.sleep(2)
-            self._sock1 = self.create_socket(device_id, 5001)
-            self._sock1.settimeout(self._recieve_timeout)
-            self.receive()
+        try:            
+            if int(self._profile.get['firmware']['dftp_version']) == 1:
+                from olcmodules.clients.dftp import network
+                self._connection = network.connection(self._conn_iface)
+            elif int(self._profile.get['firmware']['dftp_version']) == 2:
+                from olcmodules.clients.dftp import mass_storage
+                self._connection = mass_storage.connection(self._conn_iface)
+            else:
+                self.error('DFTP version could not be determined.')
+            
+            self._connection.create_client()
         except Exception, e:
             self.rerror(e)
 
@@ -357,10 +246,7 @@ class client(object):
         try:
             self.send('NOOP\x00')
             self.send('DCON\x00')
-            self._sock0.close()
-            self._sock0 = None
-            self._sock1.close()
-            self._sock1 = None
+            self._connection.disconnect()
         except Exception, e:
             self.rerror(e)
 
@@ -388,25 +274,14 @@ class client(object):
         try:
             if not os.path.exists(lpath):
                 self.error('Path does not exist.')
-            elif self._surgeon_dftp_version != self.dftp_version:
-                self.error('Device is not in USB boot mode.')
-            
-            if self.exists_i(fwdftp.FUSE_REMOTE_FW_ROOT):
-                utype = 'fuse'
-                fw = fwdftp.config(self, utype, self._partitions_config)
-                paths = fw.prepare_update(lpath)
-            
-            elif self.exists_i(fwdftp.DFTP_REMOTE_FW_ROOT):
-                utype = 'dftp'
-                fw = fwdftp.config(self, utype, self._partitions_config)
-                paths = fw.prepare_update(lpath)
-                
-                if self._partitions_config != self._partitions_default:
-                    self.upload_buffer(fw.fs, self._remote_fs_file)     
-            else:
-                self.error('Could not determine update application to use.')
 
-            print 'Updating %s Firmware with %s' % (self.get_device_name(), utype)
+            fw = fwdftp.config(self._profile, lpath)
+            paths = fw.get_file_paths()
+                
+            if not self.exists_i(self._profile.get['firmware']['remote_path']):
+                self.mkdir_i(self._profile.get['firmware']['remote_path'])
+
+            print 'Updating %s Firmware' % (self.get_device_name())
                
             for lfpath, rfpath in paths:
                 self.upload_file_i(lfpath, rfpath)
@@ -436,27 +311,13 @@ class client(object):
     def mount_patient(self, num):
         try:
             if num in ('0', '1', '2'):
-                if self.dftp_version == self._surgeon_dftp_version:
-                    self._sock1.settimeout(3)
+                    self._connection.timeout(3)
                     self.sendrtn('SETS MOUNTPATIENT=%s\x00' % num)
-                    self._sock1.settimeout(self._recieve_timeout)
-                else:
-                    self.error('Wrong version of DFTP is running.')
+                    self._connection.timeout()
             else:
                 self.error('Options are 0, 1, and 2')
         except Exception, e:
             self.rerror(e)
-
-
-    def update_partitions(self, cfg):
-        if cfg == '':
-            return self._partitions_config
-        else:
-            if os.path.exists(os.path.join(config.PARTITIONS_PATH, cfg)):
-                self._partitions_config = cfg
-                return "Set to: %s" % self._partitions_config
-            else:
-                return 'Config file not found.'
         
 #######################
 # Filesystem Interface Functions
@@ -491,8 +352,8 @@ class client(object):
     def dir_list_i(self, path):
         try:
             dir_list = []
-            path_arr = self.sendrtn('LIST %s' % path, True)
-            
+            path_arr = self.send('LIST %s' % path, 'large')
+            path_arr = self.receive('large').split('\n')
             for path in path_arr:
                 path = path[15:].replace('\r', '').replace('\n', '')
                 dir_list.append(path)
@@ -635,6 +496,31 @@ class client(object):
                 self.error('No data received.')
         except Exception, e:
             self.error(e) 
+
+
+
+
+#######################################################################
+# dftp1 connection
+#######################################################################
+
+
+
+
+
+
+
+
+#######################################################################
+# dftp2 connection
+#######################################################################
+
+
+
+
+
+
+
 
 if __name__ == '__main__':
     print 'No demo program available yet.'

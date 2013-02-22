@@ -30,40 +30,34 @@
 ##############################################################################
 
 #@
-# dftp2.py Version 0.0.3
-
+# dftp.py Version 0.9.0
 import os
-import sys
-from time import sleep
-from shlex import split as shlex_split
-from subprocess import Popen, PIPE
+import socket
+import time
 from olcmodules import config
-import olcmodules.firmware.dftp2 as fwdftp
+import olcmodules.firmware.dftp as fwdftp
 
 class client(object):
-    def __init__(self, mount_config, device_profile, debug=False):
+    def __init__(self, conn_iface, debug=False):
         self.debug = debug
         self._dbg = config.debug(self)
-        self._mount_config = mount_config
-        self._device_profile = device_profile.get()
-        self._name_lpad = 'LeapPad1'
+        self._conn_iface = conn_iface
+        self._sock0 = None
+        self._sock1 = None
+        
+        self._name_lpad = 'LeapPad'
         self._name_lx = 'Explorer'
-        self._name_lxgs = 'LeapsterGS'
-        self._name_lpad2 = 'LeapPad2'
        
-        self._surgeon_dftp_version = '4'
+        self._surgeon_dftp_version = '1.12'
         
         self._firmware_version = 0
         self._board_id = 0
         self._dftp_version = 0
-        
-        self._request_large = 10240
-        self._request_small = 512
+        self._recieve_timeout = 1
 
-        if sys.platform == 'win32':
-            self._sg_raw = 'bin/sg_raw'
-        else:
-            self._sg_raw = 'sg_raw'
+        self._partitions_default = 'leapfrog.cfg'
+        self._partitions_config = self._partitions_default
+        self._remote_fs_file = '/var/1.2.0.fs'
 
 #######################
 # Internal Functions
@@ -77,99 +71,29 @@ class client(object):
 
 
 
-    def send(self, data, small=True):
+    def send(self, cmd):
         try:
-            data_len = len(data)
-            bytes_sent = 0
-            if small:
-                request_len = self._request_small
-                trans_len = '01'
-                lba = '20'
-            else:
-                request_len = self._request_large
-                trans_len = '14'
-                lba = '40'
-
-            i = 0
-            while bytes_sent != data_len:
-                data_p = data[i:request_len+i]
-                data_p_len = len(data_p)
-
-                data_p += '\x00'*(request_len-data_p_len)
-    
-                scsi_cmd = '%s %s -b -s %s -n 2A 80 00 00 00 %s 00 00 %s 00' % (self._sg_raw, self._mount_config.device_id, request_len, lba, trans_len)
-                scsi_cmd = shlex_split(scsi_cmd)
-                p = Popen(scsi_cmd, stdin=PIPE, stderr=PIPE)
-                p.stdin.write(data_p)
-                i += request_len
-                bytes_sent = bytes_sent + data_p_len
-
-                if not small:
-                    ret = self.receive()
-                    if not '103 CONT' in ret:
-                        break
-
-            if not small:
-                self.sendrtn('101 EOF:%s' % str(request_len - data_p_len))
-
-            return bytes_sent
+            return self._sock0.send(cmd)
         except Exception, e:
             self.error('Send error: %s' % e)
 
 
 
-    def receive(self, small=True):
+    def receive(self, size=4096):
         try:
-            if small:
-                request_len = self._request_small
-                trans_len = '01'
-                lba = '20'
-            else:
-                request_len = self._request_large
-                trans_len = '14'
-                lba = '40' 
-    
-            scsi_cmd = '%s %s -b -r %s -n 28 00 00 00 00 %s 00 00 %s 00' % (self._sg_raw, self._mount_config.device_id, request_len, lba, trans_len)
-            scsi_cmd = shlex_split(scsi_cmd)
-            p = Popen(scsi_cmd, stdout=PIPE, stderr=PIPE)
-            buf = ''
-            while(p.poll() is not None):
-                sleep(.1)
-                continue
-            
-            line = p.stdout.read(1)
-            if line == '':
-                p.stdout.flush()
-                return False
-            else:
-                buf = line
-                
-            while 1:
-                line = p.stdout.read()
-                if line == '':
-                    break
-                elif '102 BUSY' in line:
-                    continue
-                else:
-                    buf += line
-            return buf
-        except Exception, e:
-            self.error('Receiving error: %s' % e)
+            return self._sock1.recv(size)     
+        except socket.timeout:
+            return False
 
 
 
     def sendrtn(self, cmd, array=False):
-        try:                
-            self.send('%s' % cmd)
-            ret = ''
-            ret_p = self.receive()
-            while 1:                
-                ret += ret_p
-                break
-                if '200 OK' in ret_p:
-                    break
-                elif ret_p.startswith('550 Path not found'):
-                    break
+        try:
+            if not self._sock0:
+                self.error('Device not connected.')
+                
+            self.send('%s\x00' % cmd)
+            ret = self.receive()
             if ret:
                 retarr = ret.split('\n')
             else:
@@ -195,43 +119,50 @@ class client(object):
 
 
 
+    def create_socket(self, device_ip, port):
+        for info in socket.getaddrinfo(device_ip, port, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, socket.AI_PASSIVE):
+            af, socktype, proto, canonname, sa = info
+            
+            try:
+                sock = socket.socket(af, socktype, proto)
+            except socket.error, e:
+                sock = None
+                continue
+            
+            try:
+                sock.connect(sa)
+            except socket.error, e:
+                sock.close()
+                sock = None
+                continue
+            
+        if sock is None:
+            self.error('Could not create socket to: %s' % (device_ip))
+        else:
+            return sock
+
 
     def download_buffer(self, path):
         try:
-            self.send('RETR %s' % path.replace('\\', '/'))
-            cmd_ret = self.receive().replace('\x00', '')
-
-            if '200 OK' in cmd_ret:
+            if self.sendrtn('RETR %s' % path.replace('\\', '/')):
                 ret_buf = ''
                 buf = ''
                 error = False
+                self.send('100 ACK: %s\x00' % 0)
                     
                 while True:                    
-                    buf = self.receive(False)
-
-                    if '500 unknown command' in buf.lower():
+                    buf = self.receive(8192)
+    
+                    if buf is False:
+                        continue                        
+                    elif '101 EOF' in buf:
+                        break
+                    elif '500 unknown command' in buf.lower():
                         error = True
                         break
                     else:
+                        self.send('100 ACK: %s\x00' % len(buf))
                         ret_buf += buf
-
-                    sbuf = self.receive()
-                    if '101 EOF' in sbuf:
-                        break
-                    elif '103 CONT' in sbuf:
-                        continue
-                    else:
-                        error = True
-                        break
-
-                if '200 OK:' in cmd_ret:
-                    ret_size = int(cmd_ret.replace('200 OK:', ''))
-                else:
-                    ret_size = ret_buf.find('\x00')
-
-                if len(ret_buf) >= ret_size:
-                    ret_buf = ret_buf[0:ret_size]
-
                 if error:
                     return False
                 else:
@@ -244,10 +175,19 @@ class client(object):
     def upload_buffer(self, buf, rpath):
         try:
             if self.sendrtn('STOR %s' % rpath.replace('\\', '/')):             
-                bytes_sent = self.send(buf, False)
+                bytes_sent = self.send(buf)
+                ret = True
+                    
+                while ret:
+                    ret = self.receive()
+                        
+                    if ret and '500 Unknown command' in ret:
+                        self.error('Problem occured while uploading.')
+                        
+                self.sendrtn('101 EOF')
                 return bytes_sent
             else:
-                self.error('Failed to upload file.')
+                self.error('Failed to uDIRpload file.')
         except Exception, e:
             self.error(e)
 
@@ -259,12 +199,22 @@ class client(object):
                 self.error('File does not appear to be valid shell script, missing shebag line.')
             
             if self.sendrtn('RUN'):             
-                self.send(buf.replace('\r', ''), False)
+                self.send(buf.replace('\r', ''))
+                ret = True
                 
-                while 1:
+                while ret:
+                    ret = self.receive()
+                    
+                    if ret and '500 Unknown command' in ret:
+                        self.error('Problem occured while uploading.') 
+                
+                self.sendrtn('101 EOF')
+                running = True
+                
+                while running:
                     ret = self.sendrtn('GETS SCRIPT_RUNNING', True)
                     if 'SCRIPT_RUNNING=1' in ret[0] :
-                        break
+                        running = False
 
                 return True
             else:
@@ -310,12 +260,8 @@ class client(object):
         bid = self.get_board_id()
         if bid <= '\x0A':
             return self._name_lx
-        elif bid >= '\x0B' and bid <= '\x0D':
+        elif bid >= '\x0B':
             return self._name_lpad
-        elif bid >= '\x200' and bid <= '\x205':
-            return self._name_lxgs
-        elif bid >= '\x206' and bid <= '\x209':
-            return self._name_lpad2
         else:
             return 'Could not determine device'
 
@@ -386,14 +332,7 @@ class client(object):
         except Exception, e:
             self.rerror(e)
 
-    def set_dftp_version(self, num):
-        try:
-            self._dftp_version = num
-        except Exception, e:
-            self.rerror(e)
-
-    dftp_version = property(get_dftp_version, set_dftp_version)
-
+    dftp_version = property(get_dftp_version)
 
 #######################
 # Client User Command Functions
@@ -401,12 +340,14 @@ class client(object):
 
     def create_client(self):
         try:
-            self._mount_config.device_id
-            while self.send('INFO'):
-                sleep(1)
-                if self.receive():
-                    sleep(1)
-                    break
+            device_id = self._conn_iface.device_id
+            host_id = self._conn_iface.host_id
+            self._sock0 = self.create_socket(device_id, 5000)
+            self._sock0.sendall('ETHR %s 1383\x00' % host_id)
+            time.sleep(2)
+            self._sock1 = self.create_socket(device_id, 5001)
+            self._sock1.settimeout(self._recieve_timeout)
+            self.receive()
         except Exception, e:
             self.rerror(e)
 
@@ -416,6 +357,10 @@ class client(object):
         try:
             self.send('NOOP\x00')
             self.send('DCON\x00')
+            self._sock0.close()
+            self._sock0 = None
+            self._sock1.close()
+            self._sock1 = None
         except Exception, e:
             self.rerror(e)
 
@@ -443,14 +388,25 @@ class client(object):
         try:
             if not os.path.exists(lpath):
                 self.error('Path does not exist.')
-
-            fw = fwdftp.config(self._device_profile, lpath)
-            paths = fw.get_file_paths()
+            elif self._surgeon_dftp_version != self.dftp_version:
+                self.error('Device is not in USB boot mode.')
+            
+            if self.exists_i(fwdftp.FUSE_REMOTE_FW_ROOT):
+                utype = 'fuse'
+                fw = fwdftp.config(self, utype, self._partitions_config)
+                paths = fw.prepare_update(lpath)
+            
+            elif self.exists_i(fwdftp.DFTP_REMOTE_FW_ROOT):
+                utype = 'dftp'
+                fw = fwdftp.config(self, utype, self._partitions_config)
+                paths = fw.prepare_update(lpath)
                 
-            if not self._module.exists_i(self._device_profile['firmware']['remote_path']):
-                self._module.mkdir_i(self._device_profile['firmware']['remote_path'])
+                if self._partitions_config != self._partitions_default:
+                    self.upload_buffer(fw.fs, self._remote_fs_file)     
+            else:
+                self.error('Could not determine update application to use.')
 
-            print 'Updating %s Firmware' % (self.get_device_name())
+            print 'Updating %s Firmware with %s' % (self.get_device_name(), utype)
                
             for lfpath, rfpath in paths:
                 self.upload_file_i(lfpath, rfpath)
@@ -481,7 +437,9 @@ class client(object):
         try:
             if num in ('0', '1', '2'):
                 if self.dftp_version == self._surgeon_dftp_version:
+                    self._sock1.settimeout(3)
                     self.sendrtn('SETS MOUNTPATIENT=%s\x00' % num)
+                    self._sock1.settimeout(self._recieve_timeout)
                 else:
                     self.error('Wrong version of DFTP is running.')
             else:

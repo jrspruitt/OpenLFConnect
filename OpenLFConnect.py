@@ -44,7 +44,6 @@ from olcmodules.system.interface import config as conn_iface
 
 from olcmodules.clients.pager import client as pager_client
 from olcmodules.clients.dftp import client as dftp_client
-from olcmodules.clients.dftp2 import client as dftp2_client
 from olcmodules.clients.didj import client as didj_client
 from olcmodules.clients.local import client as local_client
 from olcmodules.clients.interface import filesystem as fs_iface
@@ -64,13 +63,13 @@ class OpenLFConnect(cmd.Cmd, object):
         self._lm = loc_manager(self._init_path, cmd.Cmd)
         
         self._dftp_client = None
-        self._dftp2_client = None
         self._didj_client = None
         self._pager_client = None
         
-        profile_path = os.path.join(config.PROFILES_PATH, 'default.cfg')
-        self._profile = profile()
-        self._device_profile =  self._profile.load(profile_path)
+        profile_path_default = os.path.join(config.PROFILES_PATH, 'default.cfg')
+        self._profile_path = profile_path_default
+        self._profile = profile(profile_path_default)
+        self._profile.load(profile_path_default)
         
         self._host_id = ''
         self._device_id = ''
@@ -127,6 +126,9 @@ class OpenLFConnect(cmd.Cmd, object):
         return self._lm.complete_local(text, line, begidx, endidx)
 
 
+    def complete_device_profile_default(self, text, line, begidx, endidx):
+        return self._lm.complete_local(text, line, begidx, endidx)
+
 
     def do_device_profile_load(self, s):
         """
@@ -137,9 +139,13 @@ Loads a device profile for the particular device you wish to use.
 Standard profiles are in Extras/Profiles/*.cfg
         """
         try:
+            self._lm.is_empty(s)
+            self._lm.set_local()
             abspath = self._lm.get_abspath(s)
+            self._profile_path = abspath
+            self._lm.last_location()       
             self._profile.load(abspath)
-        except Exception, e:
+        except Exception, e:      
             self.perror(e)
 
 
@@ -151,19 +157,29 @@ Usage:
 
 Prints the file name of the currently loaded device profile
         """
-        print self._profile.get()['olfc']['profile_name']
+        print self._profile.get['olfc']['profile_name']
 
 
 
     def do_device_profile_default(self, s):
         """
 Usage:
-    device_profile_default
+    device_profile_default <path>
 
-Saves currently loaded profile as the default profile loaded on startup.
+Saves profile as the default profile loaded on startup.
+If path isgiven will save that as default, with out loading contents.
+If no path is given, saves currently loaded profile.
         """
         try:
-            self._profile.save_as_default()
+            self._lm.set_local()
+
+            if s:
+                abspath = self._lm.get_abspath(s)
+            else:
+                abspath = self._profile_path
+
+            self._lm.last_location()
+            self._profile.save_as_default(abspath)
         except Exception, e:
             self.perror(e)
 
@@ -235,13 +251,31 @@ Usage:
     didj_eject
 
 Eject the Didj which will unmount on host system, if the firmware updates are 
-on the Didj, an update will be triggered. If they are not, it will ask you to unplug it.
-Could take some time to unmount and eject if you have written files to the device.
+ on the Didj, an update will be triggered. If they are not, it will ask you
+ to unplug it.
+
+Could take some time to unmount and eject if you have written files to
+ the device.
         """
         try:
             self._lm.is_remote(self._didj_client)
             self._didj_client.eject()
             self._lm.remote_destroy()
+        except Exception, e:
+            self.perror(e)
+
+
+
+    def do_didj_device_info(self, s):
+        """
+Usage:
+    didj_device_info
+
+Returns various information about device and mount.
+        """
+        try:
+            self._lm.is_remote(self._didj_client)
+            self.didj_device_info()
         except Exception, e:
             self.perror(e)
 
@@ -257,8 +291,12 @@ CAUTION:
 !!Make sure Battery's are Fresh, or A/C adapter is used!!
 
 Update Didj firmware and bootloader.
-lightning-boot.bin, erootfs.jffs2 and kernel.bin are all required for the update to work.
-They can all be in the current directory, or in bootstrap-LF_LF1000 and firmware-LF_LF1000 respectively.
+lightning-boot.bin, erootfs.jffs2 and kernel.bin are all required for the
+ update to work.
+
+They can all be in the current directory, or in bootstrap-LF_LF1000 and
+ firmware-LF_LF1000 respectively.
+
 MD5 files will be created automatically.
         """
         try:
@@ -290,8 +328,12 @@ CAUTION:
 
 Update Didj firmware.
 erootfs.jffs2 and kernel.bin are both required for update to take place.
-Files can have alternate names as long as their name is in the new name, ex. custom-kernel.bin, or erootfs-custom.jffs2
+
+Files can have alternate names as long as their name is in the new name,
+ ex. custom-kernel.bin, or erootfs-custom.jffs2
+
 Files must be in the current directory or in firmware-LF_LF1000 directory.
+
 MD5 files will be created automatically.
         """
         try:
@@ -321,8 +363,12 @@ CAUTION:
 !!Make sure Battery's are Fresh, or A/C adapter is used!!
 
 Update Didj bootloader.
-File must be in current directory, bootloader-LF_LF1000 directory or direct path to.
-File can have alternate name, but must include lightning-boot in it, ex custom-lightning-boot.bin
+File must be in current directory, bootloader-LF_LF1000 directory or direct
+ path to.
+
+File can have alternate name, but must include lightning-boot in it,
+ ex custom-lightning-boot.bin
+
 MD5 files will be created automatically.
         """        
         try:
@@ -365,8 +411,12 @@ CAUTION:
 !!Attempts to flash firmware, could potentially be harmful.!!
 !!Make sure Battery's are Fresh, or A/C adapter is used!!
 !!Requires NAND enabled Emerald Boot!!
+
 Flash Emerald Boot to Didj NAND.
-After running Didj will shutdown, unplug USB and turn on device. It should then turn itself off.
+
+After running Didj will shutdown, unplug USB and turn on device.
+ It should then turn itself off.
+
 You should now be able to USB Boot like the Explorer and update using DFTP.
         """
         try:
@@ -384,278 +434,6 @@ You should now be able to USB Boot like the Explorer and update using DFTP.
         except Exception, e:
             self._lm.last_location()
             self.perror(e)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-##############################################################################
-# DFTP2 Internal Functions
-# clients.dftp
-#######################
-
-    def complete_dftp2_update(self, text, line, begidx, endidx):
-        return self._lm.complete_local(text, line, begidx, endidx)
-
-    def complete_dftp2_update_partitions(self, text, line, begidx, endidx):
-        l = line.split(' ')
-        line ='%s %s' % (l[0], os.path.join(config.PARTITIONS_PATH, l[1]))
-        return self._lm.complete_local(text, line, begidx, endidx)
-
-    def dftp2_device_info(self):
-        try:
-            device_name = self._dftp2_client.device_name
-            serial = self._dftp2_client.serial_number
-            print '  Device:\t\t%s' % device_name
-            print '  Firmware Version:\t%s' % self._dftp2_client.firmware_version
-            print '  Serial Number\t\t%s' % serial
-            print '  Board ID:\t\t%s' % self._dftp2_client.board_id
-            print '  Battery Level\t\t%s' % self._dftp2_client.battery_level
-            print '  Device ID:\t\t%s' % self._lm.remote_conn.device_id
-            print '  DFTP Version:\t\t%s' % self._dftp2_client.dftp_version
-        except Exception, e:
-            self.error(e)
-
-#######################
-# DFTP2 User Functions
-# clients.dftp
-#######################
-        
-    def do_dftp2_connect(self, s):
-        """
-Usage:
-    dftp_connect
-
-Connect to device for dftp session.
-Will attempt to configure IPs as needed.
-This could take a minute or so, if you just booted the device.
-        """
-        try:
-            if not self._lm.is_client(self._dftp2_client):
-                try:
-                    mc = conn_iface(mount_connection(self.device_id, 'NULL', self.debug))
-                    self._dftp2_client = dftp2_client(mc, self._profile, self.debug)
-                    self._lm.remote_connection_init(mc, fs_iface(self._dftp2_client), self._dftp2_client)
-                    self._dftp2_client.create_client()
-                    self._lm.remote_path_init()
-                    self.dftp2_device_info()
-                except Exception, e:
-                    self._dftp2_client = None
-                    self._lm.remote_destroy() 
-                    self.error(e)                   
-            else:
-                self.perror('DFTP client already running')
-        except Exception, e:
-            self.perror(e)
-
-
-
-    def do_dftp2_disconnect(self, s):
-        """
-Usage:
-    dftp_disconnect
-
-Disconnect DFTP client.
-This will cause the DFTP server to start announcing its IP again, except Explorer's surgeon.cbf version, which will reboot the device.
-        """
-        try:
-            self._lm.is_remote(self._dftp2_client)
-            self._dftp2_client.disconnect()
-            self._dftp2_client = None
-            self._lm.remote_destroy()
-        except Exception, e:
-            self.perror(e)
-
-
-
-    def do_dftp2_server_version(self, s):
-        """
-Usage
-    dftp_server_version [number]
-
-Sets the version number of the dftp server. Or retrieves if none specified.
-OpenLFConnect checks for version 1.12 for surgeon running before a firmware update.
-Set this to 1.12 if getting complaints, or surgeon has its dftp version updated.
-    """
-        try:
-            self._lm.is_remote(self._dftp2_client)
-            if s != '':
-                self._dftp2_client.dftp_version = s
-            else:
-                print self._dftp2_client.dftp_version
-        except Exception, e:
-            self.perror(e)
-
-
-
-    def do_dftp2_device_info(self, s):
-        """
-Usage:
-    dftp_device_info
-
-Returns various information about the device, and connection.
-Note: Device name is guessed from board id.
-        """
-        try:
-            self._lm.is_remote(self._dftp2_client)
-            self.dftp_device_info()
-        except Exception, e:
-            self.perror(e)
-
-
-
-    def do_dftp2_update(self, s):
-        """
-Usage:
-    dftp_update <local path>
-
-CAUTION:
-!!Attempts to flash firmware, could potentially be harmful.!!
-!!Make sure Battery's are Fresh, or A/C adapter is used!!
-
-Uploads and flashes the files found in path, or the file specified by path.
-
-Caution: Has not been tested on LeapPad, theoretically it should work though, please confirm to author yes or no if you get the chance.
-        """
-        try:
-            self._lm.is_remote(self._dftp2_client)
-            self._lm.set_local()
-            abspath = self._lm.get_abspath(s)
-            self._dftp2_client.update_firmware(abspath)
-            self._lm.last_location()
-        except Exception, e:
-            self._lm.last_location()
-            self.perror(e)
-
-    def do_dftp2_reboot(self, s):
-        """
-Usage:
-    dftp_reboot
-
-This will trigger a reboot.
-        """
-        try:
-            self._lm.is_remote(self._dftp2_client)
-            self._dftp2_client.reboot()
-            self._dftp2_client = None
-            self._lm.remote_destroy()
-        except Exception, e:
-            self._dftp2_client = None
-            self._lm.remote_destroy()
-            self.perror(e)
-
-
-
-    def do_dftp2_reboot_usbmode(self, s):
-        """
-Usage:
-    dftp_reboot_usbmode
-
-This will reboot the device into USB mode, for sending a surgeon.cbf to boot.
-If surgeon is booted, will do a standared reboot.
-        """
-        try:
-            self._lm.is_remote(self._dftp2_client)
-            self._dftp2_client.reboot_usbmode()
-            self._dftp2_client = None
-            self._lm.remote_destroy()
-        except Exception, e:
-            self._dftp2_client = None
-            self._lm.remote_destroy()
-            self.perror(e)
-
-
-    def do_dftp2_mount_patient(self, s):
-        """
-Usage:
-    dftp_mount_patient 0|1|2
-
-Surgeon booted device only. These give you access to the devices filesystem.
-0 Unmounts /patient-rfs and /patient-bulk/
-1 Mounts /patient-rfs and /patient-bulk/
-2 Mounts only /patient-rfs
-        """
-        try:
-            self._lm.is_remote(self._dftp2_client)
-            self._dftp2_client.mount_patient(s)
-        except Exception, e:
-            self.perror(e)
-
-
-    def do_dftp2_run_script(self, s):
-        """
-Usage:
-    dftp_run_script <path>
-
-This takes a shell script as an argument, and proceeds to run it on the device.
-        """
-        try:
-            self._lm.is_empty(s)
-            self._lm.is_remote(self._dftp2_client)
-            self._lm.set_local()            
-            path = self._lm.get_abspath(s)
-            
-            self._dftp2_client.run_script(path)
-                
-            self._lm.last_location()
-        except Exception, e:
-            self._lm.last_location()
-            self.perror(e)
-
-
-
-    def do_send2(self, s):
-        """
-Usage:
-    send <True|False> <raw command>
-
-Advanced use only, don't know, probably shouldn't.
-<True|False> is the request length, True: 512 for most commands
-False: 10240 for uploading files
-        """
-        try:
-            self._lm.is_empty(s)
-            size, space ,cmd = s.partition(' ')
-            if size.lower() in ['true', 'false'] and cmd != '':
-                self._lm.is_remote(self._dftp2_client)
-                self._dftp2_client.send('%s\x00' % cmd, size)
-                ret = self._dftp2_client.receive(size)
-                if ret:
-                    print ret
-            else:
-                print 'bad command structure.'
-        except Exception, e:
-            self.perror(e)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 ##############################################################################
@@ -691,22 +469,31 @@ False: 10240 for uploading files
 # DFTP User Functions
 # clients.dftp
 #######################
-        
+
     def do_dftp_connect(self, s):
         """
 Usage:
     dftp_connect
 
 Connect to device for dftp session.
-Will attempt to configure IPs as needed.
+What version of DFTP it attempts to connect with depends on the device profile
+ that has been loaded.
+ 
+Will attempt to configure IPs or mount points as needed.
+
 This could take a minute or so, if you just booted the device.
         """
         try:
             if not self._lm.is_client(self._dftp_client):
                 try:
-                    nc = conn_iface(net_connection(self.host_id, self.device_id, self.debug))
-                    self._dftp_client = dftp_client(nc, self.debug)
-                    self._lm.remote_connection_init(nc, fs_iface(self._dftp_client), self._dftp_client)
+                    if self._profile.get['firmware']['dftp_version'] == 1:
+                        ci = conn_iface(net_connection(self.host_id, self.device_id, self.debug))
+                        print 'Connecting with DFTP v1 Networking.'
+                    elif self._profile.get['firmware']['dftp_version'] == 2:
+                        ci = conn_iface(mount_connection(self.device_id, 'NULL', self.debug))
+                        print 'Connecting with DFTP v2 Mass Storage.'
+                    self._dftp_client = dftp_client(ci, self._profile, self.debug)
+                    self._lm.remote_connection_init(ci, fs_iface(self._dftp_client), self._dftp_client)
                     self._dftp_client.create_client()
                     self._lm.remote_path_init()
                     self.dftp_device_info()
@@ -715,7 +502,7 @@ This could take a minute or so, if you just booted the device.
                     self._lm.remote_destroy() 
                     self.error(e)                   
             else:
-                self.perror('DFTP client already running')
+                self.perror('DFTP client already running.')
         except Exception, e:
             self.perror(e)
 
@@ -726,7 +513,8 @@ Usage:
     dftp_disconnect
 
 Disconnect DFTP client.
-This will cause the DFTP server to start announcing its IP again, except Explorer's surgeon.cbf version, which will reboot the device.
+This will cause the DFTP server to start announcing its IP again,
+ except Explorer's surgeon.cbf version, which will reboot the device.
         """
         try:
             self._lm.is_remote(self._dftp_client)
@@ -743,6 +531,7 @@ Usage:
     dftp_device_info
 
 Returns various information about the device, and connection.
+
 Note: Device name is guessed from board id.
         """
         try:
@@ -763,7 +552,8 @@ CAUTION:
 
 Uploads and flashes the files found in path, or the file specified by path.
 
-Caution: Has not been tested on LeapPad, theoretically it should work though, please confirm to author yes or no if you get the chance.
+Caution: Has not been tested on LeapPad1, LeapPad2, or GS theoretically it
+ should work though, please confirm to author yes or no if you get the chance.
         """
         try:
             self._lm.is_remote(self._dftp_client)
@@ -773,24 +563,6 @@ Caution: Has not been tested on LeapPad, theoretically it should work though, pl
             self._lm.last_location()
         except Exception, e:
             self._lm.last_location()
-            self.perror(e)
-
-
-    def do_dftp_update_partitions(self, s):
-        """
-Usage:
-    dftp_update_partitions <partitions_file>
-
-Sets the partition configuration file located in files/Extras/Partitions/ for use with DFTP Update.
-Set to custom config file when your device uses DFTP but with modified partition sizes/addresses.
-Default is LeapFrog.cfg
-
-Caution: This does not repartition your device. The table is hard coded in the kernel/bootloader.
-        """
-        try:
-            self._lm.is_remote(self._dftp_client)
-            print self._dftp_client.update_partitions(s)
-        except Exception, e:
             self.perror(e)
 
 
@@ -836,7 +608,8 @@ If surgeon is booted, will do a standared reboot.
 Usage:
     dftp_mount_patient 0|1|2
 
-Surgeon booted device only. These give you access to the devices filesystem.
+Gives you access to the devices filesystem when running Surgeon.
+
 0 Unmounts /patient-rfs and /patient-bulk/
 1 Mounts /patient-rfs and /patient-bulk/
 2 Mounts only /patient-rfs
@@ -844,94 +617,6 @@ Surgeon booted device only. These give you access to the devices filesystem.
         try:
             self._lm.is_remote(self._dftp_client)
             self._dftp_client.mount_patient(s)
-        except Exception, e:
-            self.perror(e)
-
-
-    def do_dftp_telnet(self, s):
-        """
-Usage:
-    dftp_telnet <start|stop>
-
-Starts or stops the Telnet daemon on the device.
-Username:root
-Password:<blank>
-        """
-        try:
-            if s in ('start', 'stop'):
-                script = os.path.join(config.SCRIPTS_PATH, 'telnet_%s.sh' % s)
-                self._lm.is_remote(self._dftp_client)            
-                self._dftp_client.run_script(script)
-                print 'Telnet %s' % s
-            else:
-                self.error('Command not recognized.')
-        except Exception, e:
-            self.perror(e)
-
-
-    def do_dftp_ftp(self, s):
-        """
-Usage:
-    dftp_ftp <start|stop>
-
-Starts or stops the FTP server on the device.
-Username:root
-Password:<blank>
-        """
-        try:
-            if s in ('start', 'stop'):
-                script = os.path.join(config.SCRIPTS_PATH, 'ftp_%s.sh' % s)
-                self._lm.is_remote(self._dftp_client)            
-                self._dftp_client.run_script(script)
-                print 'FTP %s' % s
-            else:
-                self.error('Command not recognized.')
-        except Exception, e:
-            self.perror(e)
-
-
-    def do_dftp_sshd(self, s):
-        """
-Usage:
-    dftp_sshd <start|stop>
-
-Starts or stops the SSHD daemon on the device. Does not work on surgeon.
-Username:root
-Password:<blank>
-        """
-        try:
-            if s in ('start', 'stop'):
-                script = os.path.join(config.SCRIPTS_PATH, 'sshd_%s.sh' % s)
-                self._lm.is_remote(self._dftp_client) 
-
-                if self._dftp_client.exists_i('/etc/ssh'):           
-                    self._dftp_client.run_script(script)
-                    print 'SSHD %s' % s
-                else:
-                    self.error('SSHD not installed, must be running Surgeon?')
-            else:
-                self.error('Option not recognized.')
-        except Exception, e:
-            self.perror(e)
-
-
-    def do_dftp_sshd_no_password(self, s):
-        """
-Usage:
-    dftp_sshd_no_password
-
-Patches the sshd_config file to permit login with a blank password.
-Should be run before starting sshd, only needs to be done once.
-        """
-        try:
-            script = os.path.join(config.SCRIPTS_PATH, 'sshd_no_password.sh')
-            self._lm.is_remote(self._dftp_client)
-
-            if self._dftp_client.exists_i('/etc/ssh'):           
-                self._dftp_client.run_script(script)
-                print 'sshd_config patched for empty passwords.'
-            else:
-                self.error('SSHD not installed, must be running Surgeon?')
         except Exception, e:
             self.perror(e)
 
@@ -967,10 +652,10 @@ Advanced use only, don't know, probably shouldn't.
         try:
             self._lm.is_empty(s)
             self._lm.is_remote(self._dftp_client)
-            self._dftp_client._sock1.settimeout(3)
+            self._dftp_client._connection.timeout(3)
             self._dftp_client.send('%s\x00' % s)
             ret = self._dftp_client.receive()
-            self._dftp_client._sock1.settimeout(1)
+            self._dftp_client._connection.timeout()
             if ret:
                 print ret
         except Exception, e:
@@ -1022,7 +707,8 @@ File can be any name, but must conform to CBF standards.
 Usage:
     surgeon_extract_rootfs <rootfs suffix> <path to surgeon.cbf or zImage>
 
-Extracts the Root file system (initramfs) to <current directory>/rootfs.<suffix>
+Extracts the Root file system (initramfs) to 
+ <current directory>/rootfs.<suffix>
         """
         try:
             self._lm.is_empty(s)
@@ -1062,13 +748,7 @@ Extracts the Root file system (initramfs) to <current directory>/rootfs.<suffix>
     def complete_download(self, text, line, begidx, endidx):
         return self._lm.complete_remote(text, line, begidx, endidx)
     
-    def complete_download_dir(self, text, line, begidx, endidx):
-        return self._lm.complete_remote(text, line, begidx, endidx)
-    
     def complete_upload(self, text, line, begidx, endidx):
-        return self._lm.complete_local(text, line, begidx, endidx)
-    
-    def complete_upload_dir(self, text, line, begidx, endidx):
         return self._lm.complete_local(text, line, begidx, endidx)
 
     def complete_cat(self, text, line, begidx, endidx):
@@ -1091,8 +771,9 @@ Usage:
     debug <on | off>
 
 Turning debug on, turns most any filesystem action off, such as, up/download, rm, 
-mkdir, etc. It is replaced with text displaying what would have happened. Useful for
-checking updates before they happen, also will not eject Didj on update.
+ mkdir, etc. It is replaced with text displaying what would have happened.
+ Useful for checking updates before they happen, also will not
+ eject Didj on update.
         """
         if s.lower() in ('on', 'true', 'enable'):
             self.debug = True
@@ -1133,7 +814,9 @@ Usage:
     set_dev_id <device id>
 
 Set the device to use when creating a new mount client.
-The device id, in Linux is the generic scsi device file, ex. /dev/sg2 or harddrive /dev/sdb , or Windows the PhysicalDrive ex. PD1.
+The device id, in Linux is a harddrive /dev/sd[?],
+ or Windows the PhysicalDrive ex. PD1.
+
 To reset to auto determine leave input blank.
         """
         if s == '':
@@ -1148,7 +831,8 @@ To reset to auto determine leave input blank.
 Usage:
     get_mount_point
 
-Returns the currently configured mount point to use when creating a new mount client.
+Returns the currently configured mount point to use when creating a
+ new mount client.
         """
         return self.host_id
 
@@ -1157,8 +841,10 @@ Returns the currently configured mount point to use when creating a new mount cl
 Usage:
     set_mount_point <mount point>
 
-Set the mount point to use when creating a new mount client. 
+Set the mount point to use when creating a new mount client.
+
 The mount point, ex. Linux /media/didj, or Windows D:\
+
 To reset to auto determine leave input blank.
         """
         if s == '':
@@ -1188,6 +874,7 @@ Usage:
 
 Set the device IP address to use when creating a new network client.
 ex. 169.254.123.123
+
 To reset to auto determine leave input blank.
         """
         if s == '':
@@ -1213,6 +900,7 @@ Usage:
 
 Set the host IP address to use when creating a new network client.
 ex. 169.254.123.123
+
 To reset to auto determine leave input blank.
         """
         if s == '':
@@ -1407,7 +1095,8 @@ Delete file. Where depends on which is set, remote or local
 Usage:
     upload <local file>
 
-Upload the specified local file to the current remote directory, Will overwrite with out prompt.
+Upload the specified local file to the current remote directory,
+ Will overwrite with out prompt.
         """
         try:
             self._lm.is_remote()
@@ -1434,7 +1123,8 @@ Upload the specified local file to the current remote directory, Will overwrite 
 Usage:
     download <remote file>
 
-Download the specified remote file to the current local directory, will over write with out prompt.
+Download the specified remote file to the current local directory,
+ will over write with out prompt.
         """
         try:
             self._lm.is_remote() 
@@ -1510,6 +1200,7 @@ Usage:
 
 Extracts LF Package files (lfp ,lfp2)
 Takes a file path, or will extract all packages in a directory.
+
 Will overwrite without warning.
         """
         try:
@@ -1531,6 +1222,7 @@ Usage:
 
 Downloads specified files of currently loaded device.
 bootloader is Didj specific.
+
 surgeon and bulk are not available for Didj.
         """
         try:
@@ -1552,6 +1244,7 @@ Usage:
 
 Removes the CBF wrapper and prints a summary.
 CBF is used on kernels and surgeon, to wrap a zImage or Image file.
+
 Saves the image file to the same directory the cbf file was in.
         """
         try:
@@ -1571,9 +1264,13 @@ Saves the image file to the same directory the cbf file was in.
 Usage:
     cbf_wrap <low|high> <output file name> <input file path>
 
-Creates the CBF wrapped file <output file name> of the <input file path> and prints a summary.
+Creates the CBF wrapped file <output file name> of the <input file path> 
+ and prints a summary.
+
 File is saved to current directory.
+
 Kernel should be a zImage or Image file.
+
 Low is standard setting for everything but LeapPad Kernel which is High
         """
         try:
@@ -1619,6 +1316,7 @@ Usage:
 
 Mounts an Explorer erootfs.ubi image to /mnt/ubi_leapfrog
 This is a Linux only command.
+
 Will be prompted for password, sudo required for commands.
         """
         try:
@@ -1646,6 +1344,7 @@ Usage:
 
 Unmounts /mnt/ubi_leapfrog
 This is a Linux only command.
+
 Will be prompted for password, sudo required for commands.
         """
         try:
@@ -1666,8 +1365,11 @@ Usage:
 
 Creates an Explorer UBI image <output file name> of the <input directory path>.
 File is saved to the current directory.
+
 Caution this image is specifically for the Explorer.
+
 This is a Linux only command.
+
 Will be prompted for password, sudo required for commands.
         """
         try:
@@ -1691,6 +1393,7 @@ Usage:
 
 Mounts <file_name>.jffs2 image to /mnt/jffs2_leapfrog
 This is a Linux only command.
+
 Will be prompted for password, sudo required for commands.
         """
         try:
@@ -1713,6 +1416,7 @@ Usage:
 
 Unmounts /mnt/jffs2_leapfrog
 This is a Linux only command.
+
 Will be prompted for password, sudo required for commands.
         """
         try:
@@ -1731,9 +1435,11 @@ Will be prompted for password, sudo required for commands.
 Usage:
     jffs2_create <output file name> <input directory path>
 
-Creates an <output file name> image of the <input directory path>  
+Creates an <output file name> image of the <input directory path>
 File is saved in the current directory.
+
 This is a Linux only command.
+
 Will be prompted for password, sudo required for commands.
         """
         try:

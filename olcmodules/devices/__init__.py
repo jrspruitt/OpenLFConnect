@@ -3,12 +3,13 @@ from shutil import copyfile
 import ConfigParser
 
 class profile(object):
-    def __init__(self):
+    def __init__(self, default=''):
         self._cp = ConfigParser.ConfigParser()
         self._main_sections = {'olfc':{},'names':{},'packages':{},'firmware':{}}
         self._profile_contents = {}
 
         self._profile_path = ''
+        self._profile_path_default = default
 
 
     def error(self, e):
@@ -48,42 +49,50 @@ class profile(object):
         return self._cp.read(path)[0]
 
     def _convert_cfg(self):
-        profile_contents = {}
-        for section_name in self._main_sections:
-            profile_contents[section_name] = {}
-            options_list = self._get_section(section_name)
+        try:
+            profile_contents = {}
+            for section_name in self._main_sections:
+                profile_contents[section_name] = {}
+                options_list = self._get_section(section_name)
 
-            for option in options_list:
-                profile_contents[section_name][option[0]] = option[1]
-            
-                if section_name == 'firmware' and option[0] == 'names':
-                    fw_files_info = {}
-                    fw_file_name_list = option[1].split(',')
-                   
-                    for fw_file_name in fw_file_name_list:
-                        fw_files_info[fw_file_name] = {}
-                        fw_file_info = self._get_section(fw_file_name)
+                for option in options_list:
+                    profile_contents[section_name][option[0]] = option[1]
+                    if section_name == 'firmware':
+                        if option[0] == 'dftp_version':
+                            profile_contents[section_name][option[0]] = int(option[1])
+                        elif option[0] == 'names':
+                            fw_files_info = {}
+                            fw_file_name_list = option[1].split(',')
+                           
+                            for fw_file_name in fw_file_name_list:
+                                fw_files_info[fw_file_name] = {}
+                                fw_file_info = self._get_section(fw_file_name)
+        
+                                for fw_file_info_entry in fw_file_info:
+                                    fw_files_info[fw_file_name][fw_file_info_entry[0]] = fw_file_info_entry[1]
+        
+                            profile_contents[section_name]['file_info'] = fw_files_info
+            return profile_contents
+        except Exception, e:
+            self.error('Profile failed to load properly, check config file.\n%s' % e)
 
-                        for fw_file_info_entry in fw_file_info:
-                            fw_files_info[fw_file_name][fw_file_info_entry[0]] = fw_file_info_entry[1]
-
-                    profile_contents[section_name]['file_info'] = fw_files_info
-        return profile_contents
 
 
 
-
-    def get(self):
+    def get_contents(self):
         if len(self._profile_contents) != 0:
              return self._profile_contents
         else:
             self.error('No profile loaded.')
 
+    get = property(get_contents)
 
 
     def load(self, path):
         if not path:
             self.error('No profile path specified.')
+        elif not os.path.exists(path):
+            self.error('Profile path does not exist.')
         else:
             profile_path = path
 
@@ -105,10 +114,23 @@ class profile(object):
             self.error(e)
 
 
-    def save_as_default(self):
+    def save_as_default(self, path):
         try:
-            if self._profile_path:
-                copyfile(self._profile_path, self._default_profile_path)
+
+            if not os.path.exists(path):
+                self.error('File does not exist.')
+            elif os.path.isdir(path):
+                self.error('Path is not a file.')
+
+            if path:
+                profile_path = path
+            elif self._profile_path:
+                profile_path = self._profile_path
+            else:
+                self.error('No profile path has been set.')
+
+            if profile_path:
+                copyfile(profile_path, self._profile_path_default)
                 print 'Saved %s as default profile.' % os.path.basename(self._profile_path)
             else:
                 self.error('No device profile set to save as default.')

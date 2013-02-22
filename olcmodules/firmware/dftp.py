@@ -30,135 +30,108 @@
 ##############################################################################
 
 #@
-# firmware.dftp.py Version 0.3.0
+# firmware.dftp2.py Version 0.1.0
 
 import os
-import ConfigParser
-from olcmodules.firmware.cbf import check as cbf_check
-from olcmodules.config import PROFILES_PATH
-
-FUSE_FW_DIR = 'firmware'
-FUSE_REMOTE_FW_ROOT = '/LF/fuse/'
-FUSE_REMOTE_FW_DIR = os.path.join(FUSE_REMOTE_FW_ROOT, FUSE_FW_DIR)
-
-DFTP_FW_DIR = 'Firmware-Base'
-DFTP_REMOTE_FW_ROOT = '/LF/Bulk/Downloads/'
-DFTP_REMOTE_FW_DIR = os.path.join(DFTP_REMOTE_FW_ROOT, DFTP_FW_DIR)
 
 PACKET_SIZE = 131072
 
 
 class config(object):
-    def __init__(self, module, utype, config):
-        self._module = module
-        self._utype = utype
+    def __init__(self, profile, lpath):
+        self._profile = profile
+        self._device_profile = self._profile.get
+        self._lpath = lpath
+        self._lpath_isdir = os.path.isdir(lpath)
+
+        self._local_file_list = []
+        self._fw_conf_info = []
+        self._remote_fw_path = self._device_profile['firmware']['remote_path']        
         
-        self._fw_dir = ''
-        self._remote_fw_dir = ''
-        self._fw_files = ''
-        self._cfg = ConfigParser.ConfigParser()
-        self._cfg.read(os.path.join(PARTITIONS_PATH, config))
-        self._remote_fw_files = {}
-        self._fw_files = ()
         self.fs = ''
-        self._set_fw()
+
+        self._checkset_fw_dirs()
+        self._create_lfile_list()
+
  
-    def _cfg_get_list(self):
-            plist = self._cfg.get(self._utype, 'LIST')
-            return plist.split(',')
-
-    def _set_fw(self):
-        plist = self._cfg_get_list()
-        
-        for part in plist:
-            name = self._cfg.get(part, 'NAME')
-            match = self._cfg.get(part, 'MATCH')
-
-            if self._utype == 'dftp':
-                addr = self._cfg.get(part, 'ADDR')
-                size = self._cfg.get(part, 'SIZE')
-                self.fs += '%s %s payload/%s\n' % (addr, size, name)
-                name = '%s,%s,%s' % (eval(addr), (eval(size)/PACKET_SIZE), name)
-                
-            self._fw_files += (match,)
-            self._remote_fw_files[match] = name
-
-        if self._utype == 'fuse':
-            self._fw_dir = FUSE_FW_DIR
-            self._remote_fw_dir = FUSE_REMOTE_FW_DIR
-
-        elif self._utype == 'dftp':
-            self._fw_dir = DFTP_FW_DIR
-            self._remote_fw_dir = DFTP_REMOTE_FW_DIR
-        else:
-            self.error('No update type selected.')
-
-
 
     def error(self, e):
-        assert False, e
-    
- 
-    def get_file_paths(self, lpath):
-        try:
-            dir_list = []
+        assert False, 'Firmware: %s' % e
 
-            if not dir_list:
-                for item in os.listdir(lpath):
-                    for base_name in self._fw_files:
-                        if base_name in item:
-                            lfile_path = os.path.join(lpath, item)
-                            rfile_path = os.path.join(self._remote_fw_dir, self._remote_fw_files[base_name])
-                            dir_list.append([lfile_path, rfile_path])
-
-            return dir_list
-        except Exception, e:
-            self.error(e)
-    
-    
-    
-    def prepare_update(self, lpath):
-        try:        
-            file_paths = []
-            if os.path.isdir(lpath):
-                
-                if lpath[-1:] == '/':
-                    lpath = lpath[0:-1]
-                
-                check_fw_path = os.path.join(lpath, self._fw_dir)
-                
-                if os.path.exists(check_fw_path):
-                    lpath = check_fw_path 
-
-                file_paths = self.get_file_paths(lpath)
-
-            else:
-                file_name = os.path.basename(lpath)
-                base_file_name = os.path.splitext(file_name)[0]
-
-                for base_name in self._fw_files:
-                    if base_name in base_file_name:
-                        rpath = os.path.join(self._remote_fw_dir, self._remote_fw_files[base_name])
-                        file_paths = [[lpath, rpath]]
-                        break     
-
-            if file_paths:
-                for item in file_paths:
-                    if item[0].endswith('cbf'):
-                        cbfchk = cbf_check(item[0], True)
-
-                        if not cbfchk:
-                            self.error('%s failed CBF check' % os.path.basename(item[0]))
-
-                if not self._module.exists_i(self._remote_fw_dir):
-                    self._module.mkdir_i(self._remote_fw_dir)
+    def rerror(self, e):
+        assert False,  e
         
-                return file_paths
+    def _checkset_fw_dirs(self):
+        if self._lpath_isdir:
+
+            if self._lpath[-1:] == '/':
+                self._lpath = self._lpath[0:-1]
+
+            local_fw_name = self._device_profile['firmware']['local_dir']
+                
+            check_fw_path = os.path.join(self._lpath, local_fw_name)
             
+            if os.path.exists(check_fw_path):
+                self._lpath = check_fw_path
+
+
+    def _create_lfile_list(self):
+        if self._lpath_isdir:
+            for file_name in os.listdir(self._lpath):
+                file_path = os.path.join(self._lpath, file_name)
+
+                if file_name == 'sd' and os.path.isdir(file_path):
+                    for file_iname, file_info in self._device_profile['firmware']['file_info'].items():
+                        sd_file_path = os.path.join(self._lpath, file_info['name'])
+
+                        if os.path.exists(sd_file_path):
+                                self._local_file_list.append(sd_file_path)
+                else:
+                    self._local_file_list.append(os.path.join(self._lpath, file_name))
+
+        else:
+            self._local_file_list.append(self._lpath)
+
+
+    def get_file_paths(self):
+        try:
+            fw_files = []
+            fw_names = self._device_profile['firmware']['names'].split(',')
+            dftp_version = self._device_profile['firmware']['dftp_version']
+            fw_file_count = len(fw_names)
+    
+            for fw_lfile in self._local_file_list:
+                for file_name, file_info in self._device_profile['firmware']['file_info'].items():
+                    if file_info['match'] in fw_lfile:
+                        fw_file_count -= 1
+    
+                        if dftp_version == 1:
+                            if 'addr' in file_info and 'size' in file_info:
+                                self.fs += '%s %s payload/%s\n' % (file_info['addr'], file_info['size'], file_info['name'])
+                                file_rname = '%s,%s,%s' % (eval(file_info['addr']), (eval(file_info['size'])/PACKET_SIZE), file_info['name'])
+                            else:
+                                file_rname = file_info['name']
+    
+                        elif dftp_version == 2:
+                            if 'part_num' in file_info:
+                                file_size = os.path.getsize(fw_lfile)
+                                file_rname = '%s,%s,%s' % (file_info['part_num'], file_size, file_info['name'])
+                            else:
+                                file_rname = file_info['name']
+                        else:
+                            self.error('DFTP version \'%s\' is not supported.' % dftp_version)
+    
+                        fw_files.append((fw_lfile, os.path.join(self._remote_fw_path, file_rname)))
+    
+                if fw_file_count == 1:
+                    break
+    
+            if fw_files:
+                return fw_files
             else:
                 self.error('No firmware files found.')
+ 
         except Exception, e:
-            self.error(e)
-        
-        
-        
+            self.rerror(e)
+
+
