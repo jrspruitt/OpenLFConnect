@@ -58,7 +58,6 @@ class connection():
     def create_client(self):
         self._conn_iface.device_id
         while self.send('INFO'):
-            sleep(1)
             if self.receive():
                 sleep(1)
                 break
@@ -70,8 +69,6 @@ class connection():
 
     def send(self, data, type='small'):
         try:
-            print 'data: %s' % data
-            print 'stype: %s' % type
             data_len = len(data)
             bytes_sent = 0
             if type == 'small':
@@ -103,8 +100,8 @@ class connection():
                     if '102 BUSY' in ret:
                         sleep(.1)
                         continue
-                    elif '200 OK' in ret:
-                        break
+                    #elif not '200 OK' in ret:
+                        #continue
                     elif not '103 CONT' in ret:
                         break
 
@@ -118,7 +115,6 @@ class connection():
 
 
     def receive(self, type='small'):
-        print 'rtype: %s' % type
         try:
             if type == 'small':
                 request_len = self._request_small
@@ -136,7 +132,7 @@ class connection():
             while(p.poll() is not None):
                 sleep(.1)
                 continue
-            
+
             line = p.stdout.read(1)
             if line == '':
                 p.stdout.flush()
@@ -146,14 +142,18 @@ class connection():
                 
             while 1:
                 line = p.stdout.read()
-
+                
                 if line == '':
                     break
                 elif '102 BUSY' in line:
+                    sleep(.1)
                     continue
+                elif '200 OK' in line:
+                    buf += line
+                    break
                 else:
                     buf += line
-            print 'rbuf: %s' % buf
+
             return buf
         except Exception, e:
             self.error('Receiving error: %s' % e)

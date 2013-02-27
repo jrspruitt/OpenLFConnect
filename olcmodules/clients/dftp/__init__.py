@@ -212,13 +212,7 @@ class client(object):
         except Exception, e:
             self.rerror(e)
 
-    def set_dftp_version(self, num):
-        try:
-            self._dftp_version = num
-        except Exception, e:
-            self.rerror(e)
-
-    dftp_version = property(get_dftp_version, set_dftp_version)
+    dftp_version = property(get_dftp_version)
 
 
 #######################
@@ -352,11 +346,23 @@ class client(object):
     def dir_list_i(self, path):
         try:
             dir_list = []
-            path_arr = self.send('LIST %s' % path, 'large')
-            path_arr = self.receive('large').split('\n')
-            for path in path_arr:
-                path = path[15:].replace('\r', '').replace('\n', '')
-                dir_list.append(path)
+            ret_buf = ''
+            if self._profile.get['firmware']['dftp_version'] == 1:
+                ret_buf = self.sendrtn('LIST %s' % path, True)
+            elif self._profile.get['firmware']['dftp_version'] == 2:
+                self.send('LIST %s\x00' % path)
+                while 1:
+                    ret = self.receive()
+                    ret_buf += ret
+                    if '503 Bad response: Unexpected status read' in ret_buf:
+                        ret_buf = ret_buf.split('\n')
+                        break
+                
+            for path in ret_buf:
+               # path = path[0:].replace('\r', '').replace('\n', '')
+               if '503 Bad response: Unexpected status read' not in path:
+                   path = path[15:].replace('\r', '').replace('\n', '')
+                   dir_list.append(path)
             
             if len(dir_list) > 0:
                 return dir_list
@@ -496,28 +502,6 @@ class client(object):
                 self.error('No data received.')
         except Exception, e:
             self.error(e) 
-
-
-
-
-#######################################################################
-# dftp1 connection
-#######################################################################
-
-
-
-
-
-
-
-
-#######################################################################
-# dftp2 connection
-#######################################################################
-
-
-
-
 
 
 

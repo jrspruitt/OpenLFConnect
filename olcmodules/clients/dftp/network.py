@@ -40,7 +40,7 @@ class connection():
        self._conn_iface = conn_iface
        self._sock0 = None
        self._sock1 = None
-       self._recieve_timeout = 1
+       self._recieve_timeout = 2
 
     def error(self, e):
         assert False, e
@@ -66,7 +66,7 @@ class connection():
         self._sock1.close()
         self._sock1 = None
 
-    def send(self, data, type):
+    def send(self, data, type='small'):
         try:
             return self._sock0.send(data)
         except Exception, e:
@@ -74,12 +74,12 @@ class connection():
 
 
 
-    def receive(self, type):
+    def receive(self, type='small'):
         try:
-            if not type == 'small':
-                size = 8192
-            else:
+            if type == 'small':
                 size = 4096
+            else:
+                size = 8192
             
             return self._sock1.recv(size)     
         except socket.timeout:
@@ -151,7 +151,7 @@ class connection():
                 self.send('100 ACK: %s\x00' % 0)
                     
                 while True:                    
-                    buf = self.receive(8192)
+                    buf = self.receive('large')
     
                     if buf is False:
                         continue                        
