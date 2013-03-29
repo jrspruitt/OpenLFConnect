@@ -98,7 +98,7 @@ class connection():
                     ret = self.receive()
 
                     if '102 BUSY' in ret:
-                        while '102 BUSY' in ret:
+                        while '102 BUSY' in ret: 
                             ret = self.receive()
                             sleep(.1)
                         continue
