@@ -42,7 +42,8 @@ EXTRAS_PATH = os.path.join(APP_PATH, FILES_PATH, 'Extras')
 SCRIPTS_PATH = os.path.join(EXTRAS_PATH, 'Scripts')
 PROFILES_PATH = os.path.join(EXTRAS_PATH, 'Profiles')
 DOWNLOAD_PATH = os.path.join(FILES_PATH, 'Downloads')
-
+INTERNAL_SCRIPTS_PATH = os.path.join(APP_PATH, 'extras/dftp_scripts')
+INTERNAL_PROFILES_PATH = os.path.join(APP_PATH, 'extras/device_profiles')
       
 def error(e):
     assert False, '%s' % e
@@ -60,25 +61,22 @@ def olc_files_dirs_check():
                 
 
         dprofile = profile()
-        for cfg in os.listdir(PROFILES_PATH):
+        for cfg in os.listdir(INTERNAL_PROFILES_PATH):
             if cfg.endswith('.cfg') and not os.path.isdir(cfg) and cfg != 'default.cfg':
                 try:
-                    device_profile = dprofile.load(os.path.join(PROFILES_PATH, cfg))
+                    device_profile = dprofile.load(os.path.join(INTERNAL_PROFILES_PATH, cfg))
                     if device_profile['olfc']['create_dir'].lower() == 'true':
                         dirs.append(os.path.join(FILES_PATH, device_profile['names']['internal']))
-                    
                 except Exception, e:
                     continue
 
 
-
         for item in dirs:
-
             if not os.path.exists(item):
                 if item == SCRIPTS_PATH:
-                    copytree(os.path.join(APP_PATH, 'extras/dftp_scripts'), SCRIPTS_PATH)
+                    copytree(INTERNAL_SCRIPTS_PATH, SCRIPTS_PATH)
                 elif item == PROFILES_PATH:
-                    copytree(os.path.join(APP_PATH, 'extras/device_profiles'), PROFILES_PATH)
+                    copytree(INTERNAL_PROFILES_PATH, PROFILES_PATH)
                 else:
                     os.mkdir(item)
                 

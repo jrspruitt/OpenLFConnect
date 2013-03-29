@@ -59,6 +59,8 @@ class OpenLFConnect(cmd.Cmd, object):
         print 'OpenLFConnect Version 1.0.0'
         self.debug = False        
         
+        config.olc_files_dirs_check()
+        
         self._init_path = config.FILES_PATH.replace('\\', '/')
         self._lm = loc_manager(self._init_path, cmd.Cmd)
         
@@ -75,8 +77,6 @@ class OpenLFConnect(cmd.Cmd, object):
         self._device_id = ''
         
         self._lm.set_local(self._lm.local_path)
-        
-        config.olc_files_dirs_check()
         
 ##############################################################################
 # OpenLFConnect.py
