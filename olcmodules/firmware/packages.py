@@ -85,16 +85,14 @@ def extract(path):
 class lf_packages(object):
     def __init__(self, device_profile):
         self._package_types = ['bootloader','firmware','bulk','surgeon']
-        self._device_profile = device_profile.get()
+        self._device_profile = device_profile.get
         self._package_url_name = self._device_profile['names']['lf_url']
-
-        if self._device_profile['firmware']['version'] == '1':
+        if self._device_profile['firmware']['dftp_version'] == 1:
             self._url = 'http://lfccontent.leapfrog.com/%s/downloads/packages/%s'
-        elif self._device_profile['firmware']['version'] == '2':
+        elif self._device_profile['firmware']['dftp_version'] == 2:
             self._url = 'http://digitalcontent.leapfrog.com/packages/%s/%s'
         else:
             self._url = ''
-
 
     def error(self, e):
         assert False, 'Packages: %s' % e
