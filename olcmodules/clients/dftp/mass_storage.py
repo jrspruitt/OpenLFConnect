@@ -98,7 +98,9 @@ class connection():
                     ret = self.receive()
 
                     if '102 BUSY' in ret:
-                        sleep(.1)
+                        while '102 BUSY' in ret:
+                            ret = self.receive()
+                            sleep(.1)
                         continue
                     #elif not '200 OK' in ret:
                         #continue
