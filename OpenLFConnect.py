@@ -221,7 +221,7 @@ If no path is given, saves currently loaded profile.
     def do_didj_mount(self, s):
         """
 Usage:
-    didj_mount [mount name]
+    didj_mount
 
 Unlock Didj to allow it to mount on host system.
         """
@@ -458,9 +458,13 @@ You should now be able to USB Boot like the Explorer and update using DFTP.
             print '  Serial Number\t\t%s' % serial
             print '  Board ID:\t\t%s' % self._dftp_client.board_id
             print '  Battery Level\t\t%s' % self._dftp_client.battery_level
-            print '  Device IP:\t\t%s' % self._lm.remote_conn.device_id
-            print '  Host IP:\t\t%s' % self._lm.remote_conn.host_id
-            print '  Host Name:\t\t%s-%s' % (device_name, serial)
+            if self._lm.remote_conn.host_id != '/':
+                print '  Device IP:\t\t%s' % self._lm.remote_conn.device_id
+                print '  Host IP:\t\t%s' % self._lm.remote_conn.host_id
+                print '  Host Name:\t\t%s-%s' % (device_name, serial)
+            else:
+                print '  Device ID:\t\t%s' % self._lm.remote_conn.device_id
+        
             print '  DFTP Version:\t\t%s' % self._dftp_client.dftp_version
         except Exception, e:
             self.error(e)

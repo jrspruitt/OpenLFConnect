@@ -96,6 +96,19 @@ class client(object):
         except Exception, e:
             self.error(e)
 
+    def get_list_array(self, path):
+        ret_buf = ''
+        if self._profile.get['firmware']['dftp_version'] == 1:
+            ret_buf = self.sendrtn('LIST %s' % path, True)
+        elif self._profile.get['firmware']['dftp_version'] == 2:
+            self.send('LIST %s\x00' % path)
+            while 1:
+                ret = self.receive()
+                ret_buf += ret
+                if '503 Bad response: Unexpected status read' in ret_buf:
+                    ret_buf = ret_buf.split('\n')
+                    break
+        return ret_buf
 #######################
 # Internal DFTP Connection Interface Functions
 #######################
@@ -132,15 +145,15 @@ class client(object):
 
     def get_device_name(self):
         bid = self.get_board_id()
-        if bid in ['\x00','\x03','\x04','\x05']:
+        if bid in [0,3,4,5]:
             return self._name_didj
-        elif bid <= '\x0A':
+        elif bid <= 10:
             return self._name_lx
-        elif bid >= '\x0B' and bid <= '\x0D':
+        elif bid >= 11 and bid <= 13:
             return self._name_lpad
-        elif bid >= '\x200' and bid <= '\x205':
+        elif bid >= 512 and bid <= 517:
             return self._name_lxgs
-        elif bid >= '\x206' and bid <= '\x209':
+        elif bid >= 518 and bid <= 521:
             return self._name_lpad2
         else:
             return 'Could not determine device'
@@ -333,11 +346,16 @@ class client(object):
     def is_dir_i(self, path):
         try:
             path = path.replace('\x00', '')
-            ret_arr = self.sendrtn('LIST %s' % path, True)
-            if len(ret_arr) > 1 and ret_arr[0].startswith('D'):
-                return True
-            else:
-                return False
+            parent_name = os.path.basename(path)
+            parent_path = os.path.dirname(path)
+            ret_arr = self.get_list_array(parent_path)
+
+            for d in ret_arr:
+                d = d.replace('\r', '').replace('\n', '')
+                if d.endswith('%s/' % parent_name) and d.startswith('D'):
+                    return True
+
+            return False
         except Exception, e:
             self.error(e)
  
@@ -346,23 +364,13 @@ class client(object):
     def dir_list_i(self, path):
         try:
             dir_list = []
-            ret_buf = ''
-            if self._profile.get['firmware']['dftp_version'] == 1:
-                ret_buf = self.sendrtn('LIST %s' % path, True)
-            elif self._profile.get['firmware']['dftp_version'] == 2:
-                self.send('LIST %s\x00' % path)
-                while 1:
-                    ret = self.receive()
-                    ret_buf += ret
-                    if '503 Bad response: Unexpected status read' in ret_buf:
-                        ret_buf = ret_buf.split('\n')
-                        break
-                
-            for path in ret_buf:
-               # path = path[0:].replace('\r', '').replace('\n', '')
-               if '503 Bad response: Unexpected status read' not in path:
-                   path = path[15:].replace('\r', '').replace('\n', '')
-                   dir_list.append(path)
+            ret_arr = self.get_list_array(path)
+              
+            for path in ret_arr:
+                if '503 Bad response: Unexpected status read' not in path:
+                    path = path[15:].replace('\r', '').replace('\n', '')
+                    dir_list.append(path)
+                    
             
             if len(dir_list) > 0:
                 return dir_list

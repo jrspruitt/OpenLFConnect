@@ -155,7 +155,6 @@ class connection():
                     break
                 else:
                     buf += line
-
             return buf
         except Exception, e:
             self.error('Receiving error: %s' % e)
