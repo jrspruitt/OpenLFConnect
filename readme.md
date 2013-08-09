@@ -1,16 +1,22 @@
 OpenLFConnect
 =
-[Command Reference](doc/command_reference.md)
+* [Install](#Install)
+ * [Windows](#windows)
+ * [Linux](#linux)
+* [Getting Started](#getting-started)
+ * [Didj](#didj)
+ * [Explorer -> LeapPad2](#the-rest)
+* [Command Reference](doc/command_reference.md)
 
 Is a Python 2 based Open Source version of LeapFrog Connect. It allows file navigation on the device, uploading and downloading files, along with updating firmware. Plus a variety of other handy development tools.
 
-Install
-=
+#Install
+
 Extract archive or clone git repo to a location of your choice.
 [github](https://github.com/jrspruitt/OpenLFConnect/wiki)
 
-Windows:
---------------
+##Windows:
+
 ### Didj
 You'll need to assign the Didj's USB drive a letter as LFConnect will have assigned it a directory mount point instead. The letter you pick doesn't matter, as long as it doesn't conflict with something else. Plug your Didj in and then go to Disk Management, depending on what version of Windows it should be something like:
 
@@ -30,8 +36,7 @@ Plug your device in and turn it on. You should see an icon in the Start Bar abou
 ### Explorer and LeapPad1 v2 Firmware and LeapPad 2 and Explorer GS
 Nothing required beyond installing OpenLFConnect
 
-Linux
---------
+##Linux
 
 To facilitate not needing to run as root you will need to copy the OpenLFConnect/extras/udev_rules files to /etc/udev/rules.d/ The Mass_Storage rules are for all devices.LeapPad1 and Explorer firmware v1 require the Net rules. The rules create a device file /dev/leapfrog that is set to allow regular users permission to use. The Mass_Storage rules also unlock the Didj on plug in, saving you the need to run OpenLFConnect just to mount it.
 Make sure the rule is owned by root:root and set to permission 644.
@@ -47,8 +52,7 @@ If you like you can install avahi-autoipd and use the Net udev rule to run it, y
 ### Explorer and LeapPad1 v2 Firmware and LeapPad 2 and Explorer GS
 Add the above mentioned udev rules, nothing else should be required.
 
-Getting Started
-===========
+#Getting Started
 ####!!Warning
 Some of these operations are possibly destructive, especially updating the firmware, or changing critical files for your device's operating system. You've been warned, proceed with caution. Browse [elinux](http://elinux.org/LeapFrog_Pollux_Platform) for more information on what you want to do before jumping into it.
 ####/Warning!!

@@ -5,14 +5,14 @@ This list is currently inbetween updates, check with the OpenLFConnect help for 
 * [Filesystem](#filesystem)
 * [Didj](#didj)
 * [DFTP](#dftp)
-* [USB](#usbboot)
+* [USB](#usb-boot)
 * [Surgeon](#surgeon)
 * [Firmware](#firmware)
- * [LF Packages](#packages)
+ * [LF Packages](#lf2lfp-packages)
  * [CBF](#cbf)
- * [Images](#images)
+ * [Images](#ubijffs2-images)
 
-<a id="#general"></a> 
+ 
 ### General
 **debug**
 
@@ -113,7 +113,7 @@ This list is currently inbetween updates, check with the OpenLFConnect help for 
     
     Set to prompt to local host for filesystem navigation.
 
-<a id="#filesystem"></a> 
+
 ### FileSystem
 **cwdr**
 
@@ -203,7 +203,7 @@ This list is currently inbetween updates, check with the OpenLFConnect help for 
     Doesn't care what kind or how big of a file.
 
 
-<a id="#didj"></a> 
+
 ### Didj
 
 **didj_mount**
@@ -299,7 +299,7 @@ This list is currently inbetween updates, check with the OpenLFConnect help for 
     You should now be able to USB Boot like the Explorer and update using DFTP.
 
 
-<a id="#dftp"></a> 
+
 ### DFTP
 Used for LeapPads and Explorers.
 
@@ -447,9 +447,8 @@ Used for LeapPads and Explorers.
     Usage:
         send <raw command>
     Advanced use only, don't know, probably shouldn't.
-[[LeapFrog_Pollux_Platform:_DFTPdevice | DFTP Command List]]
 
-<a id="#usbboot"></a> 
+ 
 ### USB Boot
 **surgeon_boot**
 
@@ -470,9 +469,9 @@ Used for LeapPads and Explorers.
     Extracts the Root file system (initramfs) to <current directory>/rootfs.<suffix>
 
 
-<a id="#firmware"></a> 
+ 
 ### Firmware
-<a id="#packages"></a>
+
 #### LF2/LFP Packages
 
 **package_extract**
@@ -495,7 +494,7 @@ Used for LeapPads and Explorers.
 
     surgeon and bulk are not available for Didj.
 
-<a id="#cbf"></a> 
+ 
 #### CBF Files
 
 **cbf_unwrap**
@@ -528,7 +527,7 @@ Used for LeapPads and Explorers.
     Display the CBF wrapper summary.
     CBF is used on kernels and surgeon, to wrap a zImage or Image file.
 
-<a id="#images"></a> 
+ 
 #### UBI/JFFS2 Images
 
 **ubi_mount**
