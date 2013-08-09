@@ -1,6 +1,7 @@
 OpenLFConnect
 =
-[Command Reference](tree/master/doc/command_reference.md)
+[Command Reference](../blob/master/doc/command_reference.md)
+
 Is a Python 2 based Open Source version of LeapFrog Connect. It allows file navigation on the device, uploading and downloading files, along with updating firmware. Plus a variety of other handy development tools.
 
 Install
