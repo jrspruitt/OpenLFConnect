@@ -1,5 +1,6 @@
 OpenLFConnect
 =
+[Command Reference](tree/master/doc/command_reference.md)
 Is a Python 2 based Open Source version of LeapFrog Connect. It allows file navigation on the device, uploading and downloading files, along with updating firmware. Plus a variety of other handy development tools.
 
 Install
@@ -41,6 +42,9 @@ Plug your device in and turn it on, then check
 If you see Auto Eth1 or something similar open it's properties and go to the IPv4 tab, on the Methods drop down and pick Link Local.
 
 If you like you can install avahi-autoipd and use the Net udev rule to run it, you will need to delete the devices entry from Network Manager, as it will only stay connected for short periods, because Network Manager is attempting to configure it also and times out.
+
+### Explorer and LeapPad1 v2 Firmware and LeapPad 2 and Explorer GS
+Add the above mentioned udev rules, nothing else should be required.
 
 Getting Started
 ===========
