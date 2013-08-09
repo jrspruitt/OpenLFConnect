@@ -18,10 +18,15 @@ WARNING: This program attempts to flash new firmware, has the ability to make an
 and download, files could be destroyed, firmware flashing could go wrong. There is no prompts for
 second chances.
 
-Check OpenLFConnect/doc/INSTALL for installation and configuration.
+Check OpenLFConnect/readme.md for install information
 
 
 Build Log:
+Version 1.0.0
+    Fixed LIST cut off in is_dir_i of dftp
+    Fixed dftp_info getting board type and thus device name wrong
+    Fixed dftp_info trying to list IP addresses for v2 firmware
+
 Version 0.9.0
     Adding DFTP4 Functionality
     Minor fixes
