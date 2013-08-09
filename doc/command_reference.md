@@ -9,7 +9,7 @@ This list is currently inbetween updates, check with the OpenLFConnect help for 
 * [Surgeon](#surgeon)
 * [Firmware](#firmware)
  * [LF Packages](#lf2lfp-packages)
- * [CBF](#cbf)
+ * [CBF](#cbf-files)
  * [Images](#ubijffs2-images)
 
  
