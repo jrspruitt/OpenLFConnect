@@ -1,7 +1,7 @@
 ## Command List
-This list is currently inbetween updates, check with the OpenLFConnect help for latest.
 
 * [General](#general)
+* [Device Profiles](#device-profile)
 * [Filesystem](#filesystem)
 * [Didj](#didj)
 * [DFTP](#dftp)
@@ -39,8 +39,9 @@ This list is currently inbetween updates, check with the OpenLFConnect help for 
         set_dev_id <device id>
     
     Set the device to use when creating a new mount client.
-    The device id, in Linux is the generic scsi device file, ex. /dev/sg2 or harddrive 
-    /dev/sdb , or Windows the PhysicalDrive ex. PD1.
+    The device id, in Linux is a harddrive /dev/sd[?],
+    or Windows the PhysicalDrive ex. PD1.
+
     To reset to auto determine leave input blank.
 
 
@@ -113,6 +114,31 @@ This list is currently inbetween updates, check with the OpenLFConnect help for 
     
     Set to prompt to local host for filesystem navigation.
 
+### Device Profiles
+**device_profile_load**
+ 
+    Usage:
+        device_profile_load <path>
+
+    Loads a device profile for the particular device you wish to use.
+    Standard profiles are in Extras/Profiles/*.cfg
+
+**device_profile_name**
+
+    Usage:
+        device_profile_name
+
+    Prints the file name of the currently loaded device profile
+
+
+**devic_profile_default**
+
+    Usage:
+        device_profile_default <path>
+
+    Saves profile as the default profile loaded on startup.
+    If path isgiven will save that as default, with out loading contents.
+    If no path is given, saves currently loaded profile.
 
 ### FileSystem
 **cwdr**
@@ -165,7 +191,7 @@ This list is currently inbetween updates, check with the OpenLFConnect help for 
 **rmdir**
 
     Usage:
-        rmd <path>
+        rmdir <path>
     
     Delete directory. Where depends on which is set, remote or local
 
@@ -209,7 +235,7 @@ This list is currently inbetween updates, check with the OpenLFConnect help for 
 **didj_mount**
 
     Usage:
-        didj_mount [mount name]
+        didj_mount
     
     Unlock Didj to allow it to mount on host system.
 
@@ -301,7 +327,7 @@ This list is currently inbetween updates, check with the OpenLFConnect help for 
 
 
 ### DFTP
-Used for LeapPads and Explorers.
+Used for interacting with all devices except Didj.
 
 **dftp_connect**
 
@@ -309,8 +335,12 @@ Used for LeapPads and Explorers.
         dftp_connect
     
     Connect to device for dftp session.
-    Will attempt to configure IPs as needed.
-    This could take a minute or so, if you just booted the device.
+    What version of DFTP it attempts to connect with depends on the device profile
+    that has been loaded.
+ 
+Will attempt to configure IPs or mount points as needed.
+
+This could take a minute or so, if you just booted the device.
 
 
 **dftp_disconnect**
@@ -320,16 +350,6 @@ Used for LeapPads and Explorers.
     
     Disconnect DFTP client.
     This will cause the DFTP server to start announcing its IP again, except Explorer's surgeon.cbf version, which will reboot the device.
-
-
-**dftp_server_version**
-
-    Usage
-        dftp_server_version [number]
-    
-    Sets the version number of the dftp server. Or retrieves if none specified.
-    OpenLFConnect checks for version 1.12 for surgeon running before a firmware update.
-    Set this to 1.12 if getting complaints, or surgeon has its dftp version updated.
 
 
 **dftp_device_info**
@@ -353,18 +373,6 @@ Used for LeapPads and Explorers.
     Uploads and flashes the files found in path, or the file specified by path.
     
     Caution: Has not been tested on LeapPad, theoretically it should work though, please confirm to author yes or no if you get the chance.
-
-
-**dftp_update_partitions**
-
-    Usage:
-        dftp_update_partitions <partitions_file>
-    
-    Sets the partition configuration file located in files/Extras/Partitions/ for use with DFTP Update.
-    Set to custom config file when your device uses DFTP but with modified partition sizes/addresses.
-    Default is LeapFrog.cfg
-    
-    Caution: This does not repartition your device. The table is hard coded in the kernel/bootloader.
 
 
 **dftp_reboot**
@@ -393,45 +401,6 @@ Used for LeapPads and Explorers.
     0 Unmounts /patient-rfs and /patient-bulk/
     1 Mounts /patient-rfs and /patient-bulk/
     2 Mounts only /patient-rfs
-
-
-**dftp_telnet**
-
-    Usage:
-        dftp_telnet <start|stop>
-    
-    Starts or stops the Telnet daemon on the device.
-    Username:root
-    Password:<blank>
-
-
-**dftp_ftp**
-
-    Usage:
-        dftp_ftp <start|stop>
-    
-    Starts or stops the FTP server on the device.
-    Username:root
-    Password:<blank>
-
-
-**dftp_sshd**
-
-    Usage:
-        dftp_sshd <start|stop>
-    
-    Starts or stops the SSHD daemon on the device. Does not work on surgeon.
-    Username:root
-    Password:<blank>
-
-
-**dftp_sshd_no_password**
-
-    Usage:
-        dftp_sshd_no_password
-    
-    Patches the sshd_config file to permit login with a blank password.
-    Should be run before starting sshd, only needs to be done once.
 
 
 **dftp_run_script**
@@ -516,7 +485,7 @@ Used for LeapPads and Explorers.
     Creates the CBF wrapped file <output file name> of the <input file path> and prints a summary.
     File is saved to current directory.
     Kernel should be a zImage or Image file.
-    Low is standard setting for everything but LeapPad Kernel which is High
+    Low is standard setting for everything but LeapPad1v1 Kernel which is High
 
 
 **cbf_summary**
@@ -537,6 +506,7 @@ Used for LeapPads and Explorers.
     
     Mounts an Explorer erootfs.ubi image to /mnt/ubi_leapfrog
     This is a Linux only command.
+    Currently requires a Kernel patch for LeapPad2 and Explorer GS models
     Will be prompted for password, sudo required for commands.
 
 
@@ -559,6 +529,7 @@ Used for LeapPads and Explorers.
     File is saved to the current directory.
     Caution this image is specifically for the Explorer.
     This is a Linux only command.
+    Currently Doesn't Support LeapPad2 and Explorer GS models
     Will be prompted for password, sudo required for commands.
 
 

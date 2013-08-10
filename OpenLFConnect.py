@@ -1051,7 +1051,7 @@ Create directory. Where depends on which is set, remote or local
     def do_rmdir(self, s):
         """
 Usage:
-    rmd <path>
+    rmdir <path>
 
 Delete directory. Where depends on which is set, remote or local
         """
