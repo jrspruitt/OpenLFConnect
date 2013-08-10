@@ -6,7 +6,7 @@
  * [Linux](#linux)
 * [Getting Started](#getting-started)
  * [Didj](#didj)
- * [Explorer -> LeapPad2](#the-rest)
+ * [Explorer_v1 -> LeapPad2](#the-rest)
  * [Useful Commands](#useful-commands)
 * [Command Reference](doc/command_reference.md)
 
@@ -17,7 +17,7 @@ Updating your firmware or in anyway messing with your device's Operating System 
 
 **Support**, this has been tested on an Explorer and LeapPad1, with parts of the code tested on a LeapPad2. From my understanding, this should work fine on the newer devices, as the process is the same. Be warned though, accidents happen.
 
-**Naming**, Explorer is used universally to describe the first hand held device after the Didj and LeapPad1 for the first tablet based device. LeapPad2 reference to the second generation tablet and GS to the second gen handheld. Currently Ultra is not supported at all. "The Rest" in this document will here on be in regards to what ever devices that haven't been specifically detailled in that particular section.
+**Naming**, Explorer is used universally to describe the first hand held device after the Didj, and LeapPad1, for the first tablet based device. LeapPad2 references the second generation tablet and GS to the second gen handheld. Currently Ultra is not supported at all. "The Rest" in this document will here on be in regards to what ever devices that haven't been specifically detailled in that particular section. Specific to Explorer and LeapPad1 is v1 or v2, Around November of 2012 LeapFrog issued an updated firmware that drastically changed how the devices interacted with the host computer. v1, prior to this update, used USB Networking, v2 uses a USB Mass Storage interface. Although Surgeon, which is a recovery image for everything but Didj, seems to remain Networking based.
 
 # Requirements
 Windows or Linux compatible
