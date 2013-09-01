@@ -500,7 +500,7 @@ This could take a minute or so, if you just booted the device.
                     self._lm.remote_connection_init(ci, fs_iface(self._dftp_client), self._dftp_client)
                     self._dftp_client.create_client()
                     self._lm.remote_path_init()
-                    self.dftp_device_info()
+                    #self.dftp_device_info()
                 except Exception, e:
                     self._dftp_client = None
                     self._lm.remote_destroy() 
