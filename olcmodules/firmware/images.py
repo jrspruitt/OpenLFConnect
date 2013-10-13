@@ -160,7 +160,7 @@ class ubi(object):
         self._ubi_loc = 'sudo /usr/sbin/'
         self._fw_version = fw_version
         self._force_4096 = ''
-
+        self._app_path = os.path.dirname(os.path.dirname(__file__))
 
 
     def error(self, e):
@@ -297,13 +297,12 @@ class ubi(object):
 
             if part.lower() == 'erootfs':
                 leb_count = 677
-                ini_file = 'olcmodules/firmware/erootfs.ini'
+                ini_file = os.path.join(self._app_path, 'firmware/erootfs.ini')
             elif part.lower() == 'bulk':
                 leb_count = 3291
-                ini_file = 'olcmodules/firmware/bulk.ini'
+                ini_file = os.path.join(self._app_path, 'firmware/bulk.ini')
             else:
                 self.error('Explorer partion must be erootfs, or bulk.')
-
             cmd_mkubi = shlex_split('sudo /usr/sbin/mkfs.ubifs -m 2048 -e 129024 -c %s -r %s ubifs.img' % (leb_count, ipath))        
             cmd_ubinize = shlex_split('sudo /usr/sbin/ubinize -o %s -p 131072 -m 2048 -s 512 -O 512 %s' % (opath, ini_file))
             cmd_rmimg = shlex_split('sudo rm ubifs.img')
@@ -311,6 +310,7 @@ class ubi(object):
             cmds = [cmd_mkubi, cmd_ubinize, cmd_rmimg, cmd_chmod]
             self.popen_arr(cmds)
         except Exception, e:
+            print ini_file
             self.error(e)
                     
                     

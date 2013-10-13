@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# firmware.dftp2.py Version 0.1.0
+# firmware.dftp2.py Version 0.1.1
 
 import os
 
@@ -47,8 +47,6 @@ class config(object):
         self._local_file_list = []
         self._fw_conf_info = []
         self._remote_fw_path = self._device_profile['firmware']['remote_path']        
-        
-        self.fs = ''
 
         self._checkset_fw_dirs()
         self._create_lfile_list()
@@ -107,7 +105,6 @@ class config(object):
     
                         if dftp_version == 1:
                             if 'addr' in file_info and 'size' in file_info:
-                                self.fs += '%s %s payload/%s\n' % (file_info['addr'], file_info['size'], file_info['name'])
                                 file_rname = '%s,%s,%s' % (eval(file_info['addr']), (eval(file_info['size'])/PACKET_SIZE), file_info['name'])
                             else:
                                 file_rname = file_info['name']
