@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# dftp2.py Version 0.0.4
+# dftp2.py Version 0.0.5
 
 import os
 from olcmodules import config
@@ -288,7 +288,7 @@ class client(object):
             if not self.exists_i(self._profile.get['firmware']['remote_path']):
                 self.mkdir_i(self._profile.get['firmware']['remote_path'])
 
-            print 'Updating %s Firmware' % (self.get_device_name())
+            #print 'Updating %s Firmware' % (self.get_device_name())
                
             for lfpath, rfpath in paths:
                 self.upload_file_i(lfpath, rfpath)

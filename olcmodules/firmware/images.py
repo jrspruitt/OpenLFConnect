@@ -215,7 +215,7 @@ class ubi(object):
             if self._fw_version == '1':
 	            cmd_nandsim = shlex_split('%s nandsim first_id_byte=0x2C second_id_byte=0xDC third_id_byte=0x00 fourth_id_byte=0x15' % self._modprobe)
             elif self._fw_version == '2':
-                cmd_nandsim = shlex_split('%s nandsim first_id_byte=0x2C second_id_byte=0x68 third_id_byte=0x04 fourth_id_byte=0x4A cache_file=/tmp/nandsim_cache' % self._modprobe)
+                cmd_nandsim = shlex_split('%s nandsim first_id_byte=0x2c second_id_byte=0x68 third_id_byte=0x04 fourth_id_byte=0x4A cache_file=/tmp/nandsim_cache' % self._modprobe)
                 self._force_4096 = '-O 4096'
 
             self.popen(cmd_nandsim)
@@ -268,7 +268,6 @@ class ubi(object):
             print 'Mounted at: %s' % self._mount
                 
         except Exception, e:
-            print e
             self.error(e)
 
 
@@ -303,14 +302,14 @@ class ubi(object):
                 ini_file = os.path.join(self._app_path, 'firmware/bulk.ini')
             else:
                 self.error('Explorer partion must be erootfs, or bulk.')
-            cmd_mkubi = shlex_split('sudo /usr/sbin/mkfs.ubifs -m 2048 -e 129024 -c %s -r %s ubifs.img' % (leb_count, ipath))        
+
+            cmd_mkubi = shlex_split('sudo /usr/sbin/mkfs.ubifs -m 2048 -e 129024 -c %s -r %s ubifs2.img' % (leb_count, ipath))        
             cmd_ubinize = shlex_split('sudo /usr/sbin/ubinize -o %s -p 131072 -m 2048 -s 512 -O 512 %s' % (opath, ini_file))
             cmd_rmimg = shlex_split('sudo rm ubifs.img')
             cmd_chmod = shlex_split('sudo chmod 777 %s' % opath)
             cmds = [cmd_mkubi, cmd_ubinize, cmd_rmimg, cmd_chmod]
             self.popen_arr(cmds)
         except Exception, e:
-            print ini_file
             self.error(e)
                     
                     

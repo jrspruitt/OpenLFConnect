@@ -30,9 +30,10 @@
 ##############################################################################
 
 #@
-# pager.py Version 0.6
+# pager.py Version 0.7
 import os
 import sys
+import struct
 from shlex import split as shlex_split
 from subprocess import Popen, PIPE
 
@@ -72,24 +73,38 @@ class client(object):
                 self.error('Surgeon not found.')
                     
             cbf.check(path)
-            
-            packets = os.path.getsize(path)/cbf.PACKET_SIZE
+            buf = ''
+            with open(path, 'rb') as f:
+                buf = f.read()
+                f.close()
+
+            buf_len = len(buf)
+
+            packet_leftovers = buf_len % cbf.PACKET_SIZE
+            if packet_leftovers > 0:
+                padding_size = cbf.PACKET_SIZE - packet_leftovers
+                buf += struct.pack('%ss' % padding_size, '\xFF'*padding_size)
+
+            buf_len = len(buf)
+            packets = buf_len/cbf.PACKET_SIZE
+
             byte1 = '00'
             total = 0
             last_total = 0
-            
-            for i in range(0, packets-1):
-                cmdl = '%s %s -b -s %s -n -k %s -i "%s" 2A 00 00 00 00 %s 00 00 20 00' % (self._sg_raw, self._mount_config.device_id, cbf.PACKET_SIZE, last_total, path, byte1)
+
+            for i in range(0, packets):
+                cmdl = '%s %s -b -s %s -n 2A 00 00 00 00 %s 00 00 20 00' % (self._sg_raw, self._mount_config.device_id, cbf.PACKET_SIZE, byte1)
                 cmd = shlex_split(cmdl)
                 byte1 = '01'
-                p = Popen(cmd, stderr=PIPE)
+                p = Popen(cmd, stdin=PIPE, stderr=PIPE)
+                p.stdin.write(buf[last_total:last_total+cbf.PACKET_SIZE])
+                f.write(buf[last_total:last_total+cbf.PACKET_SIZE])
                 err = p.stderr.read()
                 
                 if not 'Good' in err:
                     self.error('SCSI error.')
                 
-                total = last_total + cbf.PACKET_SIZE - 1
-                last_total = total + 1
+                last_total += cbf.PACKET_SIZE
 
             p = Popen([self._sg_verify, self._mount_config.device_id], stderr=PIPE)
             err = p.stderr.read()

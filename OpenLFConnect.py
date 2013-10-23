@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# OpenLFConnect.py Version 1.0.0
+# OpenLFConnect.py Version 1.0.1
 import os
 import cmd
 import sys

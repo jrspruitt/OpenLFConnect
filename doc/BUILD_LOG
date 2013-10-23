@@ -22,6 +22,11 @@ Check OpenLFConnect/readme.md for install information
 
 
 Build Log:
+Version 1.0.1
+    Fixed get board_id with new hardware, now deleted
+    Removed dftp_device_info call, see above issue
+    Fixed surgeon booting with surgeon.cbf files not 16384 aligned
+
 Version 1.0.0
     Fixed LIST cut off in is_dir_i of dftp
     Fixed dftp_info getting board type and thus device name wrong
