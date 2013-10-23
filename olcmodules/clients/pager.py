@@ -98,7 +98,6 @@ class client(object):
                 byte1 = '01'
                 p = Popen(cmd, stdin=PIPE, stderr=PIPE)
                 p.stdin.write(buf[last_total:last_total+cbf.PACKET_SIZE])
-                f.write(buf[last_total:last_total+cbf.PACKET_SIZE])
                 err = p.stderr.read()
                 
                 if not 'Good' in err:
