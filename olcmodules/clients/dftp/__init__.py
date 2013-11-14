@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# dftp2.py Version 0.0.5
+# dftp2.py Version 0.0.6
 
 import os
 from olcmodules import config
@@ -65,13 +65,13 @@ class client(object):
         assert False, '%s' % e
 
     def rerror(self, e):
-        assert False, 'DFTP Error: %s' % e
+        assert False, 'DFTP Error: %s' % (e)
 
 
 
     def find_dftp_version(self):
         try:
-            ret = self.sendrtn('INFO', True)
+            ret = self.sendrtn('INFO\x00', True)
             
             for line in ret:
                 if 'VERSION' in line:
@@ -87,7 +87,7 @@ class client(object):
             # value represents volts x 1000 5.5v = 5500
             # about <4500 and low battery warning comes up
             # 3.8v it shuts down
-            ret = self.sendrtn('GETS BATTERYLEVEL', True)
+            ret = self.sendrtn('GETS BATTERYLEVEL\x00', True)
             for value in ret:
                 if value.startswith('BATTERYLEVEL'):
                     return value.split('=')[1]
@@ -99,16 +99,19 @@ class client(object):
     def get_list_array(self, path):
         ret_buf = ''
         if self._profile.get['firmware']['dftp_version'] == 1:
-            ret_buf = self.sendrtn('LIST %s' % path, True)
+            ret_buf = self.sendrtn('LIST %s\x00' % path, True)
         elif self._profile.get['firmware']['dftp_version'] == 2:
             self.send('LIST %s\x00' % path)
             while 1:
                 ret = self.receive()
                 ret_buf += ret
+
                 if '503 Bad response: Unexpected status read' in ret_buf:
                     ret_buf = ret_buf.split('\n')
                     break
         return ret_buf
+
+
 #######################
 # Internal DFTP Connection Interface Functions
 #######################
@@ -164,7 +167,7 @@ class client(object):
 
     def get_serial_number(self):
         try:
-            ret = self.sendrtn('GETS SERIAL', True)
+            ret = self.sendrtn('GETS SERIAL\x00', True)
             for value in ret:
                 if value.startswith('SERIAL'):
                     return value.split('=')[1].replace('"','')
@@ -287,8 +290,6 @@ class client(object):
                 
             if not self.exists_i(self._profile.get['firmware']['remote_path']):
                 self.mkdir_i(self._profile.get['firmware']['remote_path'])
-
-            #print 'Updating %s Firmware' % (self.get_device_name())
                
             for lfpath, rfpath in paths:
                 self.upload_file_i(lfpath, rfpath)
@@ -332,7 +333,7 @@ class client(object):
 
     def exists_i(self, path):
         try:
-            ret = self.sendrtn('LIST %s' % path)
+            ret = self.sendrtn('LIST %s\x00' % path)
 
             if ret.startswith('550'):
                 return False
@@ -368,10 +369,9 @@ class client(object):
               
             for path in ret_arr:
                 if '503 Bad response: Unexpected status read' not in path:
-                    path = path[15:].replace('\r', '').replace('\n', '')
+                    path = path.rsplit(' ', 1)[1].replace('\r', '').replace('\n', '')
                     dir_list.append(path)
                     
-            
             if len(dir_list) > 0:
                 return dir_list
             else:
@@ -384,7 +384,7 @@ class client(object):
     def rm_i(self, path):
         try:
             if not self._dbg.remove(path):
-                self.sendrtn('RM %s' % path)
+                self.sendrtn('RM %s\x00' % path)
         except Exception, e:
             self.error(e)
 
@@ -393,7 +393,7 @@ class client(object):
     def rmdir_i(self, path):
         try:
             if not self._dbg.remove(path):
-                self.sendrtn('RMD %s' % path)
+                self.sendrtn('RMD %s\x00' % path)
         except Exception, e:
             self.error(e)
 
@@ -402,7 +402,7 @@ class client(object):
     def mkdir_i(self, path):
         try:
             if not self._dbg.make(path):
-                self.sendrtn('MKD %s' % path)
+                self.sendrtn('MKD %s\x00' % path)
         except Exception, e:
             self.error(e)
 

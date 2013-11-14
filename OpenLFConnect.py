@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# OpenLFConnect.py Version 1.0.1
+# OpenLFConnect.py Version 1.0.2
 import os
 import cmd
 import sys
@@ -90,6 +90,18 @@ class OpenLFConnect(cmd.Cmd, object):
         print '%s' % e
 
     def emptyline(self):
+        pass
+
+    def cmdloop(self, intro=None):
+        while True:
+            try:
+                super(OpenLFConnect, self).cmdloop(intro="")
+                self.postloop()
+            except KeyboardInterrupt:
+                print '\n'
+                sys.exit(0)
+
+    def emptyline():
         pass
 
 #######################

@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# client/dftp/mass_storage.py Version 0.0.1
+# client/dftp/mass_storage.py Version 0.0.2
 
 import sys
 from time import sleep
@@ -57,7 +57,7 @@ class connection():
 
     def create_client(self):
         self._conn_iface.device_id
-        while self.send('INFO'):
+        while self.send('INFO\x00'):
             if self.receive():
                 sleep(1)
                 break
@@ -86,7 +86,7 @@ class connection():
                 data_p_len = len(data_p)
 
                 data_p += '\x00'*(request_len-data_p_len)
-    
+
                 scsi_cmd = '%s %s -b -s %s -n 2A 80 00 00 00 %s 00 00 %s 00' % (self._sg_raw, self._conn_iface.device_id, request_len, lba, trans_len)
                 scsi_cmd = shlex_split(scsi_cmd)
                 p = Popen(scsi_cmd, stdin=PIPE, stderr=PIPE)
@@ -108,7 +108,7 @@ class connection():
                         break
 
             if type == 'upload':
-                self.sendrtn('101 EOF:%s' % str(request_len - data_p_len))
+                self.sendrtn('101 EOF:%s\x00' % str(request_len - data_p_len))
 
             return bytes_sent
         except Exception, e:
@@ -131,30 +131,27 @@ class connection():
             scsi_cmd = shlex_split(scsi_cmd)
             p = Popen(scsi_cmd, stdout=PIPE, stderr=PIPE)
             buf = ''
-            while(p.poll() is not None):
-                sleep(.1)
-                continue
-
+            p.stdout.flush()
+           
             line = p.stdout.read(1)
             if line == '':
-                p.stdout.flush()
                 return False
             else:
                 buf = line
-                
-            while 1:
+
+            while True:
                 line = p.stdout.read()
                 
                 if line == '':
                     break
                 elif '102 BUSY' in line:
                     sleep(.1)
-                    continue
                 elif '200 OK' in line:
                     buf += line
                     break
                 else:
                     buf += line
+
             return buf
         except Exception, e:
             self.error('Receiving error: %s' % e)
@@ -164,8 +161,7 @@ class connection():
     def sendrtn(self, cmd, array=False):
         try:
             self.send('%s' % cmd)
-            ret = self.receive()            
-                
+            ret = self.receive()
             if ret:
                 retarr = ret.split('\n')
             else:
@@ -193,7 +189,7 @@ class connection():
 
     def download_buffer(self, path):
         try:
-            self.send('RETR %s' % path.replace('\\', '/'))
+            self.send('RETR %s\x00' % path.replace('\\', '/'))
             cmd_ret = self.receive().replace('\x00', '')
 
             if '200 OK' in cmd_ret:
@@ -203,7 +199,6 @@ class connection():
                     
                 while True:                    
                     buf = self.receive('large')
-
                     if '500 unknown command' in buf.lower():
                         error = True
                         break
@@ -238,7 +233,7 @@ class connection():
 
     def upload_buffer(self, buf, rpath):
         try:
-            if self.sendrtn('STOR %s' % rpath.replace('\\', '/')):             
+            if self.sendrtn('STOR %s\x00' % rpath.replace('\\', '/')):             
                 bytes_sent = self.send(buf, 'upload')
                 return bytes_sent
             else:
@@ -253,11 +248,11 @@ class connection():
             if not buf.startswith('#!/bin/sh'):
                 self.error('File does not appear to be valid shell script, missing shebag line.')
             
-            if self.sendrtn('RUN'):             
+            if self.sendrtn('RUN\x00'):             
                 self.send(buf.replace('\r', ''), 'upload')
                 
                 while 1:
-                    ret = self.sendrtn('GETS SCRIPT_RUNNING', True)
+                    ret = self.sendrtn('GETS SCRIPT_RUNNING\x00', True)
                     if 'SCRIPT_RUNNING=1' in ret[0] :
                         break
 
