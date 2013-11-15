@@ -1,7 +1,7 @@
 *.py[co]
 
 files/*
-
+.metadata
 .project
 .pydevproject
 

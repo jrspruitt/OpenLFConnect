@@ -1,2 +1,2 @@
-SUBSYSTEM=="net", ACTION=="add", ATTRS{idVendor}=="0f63", ATTRS{idProduct}=="0010", RUN+="/usr/sbin/avahi-autoipd --daemon --force-bind %k"
+SUBSYSTEM=="net", ACTION=="add", ATTRS{idVendor}=="0f63", ATTRS{idProduct}=="001[01]", RUN+="/usr/sbin/avahi-autoipd --daemon --force-bind %k"
 
