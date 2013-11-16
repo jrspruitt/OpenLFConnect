@@ -460,10 +460,10 @@ class client(object):
             if not self._dbg.upload(lpath, rpath):
                 f = open(lpath, 'rb')
                 buf = f.read()
+                print '%sUploading: %s' % (tab, os.path.basename(lpath))
                 bytes_sent = self.upload_buffer(buf, rpath)
-                f.close()                
-                
-                print '%s%s: %s Bytes.' % (tab, os.path.basename(lpath), bytes_sent)
+                print '\r'
+                f.close()
         except Exception, e:
             self.error(e)
 

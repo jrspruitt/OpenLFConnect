@@ -95,6 +95,8 @@ class connection():
                 bytes_sent = bytes_sent + data_p_len
 
                 if type == 'upload':
+                    sys.stdout.write('\r Bytes sent: %s' % bytes_sent)
+                    sys.stdout.flush()
                     ret = self.receive()
 
                     if '102 BUSY' in ret:
