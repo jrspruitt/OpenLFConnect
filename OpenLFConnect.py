@@ -52,13 +52,12 @@ from olcmodules.devices import profile
 from olcmodules.firmware import cbf, packages
 from olcmodules.firmware.images import ubi, jffs2
 from olcmodules.firmware.initramfs import extract as irfs_extract
-
+import readline
 class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
-        print 'OpenLFConnect Version 1.0.0'
-        self.debug = False        
-        
+        print 'OpenLFConnect Version 1.0.5'
+        self.debug = False      
         config.olc_files_dirs_check()
         
         self._init_path = config.FILES_PATH.replace('\\', '/')
@@ -67,7 +66,6 @@ class OpenLFConnect(cmd.Cmd, object):
         self._dftp_client = None
         self._didj_client = None
         self._pager_client = None
-        
         profile_path_default = os.path.join(config.PROFILES_PATH, 'default.cfg')
         self._profile_path = profile_path_default
         self._profile = profile(profile_path_default)
@@ -77,7 +75,9 @@ class OpenLFConnect(cmd.Cmd, object):
         self._device_id = ''
         
         self._lm.set_local(self._lm.local_path)
-        
+        self._history_file_path = os.path.join(self._init_path, '.olfc.hist')
+        self._history_count = 50
+
 ##############################################################################
 # OpenLFConnect.py
 # Internal Functions
@@ -101,9 +101,40 @@ class OpenLFConnect(cmd.Cmd, object):
                 print '\n'
                 sys.exit(0)
 
-    def emptyline():
+    def emptyline(self):
         pass
 
+    def preloop(self):
+        if os.path.exists(self._history_file_path):
+            line_cnt = 0
+            with open(self._history_file_path, 'r') as f:
+                line_cnt = len(f.readlines())
+                lines = []
+                if line_cnt > self._history_count:
+                    f.seek(0)
+                    line_ignore = line_cnt - self._history_count
+                    for line in f.readlines():
+                        if line_ignore > 0:
+                            line_ignore -= 1
+                        else:
+                            lines.append(line)
+
+            if line_cnt > self._history_count:
+                with open(self._history_file_path, 'w') as f:
+                    for line in lines:
+                        f.write(line)
+                            
+            with open(self._history_file_path, 'r') as f:
+                for line in f.readlines():
+                    if line:
+                        readline.add_history(line.rstrip('\n'))
+                        self.lastcmd = line.rstrip('\n')
+
+    def precmd(self, line):
+        if line.strip() != self.lastcmd:
+            with open(self._history_file_path, 'a') as f:
+                f.write('%s\n' % line.strip())
+        return line
 #######################
 # Internal User Connection/Client Config Functions
 # OpenLFConnect

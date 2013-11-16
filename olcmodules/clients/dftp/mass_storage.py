@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# client/dftp/mass_storage.py Version 0.0.2
+# client/dftp/mass_storage.py Version 0.0.3
 
 import sys
 from time import sleep

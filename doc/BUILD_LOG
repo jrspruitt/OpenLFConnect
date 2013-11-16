@@ -22,6 +22,11 @@ Check OpenLFConnect/readme.md for install information
 
 
 Build Log:
+Version 1.0.5
+	Added upload/download progress with dftp2
+	Fix: double check for STOR command not returning response right away.
+	Added Command line history.
+
 Version 1.0.1
     Fixed get board_id with new hardware, now deleted
     Removed dftp_device_info call, see above issue

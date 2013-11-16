@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# dftp2.py Version 0.0.6
+# dftp2.py Version 0.0.7
 
 import os
 from olcmodules import config
