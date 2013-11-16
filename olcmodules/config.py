@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# config.py Version 0.3
+# config.py Version 0.4
 
 import os
 from shutil import copytree
@@ -44,7 +44,8 @@ PROFILES_PATH = os.path.join(EXTRAS_PATH, 'Profiles')
 DOWNLOAD_PATH = os.path.join(FILES_PATH, 'Downloads')
 INTERNAL_SCRIPTS_PATH = os.path.join(APP_PATH, 'extras/dftp_scripts')
 INTERNAL_PROFILES_PATH = os.path.join(APP_PATH, 'extras/device_profiles')
-      
+HISTORY_FILE_PATH = os.path.join(FILES_PATH, '.olfc.hist')
+
 def error(e):
     assert False, '%s' % e
 
@@ -56,6 +57,9 @@ def olc_files_dirs_check():
             os.mkdir(FILES_PATH)
             print 'Files folder is missing, lets repopulate.'
             print 'Created %s/' % FILES_PATH
+
+        if not os.path.exists(HISTORY_FILE_PATH):
+            open(HISTORY_FILE_PATH, 'a').close()
 
         dirs = [DOWNLOAD_PATH, EXTRAS_PATH, SCRIPTS_PATH, PROFILES_PATH]
                 

@@ -34,6 +34,7 @@
 import os
 import cmd
 import sys
+import readline
 
 from olcmodules.location import manager as loc_manager
 from olcmodules import config
@@ -52,7 +53,7 @@ from olcmodules.devices import profile
 from olcmodules.firmware import cbf, packages
 from olcmodules.firmware.images import ubi, jffs2
 from olcmodules.firmware.initramfs import extract as irfs_extract
-import readline
+
 class OpenLFConnect(cmd.Cmd, object):
     def __init__(self):
         cmd.Cmd.__init__(self)
@@ -75,8 +76,8 @@ class OpenLFConnect(cmd.Cmd, object):
         self._device_id = ''
         
         self._lm.set_local(self._lm.local_path)
-        self._history_file_path = os.path.join(self._init_path, '.olfc.hist')
-        self._history_count = 50
+
+        readline.set_history_length(50)
 
 ##############################################################################
 # OpenLFConnect.py
@@ -99,42 +100,18 @@ class OpenLFConnect(cmd.Cmd, object):
                 self.postloop()
             except KeyboardInterrupt:
                 print '\n'
+                self.postloop()
                 sys.exit(0)
 
     def emptyline(self):
         pass
 
+    def postloop(self):
+        readline.write_history_file(config.HISTORY_FILE_PATH)
+
     def preloop(self):
-        if os.path.exists(self._history_file_path):
-            line_cnt = 0
-            with open(self._history_file_path, 'r') as f:
-                line_cnt = len(f.readlines())
-                lines = []
-                if line_cnt > self._history_count:
-                    f.seek(0)
-                    line_ignore = line_cnt - self._history_count
-                    for line in f.readlines():
-                        if line_ignore > 0:
-                            line_ignore -= 1
-                        else:
-                            lines.append(line)
+        readline.read_history_file(config.HISTORY_FILE_PATH)
 
-            if line_cnt > self._history_count:
-                with open(self._history_file_path, 'w') as f:
-                    for line in lines:
-                        f.write(line)
-                            
-            with open(self._history_file_path, 'r') as f:
-                for line in f.readlines():
-                    if line:
-                        readline.add_history(line.rstrip('\n'))
-                        self.lastcmd = line.rstrip('\n')
-
-    def precmd(self, line):
-        if line.strip() != self.lastcmd:
-            with open(self._history_file_path, 'a') as f:
-                f.write('%s\n' % line.strip())
-        return line
 #######################
 # Internal User Connection/Client Config Functions
 # OpenLFConnect
@@ -1021,6 +998,8 @@ Usage:
 
 Exit OpenLFConnect
         """
+        
+        self.postloop()
         sys.exit(0)
 
 
