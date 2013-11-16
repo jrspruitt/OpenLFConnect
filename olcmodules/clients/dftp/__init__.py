@@ -411,12 +411,13 @@ class client(object):
     def download_file_i(self, lpath, rpath, tab=' '):
         try:
             if not self._dbg.download(lpath, rpath):
+                print '%sDownloading: %s' % (tab, os.path.basename(rpath))
                 ret_buf = self.download_buffer(rpath)
+                print '\r'
                 
                 if ret_buf:
                     f = open(os.path.normpath(lpath), 'wb')
                     f.write(ret_buf)
-                    print '%s%s: %s Bytes' % (tab, os.path.basename(rpath), len(ret_buf))
                     f.close()
                 else:
                     print '%sError: %s' % (tab, os.path.basename(rpath))

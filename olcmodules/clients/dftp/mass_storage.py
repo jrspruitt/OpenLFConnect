@@ -99,14 +99,7 @@ class connection():
                     sys.stdout.flush()
                     ret = self.receive()
 
-                    if '102 BUSY' in ret:
-                        while '102 BUSY' in ret: 
-                            ret = self.receive()
-                            sleep(.1)
-                        continue
-                    #elif not '200 OK' in ret:
-                        #continue
-                    elif not '103 CONT' in ret:
+                    if not '103 CONT' in ret:
                         break
 
             if type == 'upload':
@@ -118,7 +111,7 @@ class connection():
 
 
 
-    def receive(self, type='small'):
+    def receive(self, type='small', dblchk=0):
         try:
             if type == 'small':
                 request_len = self._request_small
@@ -133,17 +126,15 @@ class connection():
             scsi_cmd = shlex_split(scsi_cmd)
             p = Popen(scsi_cmd, bufsize=0, stdout=PIPE, stderr=PIPE)
             buf = ''
-           
-            line = p.stdout.read(1)
-            if line == '':
-                return False
-            else:
-                buf = line
 
             while True:
                 line = p.stdout.read()
-                
                 if line == '':
+                    if not buf and dblchk < 5:
+                        sleep(1)
+                        dblchk += 1
+                        buf = self.receive(type, dblchk)
+
                     break
                 elif '102 BUSY' in line:
                     sleep(.1)
@@ -153,7 +144,10 @@ class connection():
                 else:
                     buf += line
 
-            return buf
+            if buf != '':
+                return buf
+            else:
+                return False
         except Exception, e:
             self.error('Receiving error: %s' % e)
 
@@ -163,6 +157,7 @@ class connection():
         try:
             self.send('%s' % cmd)
             ret = self.receive()
+
             if ret:
                 retarr = ret.split('\n')
             else:
@@ -205,6 +200,8 @@ class connection():
                         break
                     else:
                         ret_buf += buf
+                        sys.stdout.write(' Bytes Received: %s\r' % len(ret_buf))
+                        sys.stdout.flush()
 
                     sbuf = self.receive()
                     if '101 EOF' in sbuf:

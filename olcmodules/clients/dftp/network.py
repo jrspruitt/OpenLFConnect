@@ -166,6 +166,7 @@ class connection():
                 if error:
                     return False
                 else:
+                    print ' Bytes Received: %s' % len(ret_buf)
                     return ret_buf
         except Exception, e:
             self.error(e)
@@ -185,6 +186,7 @@ class connection():
                         self.error('Problem occured while uploading.')
                         
                 self.sendrtn('101 EOF')
+                print ' Bytes Sent: %s' % bytes_sent
                 return bytes_sent
             else:
                 self.error('Failed to uDIRpload file.')
