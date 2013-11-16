@@ -89,7 +89,7 @@ class connection():
 
                 scsi_cmd = '%s %s -b -s %s -n 2A 80 00 00 00 %s 00 00 %s 00' % (self._sg_raw, self._conn_iface.device_id, request_len, lba, trans_len)
                 scsi_cmd = shlex_split(scsi_cmd)
-                p = Popen(scsi_cmd, stdin=PIPE, stderr=PIPE)
+                p = Popen(scsi_cmd, bufsize=0, stdin=PIPE, stderr=PIPE)
                 p.stdin.write(data_p)
                 i += request_len
                 bytes_sent = bytes_sent + data_p_len
@@ -129,9 +129,8 @@ class connection():
     
             scsi_cmd = '%s %s -b -r %s -n 28 00 00 00 00 %s 00 00 %s 00' % (self._sg_raw, self._conn_iface.device_id, request_len, lba, trans_len)
             scsi_cmd = shlex_split(scsi_cmd)
-            p = Popen(scsi_cmd, stdout=PIPE, stderr=PIPE)
+            p = Popen(scsi_cmd, bufsize=0, stdout=PIPE, stderr=PIPE)
             buf = ''
-            p.stdout.flush()
            
             line = p.stdout.read(1)
             if line == '':
