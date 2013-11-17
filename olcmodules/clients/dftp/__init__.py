@@ -334,8 +334,7 @@ class client(object):
     def exists_i(self, path):
         try:
             ret = self.sendrtn('LIST %s\x00' % path)
-
-            if ret.startswith('550'):
+            if ret is not True and ret.startswith('550'):
                 return False
             else:
                 return True

@@ -103,7 +103,7 @@ class connection():
                         break
 
             if type == 'upload':
-                self.sendrtn('101 EOF:%s\x00' % str(request_len - data_p_len))
+                self.sendrtn('101 EOF:%s\x00' % (request_len - data_p_len))
 
             return bytes_sent
         except Exception, e:
@@ -125,27 +125,19 @@ class connection():
             scsi_cmd = '%s %s -b -r %s -n 28 00 00 00 00 %s 00 00 %s 00' % (self._sg_raw, self._conn_iface.device_id, request_len, lba, trans_len)
             scsi_cmd = shlex_split(scsi_cmd)
             p = Popen(scsi_cmd, bufsize=0, stdout=PIPE, stderr=PIPE)
-            buf = ''
+            line = p.stdout.read()
 
-            while True:
-                line = p.stdout.read()
-                if line == '':
-                    if not buf and dblchk < 5:
-                        sleep(1)
-                        dblchk += 1
-                        buf = self.receive(type, dblchk)
+            if line == '':
+                if dblchk < 5:
+                    sleep(1)
+                    dblchk += 1
+                    line = self.receive(type, dblchk)
+            if '102 BUSY' in line:
+                sleep(1)
+                line = self.receive(type, dblchk)
 
-                    break
-                elif '102 BUSY' in line:
-                    sleep(.1)
-                elif '200 OK' in line:
-                    buf += line
-                    break
-                else:
-                    buf += line
-
-            if buf != '':
-                return buf
+            if line:
+                return line
             else:
                 return False
         except Exception, e:

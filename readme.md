@@ -22,9 +22,9 @@ Updating your firmware or in anyway messing with your device's Operating System 
 # Requirements
 Windows or Linux compatible
 
-Python 2.6 - No special modules needed for Linux.
+Python 2.6/2.7 - No special modules needed for Linux.
 
-Windows requires pyreadline be installed.
+Windows requires pyreadline be installed or run.
 
 [http://sg.danny.cz/sg/sg3_utils.html sg3_utils]
 Included for Windows, common on many Linux distros
