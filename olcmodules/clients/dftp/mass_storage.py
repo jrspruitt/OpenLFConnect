@@ -71,6 +71,7 @@ class connection():
         try:
             data_len = len(data)
             bytes_sent = 0
+            
             if type == 'small':
                 request_len = self._request_small
                 trans_len = '01'
@@ -80,9 +81,19 @@ class connection():
                 trans_len = '14'
                 lba = '40'
 
+            if type == 'upload':
+                f = open(data, 'rb')
+                f.seek(0, 2)
+                data_len = f.tell()
+                f.seek(0)
+
             i = 0
             while bytes_sent != data_len:
-                data_p = data[i:request_len+i]
+                if type == 'upload':
+                    data_p = f.read(request_len)
+                else:
+                    data_p = data[i:request_len+i]
+
                 data_p_len = len(data_p)
 
                 data_p += '\x00'*(request_len-data_p_len)
@@ -94,7 +105,7 @@ class connection():
                 i += request_len
                 bytes_sent = bytes_sent + data_p_len
 
-                if type == 'upload':
+                if type == 'upload' or type == 'script':
                     sys.stdout.write('\r Bytes sent: %s' % bytes_sent)
                     sys.stdout.flush()
                     ret = self.receive()
@@ -103,6 +114,9 @@ class connection():
                         break
 
             if type == 'upload':
+                f.close()
+
+            if type == 'upload' or type == 'script':
                 self.sendrtn('101 EOF:%s\x00' % (request_len - data_p_len))
 
             return bytes_sent
@@ -128,7 +142,7 @@ class connection():
             line = p.stdout.read()
 
             if line == '':
-                if dblchk < 5:
+                if dblchk < 10:
                     sleep(1)
                     dblchk += 1
                     line = self.receive(type, dblchk)
@@ -221,10 +235,10 @@ class connection():
 
 
 
-    def upload_buffer(self, buf, rpath):
+    def upload_buffer(self, lpath, rpath):
         try:
             if self.sendrtn('STOR %s\x00' % rpath.replace('\\', '/')):             
-                bytes_sent = self.send(buf, 'upload')
+                bytes_sent = self.send(lpath, 'upload')
                 return bytes_sent
             else:
                 self.error('Failed to upload file.')
@@ -239,7 +253,7 @@ class connection():
                 self.error('File does not appear to be valid shell script, missing shebag line.')
             
             if self.sendrtn('RUN\x00'):             
-                self.send(buf.replace('\r', ''), 'upload')
+                self.send(buf.replace('\r', ''), 'script')
                 
                 while 1:
                     ret = self.sendrtn('GETS SCRIPT_RUNNING\x00', True)

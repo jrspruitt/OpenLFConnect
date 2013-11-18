@@ -173,9 +173,11 @@ class connection():
 
 
 
-    def upload_buffer(self, buf, rpath):
+    def upload_buffer(self, lpath, rpath):
         try:
-            if self.sendrtn('STOR %s' % rpath.replace('\\', '/')):             
+            f = open(lpath, 'rb')
+            buf = f.read() 
+            if self.sendrtn('STOR %s' % rpath.replace('\\', '/')):            
                 bytes_sent = self.send(buf)
                 ret = True
                     
@@ -183,13 +185,13 @@ class connection():
                     ret = self.receive()
                         
                     if ret and '500 Unknown command' in ret:
-                        self.error('Problem occured while uploading.')
+                        self.error('Problem occurred while uploading.')
                         
                 self.sendrtn('101 EOF')
                 print ' Bytes Sent: %s' % bytes_sent
                 return bytes_sent
             else:
-                self.error('Failed to uDIRpload file.')
+                self.error('Failed to upload file.')
         except Exception, e:
             self.error(e)
 
@@ -198,7 +200,7 @@ class connection():
     def run_buffer(self, buf):
         try:
             if not buf.startswith('#!/bin/sh'):
-                self.error('File does not appear to be valid shell script, missing shebag line.')
+                self.error('File does not appear to be valid shell script, missing shebang line.')
             
             if self.sendrtn('RUN'):             
                 self.send(buf.replace('\r', ''))
@@ -208,7 +210,7 @@ class connection():
                     ret = self.receive()
                     
                     if ret and '500 Unknown command' in ret:
-                        self.error('Problem occured while uploading.') 
+                        self.error('Problem occurred while uploading.') 
                 
                 self.sendrtn('101 EOF')
                 running = True

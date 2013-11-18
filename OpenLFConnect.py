@@ -464,9 +464,7 @@ You should now be able to USB Boot like the Explorer and update using DFTP.
     def complete_dftp_update(self, text, line, begidx, endidx):
         return self._lm.complete_local(text, line, begidx, endidx)
 
-    def complete_dftp_update_partitions(self, text, line, begidx, endidx):
-        l = line.split(' ')
-        line ='%s %s' % (l[0], os.path.join(config.PARTITIONS_PATH, l[1]))
+    def complete_dftp_run_script(self, text, line, begidx, endidx):
         return self._lm.complete_local(text, line, begidx, endidx)
 
     def dftp_device_info(self):

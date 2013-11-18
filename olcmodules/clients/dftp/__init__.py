@@ -458,12 +458,9 @@ class client(object):
     def upload_file_i(self, lpath, rpath, tab=' '):
         try:
             if not self._dbg.upload(lpath, rpath):
-                f = open(lpath, 'rb')
-                buf = f.read()
                 print '%sUploading: %s' % (tab, os.path.basename(lpath))
-                bytes_sent = self.upload_buffer(buf, rpath)
+                bytes_sent = self.upload_buffer(lpath, rpath)
                 print '\r'
-                f.close()
         except Exception, e:
             self.error(e)
 
