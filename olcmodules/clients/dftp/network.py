@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# client/dftp/network.py Version 0.0.2
+# client/dftp/network.py Version 0.0.1
 
 from time import sleep
 import socket

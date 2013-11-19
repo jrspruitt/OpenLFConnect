@@ -30,7 +30,7 @@
 ##############################################################################
 
 #@
-# client/dftp/mass_storage.py Version 0.0.3
+# client/dftp/mass_storage.py Version 0.0.4
 
 import sys
 from time import sleep
@@ -206,7 +206,7 @@ class connection():
                         break
                     else:
                         ret_buf += buf
-                        sys.stdout.write(' Bytes Received: %s\r' % len(ret_buf))
+                        sys.stdout.write('\r Bytes Received: %s' % len(ret_buf))
                         sys.stdout.flush()
 
                     sbuf = self.receive()
@@ -229,6 +229,8 @@ class connection():
                 if error:
                     return False
                 else:
+                    sys.stdout.write('\r Bytes Received: %s' % len(ret_buf))
+                    sys.stdout.flush()
                     return ret_buf
         except Exception, e:
             self.error(e)
