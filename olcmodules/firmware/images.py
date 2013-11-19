@@ -33,6 +33,7 @@
 # firmware/images.py Version 0.5
 import os
 import re
+import ConfigParser
 from subprocess import Popen, PIPE
 from shlex import split as shlex_split
 
@@ -154,18 +155,33 @@ class jffs2(object):
 
 
 class ubi(object):
-    def __init__(self, fw_version='1'):
+    def __init__(self, ubi_version='0'):
         self._mount = '/mnt/ubi_leapfrog'
         self._modprobe = 'sudo /sbin/modprobe'
         self._ubi_loc = 'sudo /usr/sbin/'
-        self._fw_version = fw_version
+        self._ubi_version = ubi_version
         self._force_4096 = ''
         self._app_path = os.path.dirname(os.path.dirname(__file__))
-
+        self._params = {}
+        if ubi_version > 0:
+            self._cfg = ConfigParser.ConfigParser()
+            self._cfg.readfp(open(os.path.join(self._app_path, 'firmware/ubi_cfg/params.cfg'), 'r'))
+            self.get_ubi_params()
 
     def error(self, e):
         assert False, e
 
+
+    def get_ubi_params(self):
+        params = ['leb_size',
+                  'max_leb_cnt',
+                  'min_io_size',
+                  'peb_size',
+                  'sub_page_size',
+                  'vid_hdr_offset']
+
+        for param in params:
+            self._params[param] = self._cfg.get(self._ubi_version, param)
 
 
     def popen(self, cmd):
@@ -212,9 +228,9 @@ class ubi(object):
             if not os.path.exists(self._mount):
                 self.popen(shlex_split('sudo mkdir %s' % self._mount)) 
 
-            if self._fw_version == '1':
+            if self._ubi_version == '1':
 	            cmd_nandsim = shlex_split('%s nandsim first_id_byte=0x2C second_id_byte=0xDC third_id_byte=0x00 fourth_id_byte=0x15' % self._modprobe)
-            elif self._fw_version == '2':
+            elif self._ubi_version == '2':
                 cmd_nandsim = shlex_split('%s nandsim first_id_byte=0x2c second_id_byte=0x68 third_id_byte=0x04 fourth_id_byte=0x4A cache_file=/tmp/nandsim_cache' % self._modprobe)
                 self._force_4096 = '-O 4096'
 
@@ -243,7 +259,7 @@ class ubi(object):
 
             p = Popen(cmd_ubiformat, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 
-            if self._fw_version == '2':
+            if self._ubi_version == '2':
                 p.stdin.write('y\n')
 
             ufout = p.stdout.read()
@@ -268,6 +284,8 @@ class ubi(object):
             print 'Mounted at: %s' % self._mount
                 
         except Exception, e:
+            if os.path.exists(self._mount):
+                self.popen(shlex_split('sudo rmdir %s' % self._mount))
             self.error(e)
 
 
@@ -295,17 +313,27 @@ class ubi(object):
                 self.error('Input path is not a directory.')
 
             if part.lower() == 'erootfs':
-                leb_count = 677
-                ini_file = os.path.join(self._app_path, 'firmware/erootfs.ini')
+                ini_file = os.path.join(self._app_path, 'firmware/ubi_cfg/%serootfs.ini' % self._ubi_version)
             elif part.lower() == 'bulk':
-                leb_count = 3291
-                ini_file = os.path.join(self._app_path, 'firmware/bulk.ini')
+                ini_file = os.path.join(self._app_path, 'firmware/ubi_cfg/%sbulk.ini' % self._ubi_version)
             else:
-                self.error('Explorer partion must be erootfs, or bulk.')
+                self.error('Partion must be erootfs, or bulk.')
 
-            cmd_mkubi = shlex_split('sudo /usr/sbin/mkfs.ubifs -m 2048 -e 129024 -c %s -r %s ubifs2.img' % (leb_count, ipath))        
-            cmd_ubinize = shlex_split('sudo /usr/sbin/ubinize -o %s -p 131072 -m 2048 -s 512 -O 512 %s' % (opath, ini_file))
-            cmd_rmimg = shlex_split('sudo rm ubifs.img')
+            mkfs = '-c %s -m %s -e %s -r %s' % (self._params['max_leb_cnt'],
+                                                self._params['min_io_size'],
+                                                self._params['leb_size'],
+                                                ipath)
+
+            ubinz = '-o %s -p %s -m %s -s %s -O %s %s' % (opath,
+                                                          self._params['peb_size'],
+                                                          self._params['min_io_size'],
+                                                          self._params['sub_page_size'],
+                                                          self._params['vid_hdr_offset'],
+                                                          ini_file)
+
+            cmd_mkubi = shlex_split('sudo /usr/sbin/mkfs.ubifs %s temp.ubifs' % (mkfs))        
+            cmd_ubinize = shlex_split('sudo /usr/sbin/ubinize  %s' % (ubinz))
+            cmd_rmimg = shlex_split('sudo rm temp.ubifs')
             cmd_chmod = shlex_split('sudo chmod 777 %s' % opath)
             cmds = [cmd_mkubi, cmd_ubinize, cmd_rmimg, cmd_chmod]
             self.popen_arr(cmds)

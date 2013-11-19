@@ -1336,7 +1336,7 @@ CBF is used on kernels and surgeon, to wrap a zImage or Image file.
     def do_ubi_mount(self, s):
         """
 Usage:
-    ubi_mount <firmware version 1 or 2> <file.ubi>
+    ubi_mount <file.ubi>
 
 Mounts an Explorer erootfs.ubi image to /mnt/ubi_leapfrog
 This is a Linux only command.
@@ -1347,6 +1347,13 @@ Will be prompted for password, sudo required for commands.
             self._lm.is_empty(s)
 
             if sys.platform != 'win32':
+                ubi_version = self._profile.get['olfc']['ubi_version']
+
+                if ubi_version < 1:
+                    self.error('UBI not available for this device.')
+                elif ubi_version > 1:
+                    self.error('This UBI can not be mounted.')
+
                 fw_version, path = s.split(' ')
                 if fw_version not in ['1', '2']:
                     self.error('Can not determine firmware version')
@@ -1399,9 +1406,14 @@ Will be prompted for password, sudo required for commands.
         try:
             self._lm.is_empty(s)
             if sys.platform != 'win32':
+                ubi_version = self._profile.get['olfc']['ubi_version']
+
+                if ubi_version < 1:
+                    self.error('UBI not available for this device.')
+
                 part, ofile, ipath = s.split(' ')
                 abspath = self._lm.get_abspath(ipath)
-                u = ubi()
+                u = ubi(ubi_version)
                 u.create(part, os.path.join(self._lm.local_path, ofile), abspath)
             else:
                 self.error('Linux only command.')
