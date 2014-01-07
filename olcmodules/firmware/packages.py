@@ -87,7 +87,7 @@ class lf_packages(object):
         self._package_types = ['bootloader','firmware','bulk','surgeon']
         self._device_profile = device_profile.get
         self._package_url_name = self._device_profile['names']['lf_url']
-        if self._device_profile['firmware']['dftp_version'] == 1:
+        if self._device_profile['firmware']['dftp_version'] < 2:
             self._url = 'http://lfccontent.leapfrog.com/%s/downloads/packages/%s'
         elif self._device_profile['firmware']['dftp_version'] == 2:
             self._url = 'http://digitalcontent.leapfrog.com/packages/%s/%s'
